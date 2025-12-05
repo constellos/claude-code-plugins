@@ -1,0 +1,64 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'bin/**'
+      - 'package.json'
+      - 'tsconfig*.json'
+      - 'tsup.config.ts'
+  workflow_dispatch:  # Manual trigger (bypasses path filter)
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # For committing version bump
+      id-token: write   # Required for OIDC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'  # Includes npm 11+ for OIDC support
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      # Get next available version from NPM registry
+      - name: Determine next version
+        id: version
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          CURRENT=$(node -p "require('./package.json').version")
+
+          # Get latest from NPM (returns error if unpublished)
+          NPM_VERSION=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
+
+          # Parse and increment
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$NPM_VERSION"
+          NEXT_PATCH=$((PATCH + 1))
+          NEXT_VERSION="$MAJOR.$MINOR.$NEXT_PATCH"
+
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "npm=$NPM_VERSION" >> $GITHUB_OUTPUT
+          echo "next=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      # Update package.json if needed
+      - name: Bump version
+        if: steps.version.outputs.current != steps.version.outputs.next
+        run: |
+          npm version ${{ steps.version.outputs.next }} --no-git-tag-version
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json
+          git commit -m "chore: bump to ${{ steps.version.outputs.next }} [skip ci]"
+          git push
+
+      - run: npm publish --provenance --access public
