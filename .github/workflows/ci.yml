@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm check:exports
+      - run: pnpm check:types
+
+  # TODO: Enable publish-alpha job once NPM account issues are resolved
+  # Requires: NPM_TOKEN secret with automation token from npmjs.com
+  # publish-alpha:
+  #   needs: check
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #     - uses: pnpm/action-setup@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'pnpm'
+  #         registry-url: 'https://registry.npmjs.org'
+  #     - run: pnpm install --frozen-lockfile
+  #     - run: pnpm build
+  #
+  #     # Bump prerelease version
+  #     - run: |
+  #         git config user.name "github-actions[bot]"
+  #         git config user.email "github-actions[bot]@users.noreply.github.com"
+  #         npm version prerelease --preid=alpha --no-git-tag-version
+  #         VERSION=$(node -p "require('./package.json').version")
+  #         git add package.json
+  #         git commit -m "chore: bump to ${VERSION} [skip ci]"
+  #         git push
+  #
+  #     # Publish with alpha tag
+  #     - run: pnpm publish --tag alpha --no-git-checks
+  #       env:
+  #         NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
