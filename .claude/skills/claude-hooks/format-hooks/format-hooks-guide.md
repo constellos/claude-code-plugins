@@ -83,7 +83,7 @@ Format hooks are registered in `.claude/settings.json` like regular hooks but th
         "hooks": [
           {
             "type": "command",
-            "command": "pnpm hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/PreToolUse/my-format.format.ts\""
+            "command": "bun cck hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/PreToolUse/my-format.format.ts\""
           }
         ]
       }
@@ -94,4 +94,4 @@ Format hooks are registered in `.claude/settings.json` like regular hooks but th
 
 ## Testing Format Hooks
 
-Format hooks can be tested by running `pnpm hook <path> --log` with sample content, but **manual testing in a new session is required** to verify real integration with Write/Edit operations.
+Format hooks can be tested by running `bun cck hook <path> --log` with sample content, but **manual testing in a new session is required** to verify real integration with Write/Edit operations.

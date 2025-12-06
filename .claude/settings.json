@@ -43,16 +43,12 @@
       "Glob",
 
       "Bash(jq:*)",
-      "Bash(pnpm test:*)",
-      "Bash(pnpm exec test:*)",
-      "Bash(pnpm vitest:*)",
-      "Bash(pnpm exec vitest:*)",
-      "Bash(pnpm eslint:*)",
-      "Bash(pnpm exec eslint:*)",
-      "Bash(pnpm tsx:*)",
-      "Bash(pnpm exec tsx:*)",
-      "Bash(pnpm tsc:*)",
-      "Bash(pnpm exec tsc:*)"
+      "Bash(bun test:*)",
+      "Bash(bun run test:*)",
+      "Bash(bun run lint:*)",
+      "Bash(bun run typecheck:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun tsc:*)"
     ],
     "deny": [
       "Bash(vim :*)",
@@ -75,7 +71,7 @@
       "Bash(dd :*)",
 
       "Bash(npm publish:*)",
-      "Bash(pnpm publish:*)"
+      "Bash(bun publish:*)"
     ],
     "ask": [
       "Bash(gh:*)",
@@ -91,12 +87,9 @@
       "Bash(chmod:*)",
       "Bash(git:*)",
 
-      "Bash(pnpm build:*)",
-      "Bash(pnpm exec build:*)",
-      "Bash(pnpm start:*)",
-      "Bash(pnpm exec start:*)",
-      "Bash(pnpm dev:*)",
-      "Bash(pnpm exec dev:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run start:*)",
+      "Bash(bun run dev:*)",
 
       "Bash(echo:*)",
       "Bash(printf:*)",

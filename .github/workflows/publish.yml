@@ -8,7 +8,7 @@ on:
       - 'bin/**'
       - 'package.json'
       - 'tsconfig*.json'
-      - 'tsup.config.ts'
+      - 'build.ts'
   workflow_dispatch:  # Manual trigger (bypasses path filter)
 
 jobs:
@@ -21,17 +21,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          version: 9
+          bun-version: latest
       - uses: actions/setup-node@v4
         with:
           node-version: '22'  # Includes npm 11+ for OIDC support
-          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - run: bun install --frozen-lockfile
+      - run: bun run build
 
       # Get next available version from NPM registry
       - name: Determine next version

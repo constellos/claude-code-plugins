@@ -25,15 +25,15 @@
 ## Installation
 
 ```bash
-npm install @constellos/claude-code-kit
+bun add @constellos/claude-code-kit
 # or
-pnpm add @constellos/claude-code-kit
+npm install @constellos/claude-code-kit
 ```
 
 For MCP type generation, you'll also need the MCP SDK as a peer dependency:
 
 ```bash
-npm install @modelcontextprotocol/sdk
+bun add @modelcontextprotocol/sdk
 ```
 
 ---
@@ -52,26 +52,6 @@ cck --help               # Show help
 cck --version            # Show version
 ```
 
-### Important: Use `--silent` with pnpm
-
-When running hooks via `pnpm`, you **must** use the `--silent` flag to prevent pnpm from adding extra output that corrupts the JSON response:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [{
-      "matcher": "Write|Edit",
-      "hooks": [{
-        "type": "command",
-        "command": "pnpm --silent cck hook .claude/hooks/my-hook.ts"
-      }]
-    }]
-  }
-}
-```
-
-Without `--silent`, pnpm may output progress information that breaks Claude Code's JSON parsing.
-
 ---
 
 ## Quick Start
@@ -87,9 +67,9 @@ This creates `.claude/settings.json` with agent tracking hooks, MCP type generat
 ```json
 {
   "hooks": {
-    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "pnpm --silent cck add-subagent-state" }] }],
-    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "pnpm --silent cck clear-subagent-state" }] }],
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "pnpm --silent cck gen-mcp-types" }] }]
+    "SubagentStart": [{ "hooks": [{ "type": "command", "command": "bun cck add-subagent-state" }] }],
+    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "bun cck clear-subagent-state" }] }],
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "bun cck gen-mcp-types" }] }]
   }
 }
 ```
@@ -138,7 +118,7 @@ export default hook;
       "matcher": "mcp__my-server__*",
       "hooks": [{
         "type": "command",
-        "command": "pnpm --silent cck hook .claude/hooks/PreToolUse/my-hook.ts"
+        "command": "bun cck hook .claude/hooks/PreToolUse/my-hook.ts"
       }]
     }]
   }
@@ -295,7 +275,7 @@ Register like any other hook:
       "matcher": "Write|Edit",
       "hooks": [{
         "type": "command",
-        "command": "pnpm --silent cck hook .claude/hooks/PreToolUse/claude-md-format.ts"
+        "command": "bun cck hook .claude/hooks/PreToolUse/claude-md-format.ts"
       }]
     }]
   }
@@ -442,18 +422,16 @@ console.log(result);
 
 ```bash
 # Run a hook with stdin/stdout handling
-pnpm --silent cck hook ./hooks/my-hook.ts
+bun cck hook ./hooks/my-hook.ts
 
 # Enable logging to file
-pnpm --silent cck hook ./hooks/my-hook.ts --log
+bun cck hook ./hooks/my-hook.ts --log
 ```
 
 Legacy command (still works):
 ```bash
 npx cck-hook ./hooks/my-hook.ts
 ```
-
-**Note:** Always use `--silent` with pnpm to prevent output corruption.
 
 ### Programmatic API
 

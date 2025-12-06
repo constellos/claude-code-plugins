@@ -31,7 +31,7 @@ In `.claude/settings.json`:
     "SubagentStop": [{
       "hooks": [{
         "type": "command",
-        "command": "pnpm cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts"
+        "command": "bun cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts"
       }]
     }]
   }
@@ -173,16 +173,16 @@ This enables the Phase 3 DevTools dashboard to show hook activity.
 
 ```bash
 # Test with mock input
-echo '{"agent_id": "test", "cwd": "/tmp"}' | pnpm cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts
+echo '{"agent_id": "test", "cwd": "/tmp"}' | bun cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts
 
 # Test error handling
-echo 'invalid json' | pnpm cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts
+echo 'invalid json' | bun cck-hook .claude/hooks/SubagentStop/log-agent-edits.ts
 ```
 
 ## Migration Path
 
 1. Implement `cck-hook` command
-2. Update documentation to recommend `pnpm cck-hook` pattern
+2. Update documentation to recommend `bun cck-hook` pattern
 3. Provide migration script to update existing `settings.json` files
 4. Eventually deprecate direct shebang approach
 

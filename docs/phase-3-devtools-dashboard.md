@@ -256,13 +256,13 @@ export function App() {
 
 ```bash
 # Start the devtools server
-pnpm cck devtools
+bun cck devtools
 
 # With custom port
-pnpm cck devtools --port 8080
+bun cck devtools --port 8080
 
 # Watch specific project only
-pnpm cck devtools --project /path/to/project
+bun cck devtools --project /path/to/project
 ```
 
 ### Implementation

@@ -12,7 +12,7 @@ description: "Create and manage Claude Code lifecycle hooks for validation, auto
 - **Prompt Hook**: LLM-based hooks with `"type": "prompt"` - Claude Haiku evaluates context (Stop, SubagentStop only)
 - **Hook Classification**: `.rule.ts` (blocking enforcement), `.warn.ts` (bad practice warning), `.note.ts` (good practice guidance)
 - **Format Hook**: Special `*.format.ts` files that validate markdown structure via `MarkdownFormat` export
-- **Hook Runner**: `pnpm hook <path>` executes hooks via `.claude/hooks/utils/run-hook.ts`
+- **Hook Runner**: `bun cck hook <path>` executes hooks via the CLI
 - **Type Definitions**: `.claude/hooks/utils/tool-hooks.types.ts` (PreToolUse/PostToolUse), `non-tool-hooks.types.ts` (SessionStart, Stop, etc.), `format-hooks.types.ts` (format validation)
 - **Other Utils**: `hook-test-utils.ts` (Vitest helpers), `ast-analysis.ts`, `was-tool-event-main-agent.ts`
 - **Official Docs**: [hooks.md](/.claude/docs/code.claude.com/hooks.md), [hooks-guide.md](/.claude/docs/code.claude.com/hooks-guide.md)

@@ -5,16 +5,16 @@
  * JSON serialization behavior and focus on the writeStdoutJson function.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, spyOn, beforeEach, afterEach } from 'bun:test';
 import { writeStdoutJson } from '../runners/io.js';
 
 describe('writeStdoutJson', () => {
-  let writeSpy: ReturnType<typeof vi.spyOn>;
+  let writeSpy: ReturnType<typeof spyOn>;
   let output: string;
 
   beforeEach(() => {
     output = '';
-    writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+    writeSpy = spyOn(process.stdout, 'write').mockImplementation((chunk: string) => {
       output += chunk;
       return true;
     });

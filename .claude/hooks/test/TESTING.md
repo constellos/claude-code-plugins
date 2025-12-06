@@ -5,13 +5,13 @@ These instructions are for testing the `cck hook` runner in a **new Claude Code 
 ## Prerequisites
 
 1. Start a new Claude Code session in this project directory
-2. Ensure `pnpm install && pnpm build` has been run
+2. Ensure `bun install && bun run build` has been run
 
 ## Usage Patterns
 
 **For projects that install @constellos/claude-code-kit as a dependency:**
 ```json
-"command": "pnpm --silent cck hook ./my-hook.ts"
+"command": "bun cck hook ./my-hook.ts"
 ```
 
 **For testing within the claude-code-kit package itself:**

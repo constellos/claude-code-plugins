@@ -37,38 +37,21 @@ The `tool_result` for a Task call is NOT available at SubagentStop time (it hasn
 
 ### Build System
 
-Using `tsup` for JS bundling + separate `tsc` for declaration files:
-- `tsup.config.ts`: `dts: false` (tsup's dts generation had issues with complex types)
+Using `bun build` for JS bundling + separate `tsc` for declaration files:
+- `build.ts`: Bun build script for multiple entry points
 - `tsconfig.build.json`: Separate config for generating `.d.ts` files
-- Build command: `tsup && tsc -p tsconfig.build.json`
-
-### tsx Subpath Exports Bug Workaround
-
-When running hooks with `tsx`, subpath exports like `@constellos/claude-code-kit/transcripts` fail to resolve. Workaround in hooks:
-
-```typescript
-import { createRequire } from 'module';
-import { dirname, join } from 'path';
-
-async function loadTranscriptUtils() {
-  const require = createRequire(import.meta.url);
-  const pkgPath = require.resolve('@constellos/claude-code-kit/package.json');
-  const pkgDir = dirname(pkgPath);
-  const transcriptsPath = join(pkgDir, 'dist', 'transcripts', 'index.js');
-  return import(transcriptsPath);
-}
-```
+- Build command: `bun run build.ts && tsc -p tsconfig.build.json`
 
 ## CLI Commands
 
-The `cck` CLI provides commands for hook management and initialization. **Important:** When using with `pnpm`, always use `--silent` to prevent output corruption.
+The `cck` CLI provides commands for hook management and initialization.
 
 ### `cck init`
 
 Initialize project with hooks and MCP types. Creates `.claude/settings.json` with:
-- `SubagentStart` hook → `pnpm --silent cck add-subagent-state`
-- `SubagentStop` hook → `pnpm --silent cck clear-subagent-state`
-- `SessionStart` hook → `pnpm --silent cck gen-mcp-types`
+- `SubagentStart` hook → `bun cck add-subagent-state`
+- `SubagentStop` hook → `bun cck clear-subagent-state`
+- `SessionStart` hook → `bun cck gen-mcp-types`
 
 Warns that settings only apply to new Claude Code sessions.
 
@@ -76,14 +59,14 @@ Warns that settings only apply to new Claude Code sessions.
 
 Save agent context at SubagentStart. Use in hooks config:
 ```json
-{ "type": "command", "command": "pnpm --silent cck add-subagent-state" }
+{ "type": "command", "command": "bun cck add-subagent-state" }
 ```
 
 ### `cck clear-subagent-state`
 
 Process agent at SubagentStop and cleanup saved state. Use in hooks config:
 ```json
-{ "type": "command", "command": "pnpm --silent cck clear-subagent-state" }
+{ "type": "command", "command": "bun cck clear-subagent-state" }
 ```
 
 ### `cck gen-mcp-types`
@@ -136,9 +119,9 @@ Extract file operations from a transcript.
 ## Testing
 
 ```bash
-pnpm test              # Run all tests
-pnpm test:watch        # Watch mode
-RUN_INTEGRATION_TESTS=1 pnpm test  # Include integration tests (requires real transcripts)
+bun test              # Run all tests
+bun test --watch      # Watch mode
+RUN_INTEGRATION_TESTS=1 bun test  # Include integration tests (requires real transcripts)
 ```
 
 Integration tests use real transcript files from `~/.claude/projects/` and are skipped by default.
@@ -172,8 +155,8 @@ The lazyjobs project is set up to consume this package via yalc.
 ## Publishing to NPM
 
 ```bash
-pnpm build
-pnpm publish
+bun run build
+npm publish
 ```
 
 ## Related Projects

@@ -2,7 +2,7 @@
  * Transcript query tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises';
@@ -833,8 +833,9 @@ describe('AgentStartContext functions', () => {
   });
 
   it('removeAgentStartContext should handle non-existent file gracefully', async () => {
-    // Should not throw
-    await expect(removeAgentStartContext('test-agent', testDir)).resolves.not.toThrow();
+    // Should not throw - just verify it completes
+    await removeAgentStartContext('test-agent', testDir);
+    // If we get here without an error, the test passes
   });
 
   it('loadAgentStartContext should use custom contextPath when provided', async () => {

@@ -13,6 +13,15 @@ import { existsSync } from 'fs';
 import { isMarkdownFormat, type MarkdownFormat } from '../format/index.js';
 
 /**
+ * Check if we're running under Bun
+ * Bun natively supports TypeScript, so no loader is needed
+ */
+function isRunningUnderBun(): boolean {
+  // Use globalThis to avoid TypeScript errors when Bun types aren't available
+  return typeof (globalThis as Record<string, unknown>).Bun !== 'undefined';
+}
+
+/**
  * Check if we're already running under tsx
  * When tsx is active, we don't need to register it again
  */
@@ -25,6 +34,14 @@ function isRunningUnderTsx(): boolean {
     // Check if tsx loader hooks are registered
     !!(globalThis as unknown as { __tsx_esm_loader?: boolean }).__tsx_esm_loader
   );
+}
+
+/**
+ * Check if TypeScript loader is needed
+ * Returns false if running under Bun or tsx
+ */
+function needsTsxLoader(): boolean {
+  return !isRunningUnderBun() && !isRunningUnderTsx();
 }
 
 /**
@@ -109,12 +126,19 @@ export async function loadHook(hookPath: string): Promise<HookExport> {
   const { pathToFileURL } = await import('url');
   const hookUrl = pathToFileURL(hookPath).href;
 
-  // Only register tsx if we're not already running under tsx
-  // This avoids ESM cycle issues when cck is invoked via tsx
+  // Only register tsx if we need it (not running under Bun or tsx)
+  // Bun natively supports TypeScript, tsx handles its own registration
   let unregister: (() => void) | undefined;
-  if (!isRunningUnderTsx()) {
-    const tsx = await import('tsx/esm/api');
-    unregister = tsx.register();
+  if (needsTsxLoader()) {
+    // Dynamic import tsx only when needed (it's an optional dependency)
+    // Use variable to prevent TypeScript from statically analyzing the import
+    try {
+      const tsxModule = 'tsx/esm/api';
+      const tsx = await import(/* webpackIgnore: true */ tsxModule) as { register: () => () => void };
+      unregister = tsx.register();
+    } catch {
+      // tsx not available - assume TypeScript is handled by the runtime
+    }
   }
 
   try {

@@ -35,5 +35,5 @@
 
 ---
 
-**IMPORTANT**: Do NOT test by running `echo '{"tool_name":...}' | pnpm hook ...`.
+**IMPORTANT**: Do NOT test by running `echo '{"tool_name":...}' | bun cck hook ...`.
 Manual testing means performing the actual actions that would trigger the hook.

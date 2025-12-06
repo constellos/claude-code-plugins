@@ -43,10 +43,10 @@ Commands:
                       --timeout <ms>     Server connection timeout (default: 15000)
 
   add-subagent-state     Save agent context at SubagentStart
-                         Use in hooks config: { "command": "pnpm --silent cck add-subagent-state" }
+                         Use in hooks config: { "command": "bun cck add-subagent-state" }
 
   clear-subagent-state   Process agent at SubagentStop and cleanup state
-                         Use in hooks config: { "command": "pnpm --silent cck clear-subagent-state" }
+                         Use in hooks config: { "command": "bun cck clear-subagent-state" }
 
   --help, -h        Show this help message
   --version, -v     Show version
@@ -97,13 +97,13 @@ async function main() {
     // Add hooks if not present
     settings.hooks = settings.hooks || {};
     settings.hooks.SubagentStart = settings.hooks.SubagentStart || [
-      { hooks: [{ type: 'command', command: 'pnpm --silent cck add-subagent-state' }] }
+      { hooks: [{ type: 'command', command: 'bun cck add-subagent-state' }] }
     ];
     settings.hooks.SubagentStop = settings.hooks.SubagentStop || [
-      { hooks: [{ type: 'command', command: 'pnpm --silent cck clear-subagent-state' }] }
+      { hooks: [{ type: 'command', command: 'bun cck clear-subagent-state' }] }
     ];
     settings.hooks.SessionStart = settings.hooks.SessionStart || [
-      { hooks: [{ type: 'command', command: 'pnpm --silent cck gen-mcp-types' }] }
+      { hooks: [{ type: 'command', command: 'bun cck gen-mcp-types' }] }
     ];
 
     // Write settings
