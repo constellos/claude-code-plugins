@@ -38,6 +38,17 @@
       "import": "./dist/format/index.js"
     }
   },
+  "typesVersions": {
+    "*": {
+      "types": ["./dist/types/index.d.ts"],
+      "types/hooks": ["./dist/types/hooks/index.d.ts"],
+      "schemas": ["./dist/schemas/index.d.ts"],
+      "transcripts": ["./dist/transcripts/index.d.ts"],
+      "runners": ["./dist/runners/index.d.ts"],
+      "mcp": ["./dist/mcp/index.d.ts"],
+      "format": ["./dist/format/index.d.ts"]
+    }
+  },
   "bin": {
     "cck": "bin/cck.js",
     "claude-code-kit": "bin/cck.js",
@@ -51,15 +62,15 @@
     "!**/__tests__/**"
   ],
   "scripts": {
-    "build": "bun run build.ts && tsc -p tsconfig.build.json",
-    "dev": "bun --watch run build.ts",
+    "build": "tsup && tsc -p tsconfig.build.json",
+    "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && ([ -d .claude ] && find .claude -name '*.ts' | grep -q . && eslint .claude || true)",
-    "test": "bun test",
-    "test:watch": "bun test --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "check:exports": "publint",
     "check:types": "attw --pack .",
-    "prepublishOnly": "bun run lint && bun run typecheck && bun test && bun run build && bun run check:exports && bun run check:types"
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:exports && npm run check:types"
   },
   "dependencies": {
     "gray-matter": "^4.0.3",
@@ -78,13 +89,14 @@
     "@arethetypeswrong/cli": "^0.18.0",
     "@eslint/js": "^9.16.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "@types/bun": "latest",
     "@types/node": "^22.0.0",
     "eslint": "^9.16.0",
     "globals": "^15.14.0",
     "publint": "^0.3.0",
+    "tsup": "^8.0.0",
     "typescript": "^5.4.0",
-    "typescript-eslint": "^8.17.0"
+    "typescript-eslint": "^8.17.0",
+    "vitest": "^2.0.0"
   },
   "optionalDependencies": {
     "gray-matter": "^4.0.3",
