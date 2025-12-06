@@ -131,8 +131,10 @@ export async function loadHook(hookPath: string): Promise<HookExport> {
   let unregister: (() => void) | undefined;
   if (needsTsxLoader()) {
     // Dynamic import tsx only when needed (it's an optional dependency)
+    // Use variable to prevent TypeScript from statically analyzing the import
     try {
-      const tsx = await import('tsx/esm/api');
+      const tsxModule = 'tsx/esm/api';
+      const tsx = await import(/* webpackIgnore: true */ tsxModule) as { register: () => () => void };
       unregister = tsx.register();
     } catch {
       // tsx not available - assume TypeScript is handled by the runtime
