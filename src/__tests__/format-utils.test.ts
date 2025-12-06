@@ -2,7 +2,7 @@
  * Format utility function tests
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import {
   isMarkdownFile,
   parseHeading,

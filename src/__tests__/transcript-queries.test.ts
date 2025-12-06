@@ -2,7 +2,7 @@
  * Transcript query tests
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs/promises';
