@@ -15,12 +15,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # For committing version bump
       id-token: write   # Required for OIDC
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -32,34 +29,20 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
 
-      # Get next available version from NPM registry
-      - name: Determine next version
-        id: version
+      # Determine and set next version (locally, not committed)
+      - name: Set next version
         run: |
           PKG_NAME=$(node -p "require('./package.json').name")
-          CURRENT=$(node -p "require('./package.json').version")
 
           # Get latest from NPM (returns error if unpublished)
           NPM_VERSION=$(npm view "$PKG_NAME" version 2>/dev/null || echo "0.0.0")
 
-          # Parse and increment
+          # Parse and increment patch version
           IFS='.' read -r MAJOR MINOR PATCH <<< "$NPM_VERSION"
-          NEXT_PATCH=$((PATCH + 1))
-          NEXT_VERSION="$MAJOR.$MINOR.$NEXT_PATCH"
+          NEXT_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
 
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "npm=$NPM_VERSION" >> $GITHUB_OUTPUT
-          echo "next=$NEXT_VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version $NEXT_VERSION (npm has $NPM_VERSION)"
+          npm version "$NEXT_VERSION" --no-git-tag-version
 
-      # Update package.json if needed
-      - name: Bump version
-        if: steps.version.outputs.current != steps.version.outputs.next
-        run: |
-          npm version ${{ steps.version.outputs.next }} --no-git-tag-version
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: bump to ${{ steps.version.outputs.next }} [skip ci]"
-          git push
-
-      - run: npm publish --provenance --access public
+      - name: Publish to npm
+        run: npm publish --provenance --access public
