@@ -75,7 +75,7 @@ export interface RunHookOptions {
 
   /**
    * Path to the log file
-   * @default '{cwd}/.claude/hooks/utils/log.md'
+   * @default '{hookPath}.log.md' (sibling of hook file)
    */
   logPath?: string;
 }
@@ -186,6 +186,18 @@ function getDefaultOutput(hookEventName: string | undefined): HookOutput {
 export async function runHook(options: RunHookOptions = {}): Promise<void> {
   const { hookPath, enableLogging = false, logPath: customLogPath } = options;
 
+  // Resolve hook path early so we can use it for logging
+  const resolvedHookPath = hookPath ? resolveHookPath(hookPath, process.cwd()) : undefined;
+
+  // Determine log path - use sibling file of hook if available
+  const logPath = customLogPath || (resolvedHookPath ? `${resolvedHookPath}.log.md` : undefined);
+
+  // Create logger if logging is enabled and we have a log path
+  let logger: Logger | undefined;
+  if (enableLogging && logPath) {
+    logger = createLogger(logPath);
+  }
+
   try {
     // Read input from stdin
     const input = await readStdinJson<HookPayload>();
@@ -195,21 +207,20 @@ export async function runHook(options: RunHookOptions = {}): Promise<void> {
       process.chdir(input.cwd);
     }
 
-    // Determine log path
-    const logPath =
-      customLogPath || join(process.cwd(), '.claude', 'hooks', 'utils', 'log.md');
+    // Log enabled but no log path (no hook file provided) - create fallback logger
+    if (enableLogging && !logger) {
+      const fallbackLogPath = join(process.cwd(), '.claude', 'hooks', 'utils', 'log.md');
+      logger = createLogger(fallbackLogPath);
+    }
 
-    // Create logger if logging is enabled
-    let logger: Logger | undefined;
-    if (enableLogging) {
-      logger = createLogger(logPath);
-
-      // Log debug info about the runner configuration
+    // Log debug info and input if logging is enabled
+    if (logger) {
       logger.debug(
         '```json\n' +
           JSON.stringify(
             {
               hookPath,
+              resolvedHookPath,
               enableLogging,
               cwd: process.cwd(),
               inputCwd: input.cwd,
@@ -219,22 +230,19 @@ export async function runHook(options: RunHookOptions = {}): Promise<void> {
           ) +
           '\n```'
       );
-
-      // Log input
       logger.log('INPUT', input);
     }
 
     let output: HookOutput;
 
-    if (hookPath && hookPath.trim().length > 0) {
+    if (hookPath && hookPath.trim().length > 0 && resolvedHookPath) {
       // Log that we're loading the hook
       if (logger) {
-        logger.debug(`Loading hook: \`${hookPath}\``);
+        logger.debug(`Loading hook: \`${hookPath}\` -> \`${resolvedHookPath}\``);
       }
 
-      // Resolve and load the hook
-      const absolutePath = resolveHookPath(hookPath, process.cwd());
-      const hook = await loadHook(absolutePath);
+      // Load the hook (already resolved earlier)
+      const hook = await loadHook(resolvedHookPath);
 
       // Handle based on export type
       if (isMarkdownFormat(hook)) {
@@ -284,6 +292,14 @@ export async function runHook(options: RunHookOptions = {}): Promise<void> {
     // Write output to stdout
     writeStdoutJson(output);
   } catch (error) {
+    // Log error if logger is available
+    if (logger) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      logger.debug(
+        `## ERROR\n\n\`\`\`\n${errorMessage}${errorStack ? `\n\nStack:\n${errorStack}` : ''}\n\`\`\``
+      );
+    }
     exitWithError(error instanceof Error ? error.message : String(error));
   }
 }
