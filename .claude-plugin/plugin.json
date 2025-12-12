@@ -1,0 +1,13 @@
+{
+  "name": "claude-code-kit",
+  "version": "1.0.0",
+  "description": "Hook runner and utilities for Claude Code development - types, transcript parsing, and subagent state management",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-kit",
+  "license": "MIT",
+  "keywords": ["hooks", "typescript", "development", "subagent"],
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills/"
+}

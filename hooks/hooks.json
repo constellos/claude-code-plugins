@@ -1,0 +1,24 @@
+{
+  "SubagentStart": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node $CLAUDE_PLUGIN_ROOT/runner.ts $CLAUDE_PLUGIN_ROOT/hooks/subagent-start.ts"
+        }
+      ]
+    }
+  ],
+  "SubagentStop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node $CLAUDE_PLUGIN_ROOT/runner.ts $CLAUDE_PLUGIN_ROOT/hooks/subagent-stop.ts"
+        }
+      ]
+    }
+  ]
+}
