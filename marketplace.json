@@ -1,0 +1,24 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace-schema.json",
+  "name": "Claude Code Kit Marketplace",
+  "version": "1.0.0",
+  "owner": {
+    "name": "constellos"
+  },
+  "plugins": [
+    {
+      "name": "cck-base",
+      "description": "Base hooks and utilities for Claude Code development - types, runner, subagent tracking",
+      "version": "1.0.0",
+      "author": "constellos",
+      "source": "./packages/cck-base"
+    },
+    {
+      "name": "cck-github",
+      "description": "GitHub-specific commands and hooks for Claude Code (placeholder)",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "./packages/cck-github"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "cck-base",
+  "version": "1.0.0",
+  "description": "Base hooks and utilities for Claude Code development",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  }
+}

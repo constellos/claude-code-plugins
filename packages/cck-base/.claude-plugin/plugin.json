@@ -1,0 +1,13 @@
+{
+  "name": "cck-base",
+  "version": "1.0.0",
+  "description": "Base hooks and utilities for Claude Code development - types, runner, subagent tracking",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-kit",
+  "license": "MIT",
+  "keywords": ["hooks", "typescript", "development", "subagent"],
+  "hooks": "./hooks/hooks.json",
+  "skills": "./skills/"
+}

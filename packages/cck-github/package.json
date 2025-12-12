@@ -1,0 +1,7 @@
+{
+  "name": "cck-github",
+  "version": "0.1.0",
+  "description": "GitHub-specific commands and hooks for Claude Code (placeholder)",
+  "type": "module",
+  "private": true
+}
