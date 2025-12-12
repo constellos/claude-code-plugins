@@ -1,0 +1,9 @@
+{
+  "name": "cck-claude-config",
+  "version": "0.1.0",
+  "description": "Claude Code configuration management and utilities",
+  "private": true,
+  "author": "constellos",
+  "license": "MIT",
+  "keywords": ["configuration", "claude-code", "utilities"]
+}

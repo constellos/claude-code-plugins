@@ -2,15 +2,35 @@
 /**
  * Claude Code Kit Hook Runner
  *
- * Simplified hook runner for Claude Code plugins.
- * Usage: node runner.ts <hook-file.ts>
+ * Universal hook runner for executing Claude Code hook scripts. Handles TypeScript
+ * and JavaScript hook files, providing stdin/stdout JSON communication and debug logging.
  *
- * Reads JSON from stdin, executes the hook, writes JSON to stdout.
+ * @module runner
  *
- * Debug mode:
- * - When the hook input contains `debug: true`, logs all calls to .claude/logs/hook-events.json
- * - On error with debug: returns blocking error response
- * - On error without debug: returns pass-through response (fails silently)
+ * @usage
+ * ```bash
+ * node runner.ts <hook-file.ts>
+ * echo '{"hook_event_name":"SubagentStop",...}' | node runner.ts ./hooks/my-hook.ts
+ * ```
+ *
+ * @description
+ * The runner:
+ * 1. Reads JSON hook input from stdin
+ * 2. Dynamically loads the specified hook file (supports .ts, .tsx, .js via tsx)
+ * 3. Executes the hook's default export function with the input
+ * 4. Writes the hook's JSON output to stdout
+ * 5. Logs all activity to .claude/logs/hook-events.json when debug mode is enabled
+ *
+ * @debug
+ * Debug mode is activated when hook input contains `debug: true`:
+ * - All inputs, outputs, and errors are logged to .claude/logs/hook-events.json
+ * - On error: returns blocking error response (stops execution)
+ * - On success: normal output
+ *
+ * Normal mode (debug: false or undefined):
+ * - No logging occurs
+ * - On error: returns pass-through response (execution continues silently)
+ * - On success: normal output
  */
 
 import { pathToFileURL } from 'url';
@@ -33,7 +53,20 @@ type HookModule = {
 };
 
 /**
- * Dynamically load a hook file
+ * Dynamically load a hook file with TypeScript support
+ *
+ * Loads hook files (.ts, .tsx, .js) using dynamic import with tsx for TypeScript compilation.
+ * Includes cache-busting to ensure hooks are reloaded on every execution.
+ *
+ * @param hookPath - Absolute or relative path to the hook file
+ * @returns Promise resolving to the hook's default export function
+ * @throws Error if hook file cannot be loaded or doesn't export a default function
+ *
+ * @example
+ * ```typescript
+ * const hook = await loadHook('./hooks/my-hook.ts');
+ * const output = await hook(input);
+ * ```
  */
 async function loadHook(hookPath: string): Promise<HookModule['default']> {
   const absolutePath = path.isAbsolute(hookPath) ? hookPath : path.resolve(process.cwd(), hookPath);
@@ -66,7 +99,16 @@ async function loadHook(hookPath: string): Promise<HookModule['default']> {
 }
 
 /**
- * Extract the default export from a module
+ * Extract the default export from a dynamically imported module
+ *
+ * Handles various module formats including nested defaults from tsx loader.
+ * Ensures the extracted export is a function suitable for use as a hook handler.
+ *
+ * @param module - The dynamically imported module object
+ * @returns The default export function
+ * @throws Error if no default function export is found
+ *
+ * @internal
  */
 function extractDefaultExport(module: unknown): HookModule['default'] {
   if (typeof module === 'object' && module !== null) {
@@ -93,6 +135,18 @@ function extractDefaultExport(module: unknown): HookModule['default'] {
 // Main Runner
 // ============================================================================
 
+/**
+ * Main runner entrypoint
+ *
+ * Orchestrates the complete hook execution lifecycle:
+ * 1. Reads hook input from stdin
+ * 2. Loads the specified hook file
+ * 3. Executes the hook with the input
+ * 4. Writes the output to stdout
+ * 5. Handles errors based on debug mode
+ *
+ * @throws Exits process with code 1 if hook path is missing or input cannot be read
+ */
 async function main(): Promise<void> {
   const hookPath = process.argv[2];
 

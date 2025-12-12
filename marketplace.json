@@ -7,7 +7,7 @@
   },
   "plugins": [
     {
-      "name": "cck-base",
+      "name": "claude-code-kit-ts",
       "description": "Base hooks and utilities for Claude Code development - types, runner, subagent tracking",
       "version": "1.0.0",
       "author": "constellos",
@@ -19,6 +19,27 @@
       "version": "0.1.0",
       "author": "constellos",
       "source": "./packages/cck-github"
+    },
+    {
+      "name": "cck-github-vercel-supabase-ci",
+      "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase integration",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "./packages/cck-github-vercel-supabase-ci"
+    },
+    {
+      "name": "cck-nextjs-supabase-ai-sdk",
+      "description": "Next.js, Supabase, and AI SDK development utilities and hooks",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "./packages/cck-nextjs-supabase-ai-sdk"
+    },
+    {
+      "name": "cck-claude-config",
+      "description": "Claude Code configuration management and utilities",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "./packages/cck-claude-config"
     }
   ]
 }

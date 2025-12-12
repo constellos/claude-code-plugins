@@ -1,5 +1,5 @@
 {
-  "name": "cck-base",
+  "name": "claude-code-kit-ts",
   "version": "1.0.0",
   "description": "Base hooks and utilities for Claude Code development - types, runner, subagent tracking",
   "author": {

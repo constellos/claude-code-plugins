@@ -1,0 +1,11 @@
+{
+  "name": "cck-github-vercel-supabase-ci",
+  "version": "0.1.0",
+  "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase integration",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-kit",
+  "license": "MIT",
+  "keywords": ["github", "vercel", "supabase", "ci", "cd"]
+}
