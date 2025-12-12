@@ -36,7 +36,7 @@ export default async function (
     return {};
   }
 
-  const logger = createDebugLogger(input.cwd, 'lint');
+  const logger = createDebugLogger(input.cwd, 'lint', true);
 
   try {
     await logger.logInput({

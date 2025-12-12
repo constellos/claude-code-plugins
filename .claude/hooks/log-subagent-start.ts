@@ -30,7 +30,7 @@ import { saveAgentStartContext, createDebugLogger } from 'claude-code-kit-ts';
 export default async function (
   input: SubagentStartInput
 ): Promise<SubagentStartHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'log-subagent-start');
+  const logger = createDebugLogger(input.cwd, 'log-subagent-start', true);
 
   try {
     await logger.logInput(input);

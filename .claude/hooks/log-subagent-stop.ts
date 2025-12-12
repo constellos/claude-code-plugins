@@ -31,7 +31,7 @@ import { getAgentEdits, createDebugLogger } from 'claude-code-kit-ts';
 export default async function (
   input: SubagentStopInput
 ): Promise<SubagentStopHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'log-subagent-stop');
+  const logger = createDebugLogger(input.cwd, 'log-subagent-stop', true);
 
   try {
     await logger.logInput(input);
