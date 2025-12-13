@@ -9,9 +9,9 @@
     }
   },
   "enabledPlugins": {
-    "github-vercel-supabase-ci@claude-code-kit-local": true,
-    "nextjs-supabase-ai-sdk-dev@claude-code-kit-local": true,
-    "claude-code-config@claude-code-kit-local": true
+    "github-vercel-supabase-ci@constellos": true,
+    "nextjs-supabase-ai-sdk-dev@constellos": true,
+    "claude-code-config@constellos": true
   },
   "enabledMcpjsonServers": [
     "next-devtools"
