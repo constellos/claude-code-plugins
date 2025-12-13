@@ -10,15 +10,16 @@
 
 import type { SubagentStartInput, SubagentStartHookOutput } from '../lib/types.js';
 import { saveAgentStartContext } from '../lib/subagent-state.js';
-import { debug } from '../lib/debug.js';
-
-const log = debug('subagent-start');
 
 export default async function (input: SubagentStartInput): Promise<SubagentStartHookOutput> {
-  log('SubagentStart hook triggered');
-  log('Agent ID:', input.agent_id);
-  log('Agent Type:', input.agent_type);
-  log('Session ID:', input.session_id);
+  const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('subagent');
+
+  if (DEBUG) {
+    console.log('[SubagentStart] Hook triggered');
+    console.log('[SubagentStart] Agent ID:', input.agent_id);
+    console.log('[SubagentStart] Agent Type:', input.agent_type);
+    console.log('[SubagentStart] Session ID:', input.session_id);
+  }
 
   try {
     const context = await saveAgentStartContext({
@@ -29,11 +30,12 @@ export default async function (input: SubagentStartInput): Promise<SubagentStart
       transcript_path: input.transcript_path,
     });
 
-    log('Saved agent context:', context);
-    log('Context includes:');
-    log('  - Prompt:', context.prompt.slice(0, 100) + (context.prompt.length > 100 ? '...' : ''));
-    log('  - Tool Use ID:', context.toolUseId);
-    log('  - Timestamp:', context.timestamp);
+    if (DEBUG) {
+      console.log('[SubagentStart] Saved agent context');
+      console.log('[SubagentStart] Prompt:', context.prompt.slice(0, 100) + (context.prompt.length > 100 ? '...' : ''));
+      console.log('[SubagentStart] Tool Use ID:', context.toolUseId);
+      console.log('[SubagentStart] Timestamp:', context.timestamp);
+    }
 
     return {
       hookSpecificOutput: {
@@ -41,7 +43,9 @@ export default async function (input: SubagentStartInput): Promise<SubagentStart
       },
     };
   } catch (error) {
-    log('Error saving agent context:', error);
+    if (DEBUG) {
+      console.error('[SubagentStart] Error saving agent context:', error);
+    }
     return {
       hookSpecificOutput: {
         hookEventName: 'SubagentStart',
