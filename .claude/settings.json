@@ -4,15 +4,14 @@
     "claude-code-kit-local": {
       "source": {
         "source": "file",
-        "path": "./marketplace.json"
+        "path": "./.claude-plugin/marketplace.json"
       }
     }
   },
   "enabledPlugins": {
-    "claude-code-kit-ts@claude-code-kit-local": true,
-    "cck-github-vercel-supabase-ci@claude-code-kit-local": true,
-    "cck-nextjs-supabase-ai-sdk@claude-code-kit-local": true,
-    "cck-claude-config@claude-code-kit-local": true
+    "github-vercel-supabase-ci@claude-code-kit-local": true,
+    "nextjs-supabase-ai-sdk-dev@claude-code-kit-local": true,
+    "claude-code-config@claude-code-kit-local": true
   },
   "enabledMcpjsonServers": [
     "next-devtools"
@@ -118,107 +117,5 @@
       "Write(**/.claude/skills/**)"
     ],
     "defaultMode": "plan"
-  },
-  "hooks": {
-    "Notification": [
-      {
-        "hooks": [
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-        ]
-      }
-    ],
-    "SessionStart": [
-    ],
-    "Stop": [
-      {
-        "hooks": [
-        ]
-      }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/log-subagent-start.ts\""
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/log-subagent-stop.ts\""
-          }
-        ]
-      }
-    ], 
-    "PermissionRequest": [
-      {
-        "matcher": "*",
-        "hooks": [
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "*",
-        "hooks": [
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/test/pre-tool-use.ts\""
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/test/pre-tool-use-mcp.ts\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/lint.ts\""
-          }
-        ]
-      },
-      {
-        "matcher": "Skill",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/bin/cck.js\" hook \"$CLAUDE_PROJECT_DIR/.claude/hooks/test/post-tool-use-skill.ts\""
-          }
-        ]
-      }
-    ]
   }
 }

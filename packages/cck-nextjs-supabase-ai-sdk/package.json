@@ -1,9 +1,0 @@
-{
-  "name": "cck-nextjs-supabase-ai-sdk",
-  "version": "0.1.0",
-  "description": "Next.js, Supabase, and AI SDK development utilities and hooks",
-  "private": true,
-  "author": "constellos",
-  "license": "MIT",
-  "keywords": ["nextjs", "supabase", "ai-sdk", "development"]
-}

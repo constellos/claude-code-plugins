@@ -4,6 +4,135 @@
 
 TypeScript toolkit for Claude Code development - types, schemas, transcript parsing, and hook utilities.
 
+## Project Architecture: Plugin Development & Distribution
+
+**This project serves dual purposes:**
+
+### 1. Shared Utilities (`shared/`)
+
+Shared code at project root used by all plugins:
+
+```
+shared/
+├── lib/
+│   ├── types.ts           # Hook type definitions
+│   ├── io.ts              # File system utilities
+│   ├── debug.ts           # Debug logging
+│   ├── subagent-state.ts  # Agent context management
+│   ├── transcripts.ts     # Transcript parsing
+│   ├── package-manager.ts # Package manager detection
+│   └── index.ts           # Exports all utilities
+└── runner.ts              # TypeScript hook runner
+```
+
+### 2. Plugin Development (`plugins/`)
+
+Claude Code plugins are developed at the project root in `plugins/`:
+
+```
+plugins/
+├── github-vercel-supabase-ci/  # CI/CD automation
+│   ├── .claude-plugin/plugin.json
+│   └── hooks/
+│       ├── hooks.json
+│       └── pull-latest-main.ts   # SessionStart hook
+│
+├── nextjs-supabase-ai-sdk-dev/  # Next.js dev tools
+│   ├── .claude-plugin/plugin.json
+│   └── hooks/
+│       ├── hooks.json
+│       ├── lint-file.ts
+│       ├── typecheck-file.ts
+│       └── vitest-file.ts
+│
+└── claude-code-config/          # Config management (placeholder)
+    └── .claude-plugin/plugin.json
+```
+
+**Plugin Structure:**
+- Each plugin has `.claude-plugin/plugin.json` inside it
+- All plugins import from `../../../shared/lib/` (relative path)
+- No base plugin - shared utilities are not distributed as a plugin
+
+### 3. Plugin Distribution (`.claude-plugin/marketplace.json`)
+
+The marketplace definition at `.claude-plugin/marketplace.json` references plugins for distribution:
+
+```json
+{
+  "name": "Constellos Claude Code Kit",
+  "metadata": {
+    "pluginRoot": "../plugins"
+  },
+  "plugins": [
+    { "name": "github-vercel-supabase-ci", "source": "../plugins/github-vercel-supabase-ci", "strict": false },
+    { "name": "nextjs-supabase-ai-sdk-dev", "source": "../plugins/nextjs-supabase-ai-sdk-dev", "strict": false },
+    { "name": "claude-code-config", "source": "../plugins/claude-code-config", "strict": false }
+  ]
+}
+```
+
+### 4. Local Usage (`.claude/settings.json`)
+
+This project uses its own plugins via `extraKnownMarketplaces`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "claude-code-kit-local": {
+      "source": {
+        "source": "file",
+        "path": "./.claude-plugin/marketplace.json"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "github-vercel-supabase-ci@claude-code-kit-local": true,
+    "nextjs-supabase-ai-sdk-dev@claude-code-kit-local": true,
+    "claude-code-config@claude-code-kit-local": true
+  }
+}
+```
+
+### Installation & Testing Workflow
+
+**To use plugins in this project:**
+
+1. **First time setup** (already done):
+   - Marketplace defined at `.claude-plugin/marketplace.json`
+   - Plugins enabled in `.claude/settings.json`
+   - User must install plugins via `/plugin install` commands
+
+2. **Installing plugins** (must be done manually):
+   ```
+   /plugin install github-vercel-supabase-ci@claude-code-kit-local
+   /plugin install nextjs-supabase-ai-sdk-dev@claude-code-kit-local
+   /plugin install claude-code-config@claude-code-kit-local
+   ```
+
+3. **Testing plugin changes**:
+   - Edit plugin files in `plugins/`
+   - Exit Claude Code session
+   - Start new session - plugins reload automatically
+   - Hooks and features will reflect changes
+
+### Active Hooks in This Project
+
+**github-vercel-supabase-ci plugin:**
+- **SessionStart** → `plugins/github-vercel-supabase-ci/hooks/pull-latest-main.ts`
+  - Auto-fetches origin and merges main/master branch
+  - Handles merge conflicts gracefully (aborts and notifies)
+
+**nextjs-supabase-ai-sdk-dev plugin:**
+- **PostToolUse (Write|Edit)** → `plugins/nextjs-supabase-ai-sdk-dev/hooks/lint-file.ts`
+  - Runs ESLint after file edits
+- **PostToolUse (Write|Edit)** → `plugins/nextjs-supabase-ai-sdk-dev/hooks/typecheck-file.ts`
+  - Runs `tsc --noEmit` after file edits
+- **PostToolUse (*.test.ts|*.test.tsx)** → `plugins/nextjs-supabase-ai-sdk-dev/hooks/vitest-file.ts`
+  - Runs Vitest when test files are edited
+
+All hooks have debug logging enabled and import utilities from `shared/lib/`.
+
 ## Versioning Policy
 
 **IMPORTANT**: Only update the patch version (last number) unless explicitly requested otherwise.
@@ -164,3 +293,13 @@ npm publish
 - **lazyjobs**: Example project using this kit with SubagentStart/SubagentStop hooks
   - `.claude/hooks/SubagentStart/save-agent-context.ts`
   - `.claude/hooks/SubagentStop/log-agent-edits.ts`
+
+## Documentation Skills
+
+For comprehensive information about Claude Code's plugin system and development workflows:
+
+- **`.claude/skills/claude-plugins/SKILL.md`** - Complete guide to plugin development, marketplace configuration, and best practices
+- **`.claude/skills/claude-hooks/SKILL.md`** - Hook types, development patterns, and event handling
+- **`.claude/skills/claude-skills/SKILL.md`** - Agent Skills creation and organization
+- **`.claude/skills/claude-commands/SKILL.md`** - Custom slash command development
+- **`.claude/skills/claude-agents/SKILL.md`** - Subagent configuration and specialized assistants

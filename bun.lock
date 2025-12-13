@@ -9,34 +9,12 @@
         "@types/node": "^22.0.0",
         "eslint": "^9.16.0",
         "globals": "^15.14.0",
+        "gray-matter": "^4.0.3",
         "tsx": "^4.0.0",
         "typescript": "^5.4.0",
         "typescript-eslint": "^8.17.0",
         "vitest": "^2.0.0",
       },
-    },
-    "packages/cck-base": {
-      "name": "cck-base",
-      "version": "1.0.0",
-      "dependencies": {
-        "gray-matter": "^4.0.3",
-      },
-    },
-    "packages/cck-claude-config": {
-      "name": "cck-claude-config",
-      "version": "0.1.0",
-    },
-    "packages/cck-github": {
-      "name": "cck-github",
-      "version": "0.1.0",
-    },
-    "packages/cck-github-vercel-supabase-ci": {
-      "name": "cck-github-vercel-supabase-ci",
-      "version": "0.1.0",
-    },
-    "packages/cck-nextjs-supabase-ai-sdk": {
-      "name": "cck-nextjs-supabase-ai-sdk",
-      "version": "0.1.0",
     },
   },
   "packages": {
@@ -223,16 +201,6 @@
     "cac": ["cac@6.7.14", "", {}, "sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ=="],
 
     "callsites": ["callsites@3.1.0", "", {}, "sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ=="],
-
-    "cck-base": ["cck-base@workspace:packages/cck-base"],
-
-    "cck-claude-config": ["cck-claude-config@workspace:packages/cck-claude-config"],
-
-    "cck-github": ["cck-github@workspace:packages/cck-github"],
-
-    "cck-github-vercel-supabase-ci": ["cck-github-vercel-supabase-ci@workspace:packages/cck-github-vercel-supabase-ci"],
-
-    "cck-nextjs-supabase-ai-sdk": ["cck-nextjs-supabase-ai-sdk@workspace:packages/cck-nextjs-supabase-ai-sdk"],
 
     "chai": ["chai@5.3.3", "", { "dependencies": { "assertion-error": "^2.0.1", "check-error": "^2.1.1", "deep-eql": "^5.0.1", "loupe": "^3.1.0", "pathval": "^2.0.0" } }, "sha512-4zNhdJD/iOjSH0A05ea+Ke6MU5mmpQcbQsSOkgdaUMJ9zTlDTD/GYlwohmIE2u0gaxHYiVHEn1Fw9mZ/ktJWgw=="],
 

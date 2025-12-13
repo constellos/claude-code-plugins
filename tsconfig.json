@@ -16,10 +16,8 @@
     "types": ["node"]
   },
   "include": [
-    "packages/*/lib/**/*.ts",
-    "packages/*/hooks/**/*.ts",
-    "packages/*/*.ts",
-    "packages/*/__tests__/**/*.ts"
+    "shared/**/*.ts",
+    "plugins/**/*.ts"
   ],
   "exclude": [
     "node_modules",

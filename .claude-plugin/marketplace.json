@@ -1,0 +1,38 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace-schema.json",
+  "name": "Constellos Claude Code Kit",
+  "version": "1.0.0",
+  "owner": {
+    "name": "constellos"
+  },
+  "metadata": {
+    "description": "Plugin marketplace for Constellos development tools",
+    "pluginRoot": "../plugins"
+  },
+  "plugins": [
+    {
+      "name": "github-vercel-supabase-ci",
+      "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "../plugins/github-vercel-supabase-ci",
+      "strict": false
+    },
+    {
+      "name": "nextjs-supabase-ai-sdk-dev",
+      "description": "Next.js, Supabase, and AI SDK development utilities",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "../plugins/nextjs-supabase-ai-sdk-dev",
+      "strict": false
+    },
+    {
+      "name": "claude-code-config",
+      "description": "Claude Code configuration management",
+      "version": "0.1.0",
+      "author": "constellos",
+      "source": "../plugins/claude-code-config",
+      "strict": false
+    }
+  ]
+}
