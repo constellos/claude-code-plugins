@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/schemas/marketplace-schema.json",
-  "name": "Constellos Claude Code Kit",
+  "name": "constellos",
   "version": "1.0.0",
   "owner": {
     "name": "constellos"
