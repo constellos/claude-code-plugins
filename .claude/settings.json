@@ -61,7 +61,10 @@
       "Bash(bun run lint:*)",
       "Bash(bun run typecheck:*)",
       "Bash(bun run build:*)",
-      "Bash(bun tsc:*)"
+      "Bash(bun tsc:*)",
+      "Bash(gh:*)",
+      "Bash(git:*)",
+      "Bash(bun:*)"
     ],
     "deny": [
       "Bash(vim :*)",
@@ -87,18 +90,14 @@
       "Bash(bun publish:*)"
     ],
     "ask": [
-      "Bash(gh:*)",
-      "Bash(git:*)",
+    
       "Bash(curl:*)",
       "Bash(pkill:*)",
-      "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(cp:*)",
       "Bash(rm:*)",
       "Bash(echo:*)",
       "Bash(sh:*)",
-      "Bash(chmod:*)",
-      "Bash(git:*)",
 
       "Bash(bun run build:*)",
       "Bash(bun run start:*)",
@@ -106,15 +105,6 @@
 
       "Bash(echo:*)",
       "Bash(printf:*)",
-
-      "Edit(**/.claude/settings.json)",
-      "Write(**/.claude/settings.json)",
-      "Edit(**/CLAUDE.md)",
-      "Write(**/CLAUDE.md)",
-      "Edit(**/.claude/agents/**)",
-      "Write(**/.claude/agents/**)",
-      "Edit(**/.claude/skills/**)",
-      "Write(**/.claude/skills/**)"
     ],
     "defaultMode": "plan"
   }
