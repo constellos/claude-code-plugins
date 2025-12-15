@@ -30,7 +30,9 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
     │       ├── hooks.json     # Includes shared subagent hooks
-    │       └── pull-latest-main.ts      # Imports from shared/
+    │       ├── pull-latest-main.ts      # SessionStart: auto-merge main
+    │       ├── await-pr-checks.ts       # PostToolUse: wait for CI on PR create
+    │       └── commit-task.ts           # SubagentStop: auto-commit agent work
     │
     ├── nextjs-supabase-ai-sdk-dev/
     │   ├── .claude-plugin/plugin.json
@@ -40,10 +42,15 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── typecheck-file.ts        # Imports from shared/
     │       └── vitest-file.ts           # Imports from shared/
     │
-    └── claude-code-config/
+    ├── claude-code-config/
+    │   ├── .claude-plugin/plugin.json
+    │   └── hooks/
+    │       └── hooks.json     # Only shared subagent hooks
+    │
+    └── main-agent-perms/        # Placeholder for main agent permissions
         ├── .claude-plugin/plugin.json
         └── hooks/
-            └── hooks.json     # Only shared subagent hooks
+            └── hooks.json     # No hooks yet - future permission controls
 ```
 
 ### Shared Folder (`shared/`)
@@ -162,9 +169,18 @@ All plugins include the shared SubagentStart/SubagentStop hooks for tracking age
 CI/CD hooks for GitHub, Vercel, and Supabase projects.
 
 **Plugin-Specific Hooks:**
-- **SessionStart** - Auto-fetch and merge latest main/master branch
+- **SessionStart** (`pull-latest-main.ts`) - Auto-fetch and merge latest main/master branch
   - Handles merge conflicts gracefully
   - Notifies on conflicts
+- **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
+  - Detects `gh pr create` commands
+  - Extracts PR URL from output
+  - Runs `gh pr checks --watch` to wait for CI (10 min timeout)
+  - Returns blocking decision on CI failure
+- **SubagentStop** (`commit-task.ts`) - Auto-commit subagent work
+  - Creates commit from agent's final message
+  - Uses agent_transcript_path (requires Claude Code 2.0.42+)
+  - Formats commit message with agent type prefix
 
 **Shared Hooks:**
 - **SubagentStart** - Track agent context
@@ -190,6 +206,20 @@ Configuration management utilities (placeholder).
 **Shared Hooks:**
 - **SubagentStart** - Track agent context
 - **SubagentStop** - Log agent file operations
+
+### main-agent-perms
+
+Placeholder plugin for enforcing subagent-style metadata and permissions on the main agent.
+
+**Current Status:** No hooks implemented yet.
+
+**Planned Features:**
+- Permission boundaries for file access (read/write restrictions)
+- Tool allowlists and denylists
+- Session audit logging
+- Rate limiting for sensitive operations
+- Branch protection rules
+- Secret detection and blocking
 
 ## Local Development
 
@@ -390,3 +420,4 @@ Comprehensive Claude Code documentation in `.claude/skills/`:
 - `claude-skills/SKILL.md` - Agent Skills
 - `claude-commands/SKILL.md` - Slash commands
 - `claude-agents/SKILL.md` - Subagent configuration
+- `turborepo-vercel/SKILL.md` - Turborepo monorepos with Vercel deployment
