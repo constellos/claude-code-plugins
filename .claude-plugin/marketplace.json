@@ -41,6 +41,16 @@
       "strict": false
     },
     {
+      "name": "context-awareness",
+      "description": "Context-awareness utilities for Claude Code sessions",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/context-awareness",
+      "strict": false
+    },
+    {
       "name": "main-agent-perms",
       "description": "Enforces subagent-style metadata and permissions on the main agent",
       "version": "0.1.0",

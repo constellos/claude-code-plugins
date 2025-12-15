@@ -1,0 +1,14 @@
+# Constellos Plugin Configuration
+# This file specifies dependencies and install commands for the plugin
+
+[plugin]
+name = "claude-code-config"
+version = "0.1.0"
+
+# Install commands to run when setting up this plugin
+# The shared install script will execute these in order
+[install]
+# Only run install when CLAUDE_CODE_ENTRYPOINT is set to "remote"
+require_entrypoint = "remote"
+
+commands = []

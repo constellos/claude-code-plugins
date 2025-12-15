@@ -50,3 +50,6 @@ export {
   type AgentStartContext,
   type AgentEditsResult,
 } from './subagent-state.js';
+
+// TOML parsing
+export { parseToml, readTomlFile, type TomlValue } from './toml.js';
