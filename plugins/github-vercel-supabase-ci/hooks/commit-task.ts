@@ -12,7 +12,7 @@
 
 import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/lib/types.js';
 import { createDebugLogger } from '../../../shared/lib/debug.js';
-import { parseTranscript, type AssistantMessage, type TextContent } from '../../../shared/lib/transcripts.js';
+import { parseTranscript, type AssistantMessage, type TextContent, type Message } from '../../../shared/lib/transcripts.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -41,7 +41,7 @@ async function gitExec(
 /**
  * Extract the final text message from agent transcript
  */
-function extractFinalMessage(messages: Array<{ type: string; message?: { content?: unknown[] } }>): string | null {
+function extractFinalMessage(messages: Message[]): string | null {
   // Find the last assistant message with text content
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -70,7 +70,7 @@ function extractFinalMessage(messages: Array<{ type: string; message?: { content
  */
 function formatCommitMessage(agentMessage: string, agentType: string): string {
   // Remove common prefixes
-  let message = agentMessage
+  const message = agentMessage
     .replace(/^(I've |I have |I |Done[.!]? |Completed[.!]? |Finished[.!]? )/i, '')
     .trim();
 

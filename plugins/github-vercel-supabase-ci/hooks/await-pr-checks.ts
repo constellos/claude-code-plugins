@@ -21,7 +21,7 @@ const PR_CREATE_PATTERNS = [
 ];
 
 // Pattern to extract PR URL from gh pr create output
-const PR_URL_PATTERN = /https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+/;
+const PR_URL_PATTERN = /https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+/;
 
 /**
  * Extract PR URL from command output
