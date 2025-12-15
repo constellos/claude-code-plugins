@@ -1,0 +1,11 @@
+{
+  "name": "context-awareness",
+  "version": "0.1.0",
+  "description": "Context-awareness utilities for Claude Code sessions",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-kit",
+  "license": "MIT",
+  "keywords": ["context", "awareness", "session"]
+}

@@ -1,0 +1,11 @@
+# Constellos Plugin Configuration
+# This file specifies dependencies and install commands for the plugin
+
+[plugin]
+name = "context-awareness"
+version = "0.1.0"
+
+# Install commands to run when setting up this plugin
+# The shared install script will execute these in order
+[install]
+commands = []

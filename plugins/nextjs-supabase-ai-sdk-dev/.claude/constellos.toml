@@ -1,0 +1,14 @@
+# Constellos Plugin Configuration
+# This file specifies dependencies and install commands for the plugin
+
+[plugin]
+name = "nextjs-supabase-ai-sdk-dev"
+version = "0.1.0"
+
+# Install commands to run when setting up this plugin
+# The shared install script will execute these in order
+[install]
+commands = [
+  # Supabase CLI - for local development and database management
+  "brew install supabase/tap/supabase || echo 'supabase CLI already installed or brew not available'",
+]
