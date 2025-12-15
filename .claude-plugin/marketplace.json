@@ -15,7 +15,7 @@
       "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase",
       "version": "0.1.0",
       "author": {
-        "name": "Sylvan Systems + Claude",
+        "name": "Sylvan Systems + Claude"
       },
       "source": "./plugins/github-vercel-supabase-ci",
       "strict": false
@@ -25,7 +25,7 @@
       "description": "Next.js, Supabase, and AI SDK development utilities",
       "version": "0.1.0",
       "author": {
-        "name": "Sylvan Systems + Claude",
+        "name": "Sylvan Systems + Claude"
       },
       "source": "./plugins/nextjs-supabase-ai-sdk-dev",
       "strict": false
@@ -35,10 +35,20 @@
       "description": "Claude Code configuration management",
       "version": "0.1.0",
       "author": {
-        "name": "Sylvan Systems + Claude",
+        "name": "Sylvan Systems + Claude"
       },
       "source": "./plugins/claude-code-config",
       "strict": false
+    },
+    {
+      "name": "main-agent-perms",
+      "description": "Enforces subagent-style metadata and permissions on the main agent",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/main-agent-perms",
+      "strict": true
     }
   ]
 }

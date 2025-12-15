@@ -1,0 +1,10 @@
+{
+  "name": "main-agent-perms",
+  "version": "0.1.0",
+  "description": "Enforces subagent-style metadata and permissions on the main agent. Placeholder for future permission controls.",
+  "author": {
+    "name": "constellos"
+  },
+  "keywords": ["permissions", "main-agent", "metadata", "security"],
+  "hooks": "../hooks/hooks.json"
+}
