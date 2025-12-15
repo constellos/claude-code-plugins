@@ -23,7 +23,7 @@
 
 import { spawn } from 'child_process';
 import { join } from 'path';
-import { readTomlFile, TomlValue } from './lib/toml.ts';
+import { readTomlFile } from './lib/toml.js';
 
 interface InstallConfig {
   plugin?: {
@@ -79,14 +79,6 @@ function execCommand(command: string, cwd: string): Promise<{ success: boolean; 
       });
     });
   });
-}
-
-/**
- * Check if a command exists
- */
-async function commandExists(cmd: string): Promise<boolean> {
-  const result = await execCommand(`which ${cmd}`, process.cwd());
-  return result.success;
 }
 
 /**

@@ -25,7 +25,7 @@ export function parseToml(content: string): TomlValue {
   const lines = content.split('\n');
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+    const line = lines[i].trim();
 
     // Skip empty lines and comments
     if (!line || line.startsWith('#')) {
@@ -51,7 +51,7 @@ export function parseToml(content: string): TomlValue {
     if (eqIndex === -1) continue;
 
     const key = line.slice(0, eqIndex).trim();
-    let value = line.slice(eqIndex + 1).trim();
+    const value = line.slice(eqIndex + 1).trim();
 
     // Parse the value
     currentSection[key] = parseValue(value, lines, i);
