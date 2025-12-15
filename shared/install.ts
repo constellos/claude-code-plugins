@@ -32,6 +32,8 @@ interface InstallConfig {
   };
   install?: {
     commands?: string[];
+    /** Only run install when CLAUDE_CODE_ENTRYPOINT matches this value (e.g., "remote") */
+    require_entrypoint?: string;
   };
 }
 
@@ -112,6 +114,17 @@ async function main(): Promise<void> {
 
   const pluginName = config.plugin?.name || 'unknown';
   const commands = config.install?.commands || [];
+  const requireEntrypoint = config.install?.require_entrypoint;
+
+  // Check if install should only run for specific entrypoint
+  if (requireEntrypoint) {
+    const currentEntrypoint = process.env.CLAUDE_CODE_ENTRYPOINT;
+    if (currentEntrypoint !== requireEntrypoint) {
+      console.log(`⏭️  Skipping install for plugin: ${pluginName}`);
+      console.log(`   Requires CLAUDE_CODE_ENTRYPOINT="${requireEntrypoint}", but got "${currentEntrypoint || 'undefined'}"`);
+      return;
+    }
+  }
 
   console.log(`\n🔧 Installing dependencies for plugin: ${pluginName}`);
 
