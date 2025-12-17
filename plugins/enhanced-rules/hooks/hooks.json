@@ -1,0 +1,14 @@
+{
+  "_comment": "Enhanced Rules Plugin - Context-aware rules and constraints",
+  "_notes": [
+    "This plugin is a placeholder for future rule enforcement features.",
+    "No hooks currently implemented."
+  ],
+  "_planned_features": [
+    "Load project-specific rules on SessionStart",
+    "Validate code against rules before tool execution (PreToolUse)",
+    "Check code against standards after edits (PostToolUse)",
+    "Block operations that violate critical rules",
+    "Context-aware rule selection based on file type/location"
+  ]
+}

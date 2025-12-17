@@ -11,16 +11,6 @@
   },
   "plugins": [
     {
-      "name": "logging",
-      "description": "Subagent execution logging and file operation tracking",
-      "version": "1.0.0",
-      "author": {
-        "name": "Constellos"
-      },
-      "source": "./plugins/logging",
-      "strict": false
-    },
-    {
       "name": "github-vercel-supabase-ci",
       "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase",
       "version": "0.1.0",
@@ -41,16 +31,6 @@
       "strict": false
     },
     {
-      "name": "claude-code-config",
-      "description": "Claude Code configuration management",
-      "version": "0.1.0",
-      "author": {
-        "name": "Sylvan Systems + Claude"
-      },
-      "source": "./plugins/claude-code-config",
-      "strict": false
-    },
-    {
       "name": "context-awareness",
       "description": "Context-awareness utilities for Claude Code sessions",
       "version": "0.1.0",
@@ -61,14 +41,24 @@
       "strict": false
     },
     {
-      "name": "main-agent-perms",
-      "description": "Enforces subagent-style metadata and permissions on the main agent",
+      "name": "codemap",
+      "description": "Generate and maintain code structure maps and navigation aids",
       "version": "0.1.0",
       "author": {
-        "name": "constellos"
+        "name": "Constellos"
       },
-      "source": "./plugins/main-agent-perms",
-      "strict": true
+      "source": "./plugins/codemap",
+      "strict": false
+    },
+    {
+      "name": "enhanced-rules",
+      "description": "Advanced context-aware rules and constraints for code generation",
+      "version": "0.1.0",
+      "author": {
+        "name": "Constellos"
+      },
+      "source": "./plugins/enhanced-rules",
+      "strict": false
     }
   ]
 }

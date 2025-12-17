@@ -1,3 +1,11 @@
+---
+title: Claude Code Plugins Marketplace
+description: A marketplace of Claude Code plugins with shared TypeScript utilities and typed hooks for development workflows
+tags: [plugins, hooks, marketplace, typescript, automation]
+version: "1.0.0"
+type: marketplace
+---
+
 # Claude Code Plugins
 
 ## What This Is
