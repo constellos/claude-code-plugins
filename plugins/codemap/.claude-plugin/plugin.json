@@ -1,0 +1,19 @@
+{
+  "name": "codemap",
+  "version": "0.1.0",
+  "description": "Generate and maintain code structure maps and navigation aids",
+  "author": {
+    "name": "Constellos"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constellos/claude-code-plugins"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codemap",
+    "navigation",
+    "structure",
+    "documentation"
+  ]
+}

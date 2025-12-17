@@ -1,0 +1,14 @@
+{
+  "_comment": "Codemap Plugin - Code structure mapping and navigation",
+  "_notes": [
+    "This plugin is a placeholder for future code mapping features.",
+    "No hooks currently implemented."
+  ],
+  "_planned_features": [
+    "Generate code structure maps on SessionStart",
+    "Update maps when files are modified (PostToolUse)",
+    "Create navigation indexes for large codebases",
+    "Export architecture diagrams",
+    "Track code dependencies and relationships"
+  ]
+}

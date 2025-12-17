@@ -1,3 +1,11 @@
+---
+title: Claude Code Plugins Marketplace
+description: A marketplace of Claude Code plugins with shared TypeScript utilities and typed hooks for development workflows
+tags: [plugins, hooks, marketplace, typescript, automation]
+version: "1.0.0"
+type: marketplace
+---
+
 # Claude Code Plugins
 
 ## What This Is
@@ -220,6 +228,370 @@ Placeholder plugin for enforcing subagent-style metadata and permissions on the 
 - Rate limiting for sensitive operations
 - Branch protection rules
 - Secret detection and blocking
+
+## Complete Hook Reference
+
+This section documents all hooks available across all plugins with detailed behavior descriptions.
+
+### Shared Hooks (All Plugins)
+
+These hooks are available in all plugins that include them in their `hooks.json`.
+
+#### SubagentStart - Track Agent Context
+
+**Event**: `SubagentStart`
+**File**: `shared/hooks/log-subagent-start.ts`
+**Matcher**: None (runs when any subagent starts via Task tool)
+**Plugins**: github-vercel-supabase-ci, nextjs-supabase-ai-sdk-dev, claude-code-config
+
+**What it does**:
+- Saves agent context when a subagent begins execution
+- Stores agent ID, type, prompt, and toolUseId to `.claude/logs/subagent-tasks.json`
+- Context is retrieved later by SubagentStop hooks
+
+**Behavior**:
+- Saves to `.claude/logs/subagent-tasks.json` in project root
+- Non-blocking on errors (errors logged to console if DEBUG enabled)
+- Creates `.claude/logs/` directory if it doesn't exist
+
+**Output**: Empty hookSpecificOutput (no additional context to Claude)
+
+**Debug**: Enable with `DEBUG=subagent` or `DEBUG=*`
+
+---
+
+#### SubagentStop - Log Agent File Operations
+
+**Event**: `SubagentStop`
+**File**: `shared/hooks/log-subagent-stop.ts`
+**Matcher**: None (runs when any subagent completes)
+**Plugins**: github-vercel-supabase-ci, nextjs-supabase-ai-sdk-dev, claude-code-config
+
+**What it does**:
+- Analyzes agent transcript when subagent completes
+- Logs agent type, prompt, and file operations to console (if DEBUG enabled)
+- Reports files created (new writes), edited (Write/Edit), and deleted (rm commands)
+- Cleans up saved context from SubagentStart
+
+**Behavior**:
+- Parses agent transcript JSONL file from `agent_transcript_path`
+- Extracts Write/Edit/Bash tool calls
+- Categorizes file operations
+- Outputs detailed log with DEBUG=* or DEBUG=subagent
+- Non-blocking on errors
+
+**Output**: Empty (logging only, no additional context to Claude)
+
+**Debug Output Example** (with DEBUG=subagent):
+```
+[SubagentStop] ─────────────────────────────────────────
+[SubagentStop] Agent Analysis Complete
+[SubagentStop] ─────────────────────────────────────────
+[SubagentStop] Agent Type: general-purpose
+[SubagentStop] Agent Prompt: Fix the authentication bug...
+[SubagentStop] Files Created: 1
+[SubagentStop]   + src/auth/new-helper.ts
+[SubagentStop] Files Edited: 2
+[SubagentStop]   ~ src/auth/login.ts
+[SubagentStop]   ~ src/auth/utils.ts
+[SubagentStop] Files Deleted: 0
+[SubagentStop] ─────────────────────────────────────────
+```
+
+**Debug**: Enable with `DEBUG=subagent` or `DEBUG=*`
+
+---
+
+### github-vercel-supabase-ci Hooks
+
+Plugin-specific hooks for CI/CD automation.
+
+#### SessionStart - Auto-sync with Main Branch
+
+**Event**: `SessionStart`
+**File**: `plugins/github-vercel-supabase-ci/hooks/pull-latest-main.ts`
+**Matcher**: None (runs on every session start)
+
+**What it does**:
+- Automatically fetches latest changes from origin at session start
+- Merges origin/main (or origin/master as fallback) into current branch
+- Handles merge conflicts gracefully by aborting the merge
+- Provides context about sync status to Claude
+
+**Behavior**:
+- Skips if not in a git repository
+- Skips if no main/master branch exists on origin
+- Detects current branch name
+- Runs `git fetch origin`
+- Runs `git merge origin/main --no-edit` (or origin/master)
+- On conflict: runs `git merge --abort` and returns blocking context
+- Reports "Already up to date" if no new commits
+- Non-blocking (provides additional context only)
+
+**Output**: Additional context message describing sync result
+
+**Success Examples**:
+- `"Branch "feature/auth" is already up to date with origin/main."`
+- `"Successfully merged origin/main into "feature/auth"."`
+
+**Conflict Example**:
+- `"Git merge conflict detected when merging origin/main into feature/auth. Merge was aborted. Please resolve manually."`
+
+**Debug**: Enable with `DEBUG=pull-latest-main` or `DEBUG=*`
+
+---
+
+#### PostToolUse[Bash] - Await PR CI Checks
+
+**Event**: `PostToolUse`
+**File**: `plugins/github-vercel-supabase-ci/hooks/await-pr-checks.ts`
+**Matcher**: `Bash` (only runs after Bash tool use)
+
+**What it does**:
+- Detects when `gh pr create` or `hub pull-request` commands are run
+- Extracts PR URL from command output
+- Waits for CI checks to complete using `gh pr checks --watch`
+- Reports results and blocks on failure
+
+**Behavior**:
+- Only triggers on PR creation commands (pattern match on command text)
+- Extracts PR URL from stdout using regex
+- Runs `gh pr checks <pr-number> --watch` with 10-minute timeout
+- Checks output for failure indicators: "fail", "X ", "cancelled"
+- **Blocks** (returns `decision: 'block'`) on:
+  - CI check failures
+  - PR URL not found in output
+  - Timeout (10 minutes)
+  - Command execution errors
+- Provides manual check commands in error output
+
+**Output**:
+- Success: Additional context with PR URL and success message
+- Failure: **Blocking decision** with error details and manual check commands
+
+**Success Example**:
+```
+CI checks passed for PR https://github.com/user/repo/pull/123
+
+To view the PR: https://github.com/user/repo/pull/123
+To view run details: gh run view
+```
+
+**Failure Example** (blocking):
+```
+decision: 'block'
+reason: 'CI checks failed'
+additionalContext: CI checks failed for PR https://github.com/user/repo/pull/123
+
+To view details, run:
+  gh pr checks 123
+  gh run view
+
+Check output:
+[... CI output ...]
+```
+
+**Debug**: Enable with `DEBUG=await-pr-checks` or `DEBUG=*`
+
+---
+
+#### SubagentStop - Auto-commit Agent Work
+
+**Event**: `SubagentStop`
+**File**: `plugins/github-vercel-supabase-ci/hooks/commit-task.ts`
+**Matcher**: None (runs when any subagent completes)
+
+**What it does**:
+- Automatically creates a git commit when a subagent completes work
+- Reads agent's transcript to extract final message
+- Formats commit message with agent type prefix
+- Stages all changes and commits them
+
+**Behavior**:
+- Skips if not in a git repository
+- Skips if no changes to commit (`git status --porcelain` is empty)
+- Parses agent transcript from `agent_transcript_path`
+- Extracts agent type from transcript (tries to get from slug, falls back to "agent")
+- Finds last assistant text message in transcript
+- Formats commit: `[agent-type] Commit title` (removes "I've", "Done", etc.)
+- Includes multi-line body if agent message is long (truncates body at 500 chars)
+- Runs `git add -A` to stage all changes
+- Runs `git commit -m '<message>'`
+- Non-blocking on errors (logs but doesn't stop execution)
+
+**Requirements**: Claude Code 2.0.42+ (for `agent_transcript_path` field)
+
+**Output**: Empty (no additional context, non-blocking)
+
+**Commit Message Examples**:
+- `[general-purpose] Fix authentication bug in login.ts`
+- `[Explore] Add new API endpoint for user profile`
+- `[agent-a1b2c3d4] Implement dark mode toggle component`
+
+**Debug**: Enable with `DEBUG=commit-task` or `DEBUG=*`
+
+---
+
+### nextjs-supabase-ai-sdk-dev Hooks
+
+Plugin-specific hooks for development quality checks.
+
+#### PostToolUse[Write|Edit] - ESLint Linting
+
+**Event**: `PostToolUse`
+**File**: `plugins/nextjs-supabase-ai-sdk-dev/hooks/lint-file.ts`
+**Matcher**: `Write|Edit` (runs after Write or Edit tool use)
+
+**What it does**:
+- Runs ESLint on the project after any file write or edit
+- Detects package manager (npm/yarn/pnpm/bun) automatically
+- Executes `<package-manager> run lint` command
+- Provides lint errors as additional context to Claude
+
+**Behavior**:
+- Only triggers on Write and Edit operations
+- Detects package manager from lockfiles in cwd
+- Runs lint command with 30-second timeout
+- Returns empty output on success (no lint errors)
+- Returns additional context with lint errors on failure
+- Returns system message on execution failure (timeout, ESLint not found)
+
+**Output**:
+- Success: Empty (no output)
+- Lint errors: Additional context with ESLint output and instruction to fix
+- Execution failure: System message with error details
+
+**Lint Error Example**:
+```
+hookSpecificOutput: {
+  hookEventName: 'PostToolUse',
+  additionalContext: ESLint found errors:
+
+/path/to/file.ts
+  12:5  error  'foo' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+Please fix these linting issues.
+}
+```
+
+**Requirements**:
+- ESLint configured in project
+- `lint` script in package.json
+- Supported package managers: npm, yarn, pnpm, or bun
+
+**Debug**: Enable with `DEBUG=lint-file` or `DEBUG=*`
+
+---
+
+#### PostToolUse[Write|Edit] - TypeScript Type Checking
+
+**Event**: `PostToolUse`
+**File**: `plugins/nextjs-supabase-ai-sdk-dev/hooks/typecheck-file.ts`
+**Matcher**: `Write|Edit` (runs after Write or Edit tool use)
+
+**What it does**:
+- Runs `tsc --noEmit` to check TypeScript types after file edits
+- Provides type errors as additional context to Claude
+- Allows Claude to fix type errors immediately
+
+**Behavior**:
+- Only triggers on Write and Edit operations
+- Runs `tsc --noEmit` with 30-second timeout
+- Returns empty output on success (no type errors)
+- Returns additional context with type errors on failure
+- Returns system message on execution failure (timeout, tsc not found)
+
+**Output**:
+- Success: Empty (no output)
+- Type errors: Additional context with TypeScript output and instruction to fix
+- Execution failure: System message with error details
+
+**Type Error Example**:
+```
+hookSpecificOutput: {
+  hookEventName: 'PostToolUse',
+  additionalContext: TypeScript type checking found errors:
+
+src/auth/login.ts:12:5 - error TS2322: Type 'string' is not assignable to type 'number'.
+
+12     const age: number = "twenty";
+       ~~~
+
+Please fix these type errors.
+}
+```
+
+**Requirements**:
+- TypeScript configured in project
+- `tsc` available (usually from node_modules/.bin/)
+
+**Debug**: Enable with `DEBUG=typecheck-file` or `DEBUG=*`
+
+---
+
+#### PostToolUse[*.test.ts|*.test.tsx] - Vitest Test Runner
+
+**Event**: `PostToolUse`
+**File**: `plugins/nextjs-supabase-ai-sdk-dev/hooks/vitest-file.ts`
+**Matcher**: `Write(**.test.ts)|Write(**.test.tsx)|Edit(**.test.ts)|Edit(**.test.tsx)`
+
+**What it does**:
+- Runs Vitest test suite after editing test files
+- Detects package manager (npm/yarn/pnpm/bun) automatically
+- Executes `<package-manager> run test` command
+- Provides test failures as additional context to Claude
+
+**Behavior**:
+- Only triggers on Write/Edit of `.test.ts` or `.test.tsx` files
+- Detects package manager from lockfiles in cwd
+- Runs test command with 60-second timeout
+- Returns empty output on success (all tests pass)
+- Returns additional context with test failures on failure
+- Returns system message on execution failure (timeout, Vitest not found)
+
+**Output**:
+- Success: Empty (no output)
+- Test failures: Additional context with Vitest output and instruction to fix
+- Execution failure: System message with error details
+
+**Test Failure Example**:
+```
+hookSpecificOutput: {
+  hookEventName: 'PostToolUse',
+  additionalContext: Vitest found test failures:
+
+ FAIL  src/auth/login.test.ts
+  ✓ should login with valid credentials (5ms)
+  ✕ should reject invalid password (12ms)
+
+  ● should reject invalid password
+
+    expect(received).toBe(expected)
+
+    Expected: false
+    Received: true
+
+Please fix these test failures.
+}
+```
+
+**Requirements**:
+- Vitest configured in project
+- `test` script in package.json
+- Supported package managers: npm, yarn, pnpm, or bun
+
+**Debug**: Enable with `DEBUG=vitest-file` or `DEBUG=*`
+
+---
+
+## Per-Plugin Documentation
+
+Each plugin has its own CLAUDE.md file with detailed hook documentation:
+
+- `plugins/github-vercel-supabase-ci/CLAUDE.md` - CI/CD hooks reference
+- `plugins/nextjs-supabase-ai-sdk-dev/CLAUDE.md` - Quality check hooks reference
+- `plugins/claude-code-config/CLAUDE.md` - Config plugin reference
+- `plugins/main-agent-perms/CLAUDE.md` - Permissions plugin (placeholder)
 
 ## Local Development
 

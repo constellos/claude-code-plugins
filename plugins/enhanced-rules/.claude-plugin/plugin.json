@@ -1,0 +1,19 @@
+{
+  "name": "enhanced-rules",
+  "version": "0.1.0",
+  "description": "Advanced context-aware rules and constraints for code generation",
+  "author": {
+    "name": "Constellos"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constellos/claude-code-plugins"
+  },
+  "license": "MIT",
+  "keywords": [
+    "rules",
+    "constraints",
+    "validation",
+    "standards"
+  ]
+}

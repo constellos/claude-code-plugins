@@ -20,23 +20,9 @@
       ]
     }
   ],
-  "SubagentStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
-        }
-      ]
-    }
-  ],
   "SubagentStop": [
     {
       "hooks": [
-        {
-          "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
-        },
         {
           "type": "command",
           "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task.ts"
