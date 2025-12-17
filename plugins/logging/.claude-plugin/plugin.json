@@ -1,0 +1,19 @@
+{
+  "name": "logging",
+  "version": "1.0.0",
+  "description": "Subagent execution logging and file operation tracking",
+  "author": {
+    "name": "Constellos"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constellos/claude-code-plugins"
+  },
+  "license": "MIT",
+  "keywords": [
+    "logging",
+    "subagent",
+    "tracking",
+    "audit"
+  ]
+}

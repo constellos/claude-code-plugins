@@ -11,6 +11,16 @@
   },
   "plugins": [
     {
+      "name": "logging",
+      "description": "Subagent execution logging and file operation tracking",
+      "version": "1.0.0",
+      "author": {
+        "name": "Constellos"
+      },
+      "source": "./plugins/logging",
+      "strict": false
+    },
+    {
       "name": "github-vercel-supabase-ci",
       "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase",
       "version": "0.1.0",

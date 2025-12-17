@@ -1,22 +1,14 @@
 {
-  "SubagentStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
-        }
-      ]
-    }
+  "_comment": "Claude Code Config Plugin - Configuration management utilities",
+  "_notes": [
+    "This plugin currently has no hooks implemented.",
+    "Subagent logging hooks have been moved to the 'logging' plugin.",
+    "Install the 'logging' plugin separately if you need subagent tracking."
   ],
-  "SubagentStop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
-        }
-      ]
-    }
+  "_planned_features": [
+    "Configuration validation hooks",
+    "Project setup automation",
+    "Environment variable management",
+    "Custom workflow automation"
   ]
 }

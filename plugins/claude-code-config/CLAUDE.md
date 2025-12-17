@@ -4,87 +4,45 @@ Configuration management utilities for Claude Code projects.
 
 ## Overview
 
-This is a minimal plugin that provides only the shared subagent tracking hooks. It serves as a lightweight option for projects that want subagent logging without additional CI/CD or quality check automation.
+This is a placeholder plugin for future configuration management features. Currently, it has no hooks implemented.
 
-## Hooks
+**Note**: Subagent logging hooks have been moved to the dedicated **logging** plugin. Install that plugin separately if you need subagent tracking.
 
-### 1. SubagentStart - Track Agent Context (Shared)
+## Current Status
 
-**File**: `shared/hooks/log-subagent-start.ts`
-**Event**: `SubagentStart`
-**Matcher**: None (runs when any subagent starts)
+**No hooks implemented.**
 
-**What it does**:
-- Saves agent context when subagent begins execution
-- Stores agent ID, type, prompt, and toolUseId to `.claude/logs/subagent-tasks.json`
-- Context is retrieved later by SubagentStop hooks
+The `hooks/hooks.json` file contains only comments describing planned features.
 
-**Behavior**:
-- Saves to `.claude/logs/subagent-tasks.json` in project root
-- Non-blocking on errors
+## Subagent Logging
 
-**Output**: Empty hookSpecificOutput
-
----
-
-### 2. SubagentStop - Log Agent File Operations (Shared)
-
-**File**: `shared/hooks/log-subagent-stop.ts`
-**Event**: `SubagentStop`
-**Matcher**: None (runs when any subagent completes)
-
-**What it does**:
-- Analyzes agent transcript when subagent completes
-- Logs agent type, prompt, and file operations to console (if DEBUG enabled)
-- Reports files created, edited, and deleted
-- Cleans up saved context from SubagentStart
-
-**Behavior**:
-- Parses agent transcript JSONL file
-- Extracts Write/Edit/Bash tool calls
-- Categorizes file operations
-- Outputs detailed log with DEBUG=* or DEBUG=subagent
-- Non-blocking on errors
-
-**Output**: Empty (logging only, no additional context)
-
-**Example output** (with DEBUG=subagent):
-```
-[SubagentStop] ─────────────────────────────────────────
-[SubagentStop] Agent Analysis Complete
-[SubagentStop] ─────────────────────────────────────────
-[SubagentStop] Agent Type: general-purpose
-[SubagentStop] Agent Prompt: Fix the authentication bug in login.ts
-[SubagentStop] Files Created: 0
-[SubagentStop] Files Edited: 2
-[SubagentStop]   ~ src/auth/login.ts
-[SubagentStop]   ~ src/auth/utils.ts
-[SubagentStop] Files Deleted: 0
-[SubagentStop] ─────────────────────────────────────────
-```
-
----
-
-## Debug Logging
-
-Enable debug output for hooks:
+For subagent execution tracking and file operation logging, install the **logging** plugin:
 
 ```bash
-DEBUG=* claude           # All debug output
-DEBUG=subagent claude    # Subagent hooks only
+/plugin install logging@claude-code-kit-local
 ```
 
-## Requirements
+The logging plugin provides:
+- SubagentStart hook - Tracks agent context when subagents begin
+- SubagentStop hook - Logs file operations when subagents complete
 
-- Node.js (for TypeScript hook runner)
+See `plugins/logging/CLAUDE.md` for details.
+
+## Planned Features
+
+Future features to consider:
+- Configuration validation hooks
+- Project setup automation
+- Environment variable management
+- Custom workflow automation
 
 ## Use Cases
 
-This plugin is ideal for:
-- Projects that want to track subagent file operations
-- Debugging subagent behavior
-- Understanding what files agents modify
-- Lightweight monitoring without CI/CD automation
+When implemented, this plugin will enable:
+- Automated project configuration validation
+- Setup scripts for new developers
+- Environment-specific configuration management
+- Custom workflow automation
 
 ## Configuration
 

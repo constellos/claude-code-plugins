@@ -85,45 +85,19 @@ This plugin provides automated quality checks that run after file edits, ensurin
 
 ---
 
-### 4. SubagentStart - Track Agent Context (Shared)
+## Subagent Logging
 
-**File**: `shared/hooks/log-subagent-start.ts`
-**Event**: `SubagentStart`
-**Matcher**: None (runs when any subagent starts)
+For subagent execution tracking and file operation logging, install the **logging** plugin:
 
-**What it does**:
-- Saves agent context when subagent begins execution
-- Stores agent ID, type, prompt, and toolUseId to `.claude/logs/subagent-tasks.json`
-- Context is retrieved later by SubagentStop hooks
+```bash
+/plugin install logging@claude-code-kit-local
+```
 
-**Behavior**:
-- Saves to `.claude/logs/subagent-tasks.json` in project root
-- Non-blocking on errors
+The logging plugin provides:
+- SubagentStart hook - Tracks agent context when subagents begin
+- SubagentStop hook - Logs file operations when subagents complete
 
-**Output**: Empty hookSpecificOutput
-
----
-
-### 5. SubagentStop - Log Agent File Operations (Shared)
-
-**File**: `shared/hooks/log-subagent-stop.ts`
-**Event**: `SubagentStop`
-**Matcher**: None (runs when any subagent completes)
-
-**What it does**:
-- Analyzes agent transcript when subagent completes
-- Logs agent type, prompt, and file operations to console (if DEBUG enabled)
-- Reports files created, edited, and deleted
-- Cleans up saved context from SubagentStart
-
-**Behavior**:
-- Parses agent transcript JSONL file
-- Extracts Write/Edit/Bash tool calls
-- Categorizes file operations
-- Outputs detailed log with DEBUG=* or DEBUG=subagent
-- Non-blocking on errors
-
-**Output**: Empty (logging only, no additional context)
+See `plugins/logging/CLAUDE.md` for details.
 
 ---
 
