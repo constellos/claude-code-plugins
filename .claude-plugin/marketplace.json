@@ -31,16 +31,6 @@
       "strict": false
     },
     {
-      "name": "context-awareness",
-      "description": "Context-awareness utilities for Claude Code sessions",
-      "version": "0.1.0",
-      "author": {
-        "name": "constellos"
-      },
-      "source": "./plugins/context-awareness",
-      "strict": false
-    },
-    {
       "name": "code-context",
       "description": "Generate and maintain code context maps and navigation aids for Claude Code",
       "version": "0.1.0",
@@ -51,13 +41,13 @@
       "strict": false
     },
     {
-      "name": "enhanced-rules",
-      "description": "Advanced context-aware rules and constraints for code generation",
+      "name": "markdown-rules",
+      "description": "Markdown heading validation and rule enforcement for documentation files",
       "version": "0.1.0",
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/enhanced-rules",
+      "source": "./plugins/markdown-rules",
       "strict": false
     }
   ]

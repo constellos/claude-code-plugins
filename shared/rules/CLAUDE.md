@@ -12,7 +12,7 @@ Rules can include YAML frontmatter to define:
 
 ```yaml
 ---
-# Heading validation (enforced by enforce-rule-md-headings hook)
+# Heading validation (enforced by enforce-markdown-rules hook)
 headings:
   required:
     - "## Overview"
@@ -37,9 +37,9 @@ Rule content here...
 
 ## Related Hooks
 
-The following hooks in `shared/hooks/rules/` process rule files:
+The following hooks in `shared/hooks/` process rule files:
 
-- **enforce-rule-md-headings.ts** - PreToolUse hook that validates markdown heading structure
+- **enforce-markdown-rules.ts** - PreToolUse hook that validates markdown heading structure (supports Write and Edit)
 - **run-rule-checks.ts** - PostToolUse hook that runs custom checks from frontmatter
 
 ## Creating Rules

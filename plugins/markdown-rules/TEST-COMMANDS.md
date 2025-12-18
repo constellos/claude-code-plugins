@@ -1,6 +1,6 @@
-# Enhanced Rules Plugin - Test Commands
+# Markdown Rules Plugin - Test Commands
 
-This document contains manual test commands used to validate the enhanced-rules plugin hooks.
+This document contains manual test commands used to validate the markdown-rules plugin hooks.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ npm install  # Install dependencies including gray-matter
 ## Test 1: Heading Validation - Valid Content (Should Allow)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "test1",
@@ -42,7 +42,7 @@ EOF
 ## Test 2: Heading Validation - Missing Required Heading (Should Deny)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "test2",
@@ -73,7 +73,7 @@ EOF
 ## Test 3: Heading Validation - Wildcard Prefix Matching (Should Allow)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "test3",
@@ -103,7 +103,7 @@ EOF
 ## Test 4: Heading Validation - Max Constraint Exceeded (Should Deny)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "test4",
@@ -134,7 +134,7 @@ EOF
 ## Test 5: Run Rule Checks - Passing Checks (Should Allow)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/run-rule-checks.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/run-rule-checks.ts | jq .
 {
   "hook_event_name": "PostToolUse",
   "tool_use_id": "test5",
@@ -159,7 +159,7 @@ EOF
 ## Test 6: Run Rule Checks - Failing Check (Should Block)
 
 ```bash
-cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/run-rule-checks.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/run-rule-checks.ts | jq .
 {
   "hook_event_name": "PostToolUse",
   "tool_use_id": "test6",
@@ -191,7 +191,7 @@ EOF
 ## Test 7: Non-Matching Tool (Should Skip)
 
 ```bash
-echo '{"hook_event_name":"PostToolUse","tool_use_id":"test7","tool_name":"Read","tool_input":{"file_path":"test.ts"},"tool_response":"ok","session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"/home/user/claude-code-plugins","permission_mode":"default"}' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/run-rule-checks.ts | jq .
+echo '{"hook_event_name":"PostToolUse","tool_use_id":"test7","tool_name":"Read","tool_input":{"file_path":"test.ts"},"tool_response":"ok","session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"/home/user/claude-code-plugins","permission_mode":"default"}' | npx tsx shared/runner.ts shared/hooks/run-rule-checks.ts | jq .
 ```
 
 **Expected Output:**
@@ -202,7 +202,7 @@ echo '{"hook_event_name":"PostToolUse","tool_use_id":"test7","tool_name":"Read",
 ## Test 8: Non-Rule File (Should Allow)
 
 ```bash
-echo '{"hook_event_name":"PreToolUse","tool_use_id":"test8","tool_name":"Write","tool_input":{"file_path":"README.md","content":"# Title\n## Section"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"/home/user/claude-code-plugins","permission_mode":"default"}' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts | jq .
+echo '{"hook_event_name":"PreToolUse","tool_use_id":"test8","tool_name":"Write","tool_input":{"file_path":"README.md","content":"# Title\n## Section"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"/home/user/claude-code-plugins","permission_mode":"default"}' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
 ```
 
 **Expected Output:**
@@ -220,7 +220,7 @@ echo '{"hook_event_name":"PreToolUse","tool_use_id":"test8","tool_name":"Write",
 Run all tests at once:
 
 ```bash
-./plugins/enhanced-rules/test-hooks.sh
+./plugins/markdown-rules/test-hooks.sh
 ```
 
 Note: Some tests in the automated script may show false failures due to bash string escaping issues. The manual tests above are the authoritative validation.
@@ -230,7 +230,7 @@ Note: Some tests in the automated script may show false failures due to bash str
 Run hooks with debug logging:
 
 ```bash
-DEBUG=enforce-rule-md-headings cat << 'EOF' | npx tsx shared/runner.ts plugins/enhanced-rules/hooks/enforce-rule-md-headings.ts
+DEBUG=enforce-markdown-rules cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "debug-test",

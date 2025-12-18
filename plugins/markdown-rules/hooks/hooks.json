@@ -1,8 +1,8 @@
 {
-  "_comment": "Enhanced Rules Plugin - Context-aware rules and constraints",
+  "_comment": "Markdown Rules Plugin - Markdown heading validation and rule enforcement",
   "_notes": [
-    "This plugin provides rule enforcement through custom checks and markdown heading validation.",
-    "Hooks: PreToolUse (heading validation), PostToolUse (rule checks)",
+    "This plugin enforces markdown heading structure and runs custom rule checks.",
+    "Hooks: PreToolUse (heading validation for Write|Edit), PostToolUse (rule checks for Write|Edit)",
     "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/"
   ],
   "PreToolUse": [
@@ -10,8 +10,8 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-rule-md-headings.ts",
-          "matcher": "Write"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-markdown-rules.ts",
+          "matcher": "Write|Edit"
         }
       ]
     }
