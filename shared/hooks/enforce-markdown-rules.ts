@@ -1,7 +1,7 @@
 /**
- * PreToolUse Hook - Enforce Rule Markdown Headings
+ * PreToolUse Hook - Enforce Markdown Rules
  *
- * This hook fires before Write operations on .md files referenced in .claude/rules
+ * This hook fires before Write and Edit operations on .md files referenced in .claude/rules
  * to validate markdown heading structure against frontmatter specifications.
  *
  * Supports:
@@ -10,7 +10,7 @@
  * - Repeating headings with min/max counts
  * - Wildcard patterns (prefix: "### Step *", suffix: "## * Notes")
  *
- * @module hooks/enforce-rule-md-headings
+ * @module hooks/enforce-markdown-rules
  */
 
 import type { PreToolUseInput, PreToolUseHookOutput } from '../types/types.js';
@@ -183,8 +183,8 @@ function validateHeadings(
 async function handler(
   input: PreToolUseInput
 ): Promise<PreToolUseHookOutput> {
-  // Only run for Write operations
-  if (input.tool_name !== 'Write') {
+  // Only run for Write and Edit operations
+  if (input.tool_name !== 'Write' && input.tool_name !== 'Edit') {
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
@@ -193,7 +193,7 @@ async function handler(
     };
   }
 
-  const logger = createDebugLogger(input.cwd, 'enforce-rule-md-headings', true);
+  const logger = createDebugLogger(input.cwd, 'enforce-markdown-rules', true);
 
   try {
     await logger.logInput({
@@ -202,9 +202,45 @@ async function handler(
     });
 
     // Get the file path and content from tool input
-    const toolInput = input.tool_input as { file_path?: string; content?: string };
+    const toolInput = input.tool_input as {
+      file_path?: string;
+      content?: string;
+      old_string?: string;
+      new_string?: string;
+    };
     const filePath = toolInput.file_path;
-    const content = toolInput.content;
+
+    // For Write operations, use content directly
+    // For Edit operations, read current file and apply the edit
+    let content: string | undefined;
+
+    if (input.tool_name === 'Write') {
+      content = toolInput.content;
+    } else if (input.tool_name === 'Edit') {
+      // For Edit, read the current file and apply the replacement
+      if (!filePath || !toolInput.old_string || !toolInput.new_string) {
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+          },
+        };
+      }
+
+      try {
+        const currentContent = await fs.readFile(path.resolve(input.cwd, filePath), 'utf-8');
+        // Apply the edit by replacing old_string with new_string
+        content = currentContent.replace(toolInput.old_string, toolInput.new_string);
+      } catch {
+        // If file doesn't exist or can't be read, allow the operation
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+          },
+        };
+      }
+    }
 
     if (!filePath || !content) {
       return {

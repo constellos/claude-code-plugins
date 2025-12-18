@@ -1,11 +1,31 @@
 {
   "_comment": "Code Context Plugin - Code structure mapping and navigation",
+  "SubagentStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
+        }
+      ]
+    }
+  ],
+  "SubagentStop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
+        }
+      ]
+    }
+  ],
   "PreToolUse": [
     {
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-rule-md-headings.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-markdown-rules.ts",
           "matcher": "Write|Edit"
         }
       ]

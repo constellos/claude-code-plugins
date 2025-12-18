@@ -1,7 +1,7 @@
 {
-  "name": "enhanced-rules",
+  "name": "markdown-rules",
   "version": "0.1.0",
-  "description": "Advanced context-aware rules and constraints for code generation",
+  "description": "Markdown heading validation and rule enforcement for documentation files",
   "author": {
     "name": "Constellos"
   },
@@ -11,9 +11,9 @@
   },
   "license": "MIT",
   "keywords": [
+    "markdown",
     "rules",
-    "constraints",
     "validation",
-    "standards"
+    "headings"
   ]
 }

@@ -16,7 +16,7 @@ checks:
 
 # Test Rule
 
-This is a test rule file used to validate the enhanced-rules plugin hooks.
+This is a test rule file used to validate the markdown-rules plugin hooks.
 
 ## Overview
 

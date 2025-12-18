@@ -1,15 +1,15 @@
 #!/bin/bash
-# Test script for enhanced-rules plugin hooks
-# This script tests both run-rule-checks.ts and enforce-rule-md-headings.ts
+# Test script for markdown-rules plugin hooks
+# This script tests both run-rule-checks.ts and enforce-markdown-rules.ts
 
 set -e
 
 CWD="/home/user/claude-code-plugins"
 RUNNER="npx tsx $CWD/shared/runner.ts"
-HOOK_DIR="$CWD/plugins/enhanced-rules/hooks"
+HOOK_DIR="$CWD/shared/hooks"
 
 echo "========================================="
-echo "Testing Enhanced Rules Plugin Hooks"
+echo "Testing Markdown Rules Plugin Hooks"
 echo "========================================="
 echo ""
 
@@ -42,36 +42,36 @@ echo '{"hook_event_name":"PostToolUse","tool_use_id":"test3","tool_name":"Read",
 echo ""
 
 # ==============================================================================
-# Test 4: enforce-rule-md-headings.ts - Non-Write tool (should allow)
+# Test 4: enforce-markdown-rules.ts - Non-Write/Edit tool (should allow)
 # ==============================================================================
-echo "Test 4: enforce-rule-md-headings.ts - Non-Write tool (should allow)"
-echo '{"hook_event_name":"PreToolUse","tool_use_id":"test4","tool_name":"Edit","tool_input":{"file_path":"test.md","old_string":"old","new_string":"new"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" \
+echo "Test 4: enforce-markdown-rules.ts - Non-Write/Edit tool (should allow)"
+echo '{"hook_event_name":"PreToolUse","tool_use_id":"test4","tool_name":"Read","tool_input":{"file_path":"test.md"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" \
   | jq -e '.hookSpecificOutput.permissionDecision == "allow"' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 5: enforce-rule-md-headings.ts - Non-markdown file (should allow)
+# Test 5: enforce-markdown-rules.ts - Non-markdown file (should allow)
 # ==============================================================================
-echo "Test 5: enforce-rule-md-headings.ts - Non-markdown file (should allow)"
+echo "Test 5: enforce-markdown-rules.ts - Non-markdown file (should allow)"
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test5","tool_name":"Write","tool_input":{"file_path":"test.ts","content":"const x = 1;"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" \
   | jq -e '.hookSpecificOutput.permissionDecision == "allow"' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 6: enforce-rule-md-headings.ts - Markdown file not in .claude/rules (should allow)
+# Test 6: enforce-markdown-rules.ts - Markdown file not in .claude/rules (should allow)
 # ==============================================================================
-echo "Test 6: enforce-rule-md-headings.ts - Markdown file not in .claude/rules (should allow)"
+echo "Test 6: enforce-markdown-rules.ts - Markdown file not in .claude/rules (should allow)"
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test6","tool_name":"Write","tool_input":{"file_path":"README.md","content":"# Title\n## Section"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" \
   | jq -e '.hookSpecificOutput.permissionDecision == "allow"' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 7: enforce-rule-md-headings.ts - Valid required headings (should allow)
+# Test 7: enforce-markdown-rules.ts - Valid required headings (should allow)
 # ==============================================================================
-echo "Test 7: enforce-rule-md-headings.ts - Valid required headings (should allow)"
+echo "Test 7: enforce-markdown-rules.ts - Valid required headings (should allow)"
 CONTENT='# Test Rule
 
 ## Overview
@@ -81,30 +81,30 @@ This is the overview section.
 Implementation details here.'
 
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test7","tool_name":"Write","tool_input":{"file_path":"'$CWD'/.claude/rules/test-rule.md","content":"'$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')'"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" 2>&1 \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" 2>&1 \
   | tee /tmp/test7-output.json \
   | jq -e 'if .hookSpecificOutput then .hookSpecificOutput.permissionDecision == "allow" else true end' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 8: enforce-rule-md-headings.ts - Missing required heading (should deny)
+# Test 8: enforce-markdown-rules.ts - Missing required heading (should deny)
 # ==============================================================================
-echo "Test 8: enforce-rule-md-headings.ts - Missing required heading (should deny)"
+echo "Test 8: enforce-markdown-rules.ts - Missing required heading (should deny)"
 CONTENT='# Test Rule
 
 ## Overview
 This is the overview section.'
 
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test8","tool_name":"Write","tool_input":{"file_path":"'$CWD'/.claude/rules/test-rule.md","content":"'$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')'"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" 2>&1 \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" 2>&1 \
   | tee /tmp/test8-output.json \
   | jq -e 'if .hookSpecificOutput then .hookSpecificOutput.permissionDecision == "deny" else false end' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 9: enforce-rule-md-headings.ts - Wildcard prefix match (should allow)
+# Test 9: enforce-markdown-rules.ts - Wildcard prefix match (should allow)
 # ==============================================================================
-echo "Test 9: enforce-rule-md-headings.ts - Wildcard prefix match (should allow)"
+echo "Test 9: enforce-markdown-rules.ts - Wildcard prefix match (should allow)"
 CONTENT='# Test Rule
 
 ## Overview
@@ -119,22 +119,22 @@ Second step.
 Third step.'
 
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test9","tool_name":"Write","tool_input":{"file_path":"'$CWD'/.claude/rules/test-rule.md","content":"'$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')'"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" 2>&1 \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" 2>&1 \
   | tee /tmp/test9-output.json \
   | jq -e 'if .hookSpecificOutput then .hookSpecificOutput.permissionDecision == "allow" else true end' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
 
 # ==============================================================================
-# Test 10: enforce-rule-md-headings.ts - Repeating heading min constraint (should deny)
+# Test 10: enforce-markdown-rules.ts - Repeating heading min constraint (should deny)
 # ==============================================================================
-echo "Test 10: enforce-rule-md-headings.ts - Repeating heading min constraint (should deny)"
+echo "Test 10: enforce-markdown-rules.ts - Repeating heading min constraint (should deny)"
 CONTENT='# Test Rule
 
 ## Overview
 No steps defined.'
 
 echo '{"hook_event_name":"PreToolUse","tool_use_id":"test10","tool_name":"Write","tool_input":{"file_path":"'$CWD'/.claude/rules/test-rule.md","content":"'$(echo "$CONTENT" | sed 's/"/\\"/g' | tr '\n' ' ')'"},"session_id":"test","transcript_path":"/tmp/transcript.jsonl","cwd":"'$CWD'","permission_mode":"default"}' \
-  | $RUNNER "$HOOK_DIR/enforce-rule-md-headings.ts" 2>&1 \
+  | $RUNNER "$HOOK_DIR/enforce-markdown-rules.ts" 2>&1 \
   | tee /tmp/test10-output.json \
   | jq -e 'if .hookSpecificOutput then .hookSpecificOutput.permissionDecision == "deny" else false end' > /dev/null && echo "✓ PASS" || echo "✗ FAIL"
 echo ""
