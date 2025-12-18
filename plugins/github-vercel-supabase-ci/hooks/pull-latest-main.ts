@@ -10,6 +10,7 @@
 
 import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -44,7 +45,7 @@ async function gitExec(
  * @param input - SessionStart hook input from Claude Code
  * @returns Hook output with sync status as additional context
  */
-export default async function (
+async function handler(
   input: SessionStartInput
 ): Promise<SessionStartHookOutput> {
   const logger = createDebugLogger(input.cwd, 'pull-latest-main', true);
@@ -181,3 +182,9 @@ export default async function (
     };
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

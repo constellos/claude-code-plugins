@@ -9,6 +9,7 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
 import { readdir, access } from 'fs/promises';
 import { join, dirname } from 'path';
 
@@ -43,7 +44,7 @@ async function fileExists(path: string): Promise<boolean> {
  * If related CLAUDE.md files are found, they're provided as markdown links
  * in the additional context.
  */
-export default async function (
+async function handler(
   input: PostToolUseInput
 ): Promise<PostToolUseHookOutput> {
   // Only run for Read operations
@@ -133,3 +134,9 @@ export default async function (
     return {};
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

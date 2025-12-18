@@ -15,8 +15,9 @@
 
 import type { SubagentStopInput, SubagentStopHookOutput } from '../types/types.js';
 import { getAgentEdits } from './utils/subagent-state.js';
+import { runHook } from './utils/io.js';
 
-export default async function (input: SubagentStopInput): Promise<SubagentStopHookOutput> {
+async function handler(input: SubagentStopInput): Promise<SubagentStopHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('subagent');
 
   if (DEBUG) {
@@ -84,3 +85,9 @@ export default async function (input: SubagentStopInput): Promise<SubagentStopHo
     return {};
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

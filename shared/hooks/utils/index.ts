@@ -6,8 +6,8 @@
  *   import { readStdinJson } from './io.ts';
  */
 
-// I/O utilities
-export { readStdinJson, writeStdoutJson } from './io.js';
+// I/O utilities and hook runner
+export { readStdinJson, writeStdoutJson, runHook, type HookHandler } from './io.js';
 
 // Debug utilities
 export {
