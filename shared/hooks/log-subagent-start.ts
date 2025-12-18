@@ -10,8 +10,9 @@
 
 import type { SubagentStartInput, SubagentStartHookOutput } from '../types/types.js';
 import { saveAgentStartContext } from './utils/subagent-state.js';
+import { runHook } from './utils/io.js';
 
-export default async function (input: SubagentStartInput): Promise<SubagentStartHookOutput> {
+async function handler(input: SubagentStartInput): Promise<SubagentStartHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('subagent');
 
   if (DEBUG) {
@@ -53,3 +54,9 @@ export default async function (input: SubagentStartInput): Promise<SubagentStart
     };
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

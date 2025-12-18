@@ -14,7 +14,8 @@
  */
 
 import type { PreToolUseInput, PreToolUseHookOutput } from '../types/types.js';
-import { createDebugLogger } from '../hooks/utils/debug.js';
+import { createDebugLogger } from './utils/debug.js';
+import { runHook } from './utils/io.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import matter from 'gray-matter';
@@ -179,7 +180,7 @@ function validateHeadings(
  * @param input - PreToolUse hook input from Claude Code
  * @returns Hook output with permission decision (deny if validation fails)
  */
-export default async function (
+async function handler(
   input: PreToolUseInput
 ): Promise<PreToolUseHookOutput> {
   // Only run for Write operations
@@ -299,3 +300,9 @@ export default async function (
     };
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

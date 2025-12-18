@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/enforce-rule-md-headings.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-rule-md-headings.ts",
           "matcher": "Write"
         }
       ]
@@ -17,7 +17,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
         }
       ]
     },
@@ -25,14 +25,14 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/run-rule-checks.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/run-rule-checks.ts",
           "matcher": "Write|Edit"
         }
       ]
     }
   ],
   "_notes": [
-    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/rules/"
+    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/"
   ],
   "_planned_features": [
     "Generate code structure maps on SessionStart",

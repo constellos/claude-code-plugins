@@ -12,6 +12,7 @@
 
 import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
 import { parseTranscript, type AssistantMessage, type TextContent, type Message } from '../../../shared/hooks/utils/transcripts.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -109,7 +110,7 @@ function formatCommitMessage(agentMessage: string, agentType: string): string {
  * @param input - SubagentStop hook input from Claude Code
  * @returns Hook output (empty on success, blocking on critical error)
  */
-export default async function (
+async function handler(
   input: SubagentStopInput
 ): Promise<SubagentStopHookOutput> {
   const logger = createDebugLogger(input.cwd, 'commit-task', true);
@@ -211,3 +212,9 @@ export default async function (
     return {};
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

@@ -9,6 +9,7 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -28,7 +29,7 @@ const execAsync = promisify(exec);
  * If type errors are found, they're provided as additional context to Claude,
  * allowing it to fix them in the next response.
  */
-export default async function (
+async function handler(
   input: PostToolUseInput
 ): Promise<PostToolUseHookOutput> {
   // Only run for Write and Edit operations
@@ -82,3 +83,9 @@ export default async function (
     };
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);

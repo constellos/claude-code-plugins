@@ -5,11 +5,11 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/lint-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/lint-file.ts"
         },
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-file.ts"
         }
       ]
     },
@@ -18,7 +18,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-file.ts"
         }
       ]
     }

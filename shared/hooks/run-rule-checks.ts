@@ -9,7 +9,8 @@
  */
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../types/types.js';
-import { createDebugLogger } from '../hooks/utils/debug.js';
+import { createDebugLogger } from './utils/debug.js';
+import { runHook } from './utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
@@ -94,7 +95,7 @@ function findMatchingRules(filePath: string, rules: RuleFile[]): RuleFile[] {
  * @param input - PostToolUse hook input from Claude Code
  * @returns Hook output with check failures as blocking decision if found
  */
-export default async function (
+async function handler(
   input: PostToolUseInput
 ): Promise<PostToolUseHookOutput> {
   // Only run for Write and Edit operations
@@ -202,3 +203,9 @@ export default async function (
     };
   }
 }
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);
