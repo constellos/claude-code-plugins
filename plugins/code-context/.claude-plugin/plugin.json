@@ -1,7 +1,7 @@
 {
-  "name": "codemap",
+  "name": "code-context",
   "version": "0.1.0",
-  "description": "Generate and maintain code structure maps and navigation aids",
+  "description": "Generate and maintain code context maps and navigation aids for Claude Code",
   "author": {
     "name": "Constellos"
   },
@@ -11,9 +11,10 @@
   },
   "license": "MIT",
   "keywords": [
-    "codemap",
+    "code-context",
     "navigation",
     "structure",
-    "documentation"
+    "documentation",
+    "claude-code"
   ]
 }

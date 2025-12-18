@@ -7,8 +7,8 @@
  * @module hooks/add-folder-context
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/lib/types.js';
-import { createDebugLogger } from '../../../shared/lib/debug.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { readdir, access } from 'fs/promises';
 import { join, dirname } from 'path';
 

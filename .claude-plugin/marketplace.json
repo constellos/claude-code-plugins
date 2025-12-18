@@ -41,13 +41,13 @@
       "strict": false
     },
     {
-      "name": "codemap",
-      "description": "Generate and maintain code structure maps and navigation aids",
+      "name": "code-context",
+      "description": "Generate and maintain code context maps and navigation aids for Claude Code",
       "version": "0.1.0",
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/codemap",
+      "source": "./plugins/code-context",
       "strict": false
     },
     {

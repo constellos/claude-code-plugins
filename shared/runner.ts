@@ -35,14 +35,14 @@
 
 import { pathToFileURL } from 'url';
 import * as path from 'path';
-import { readStdinJson, writeStdoutJson } from './lib/io.js';
+import { readStdinJson, writeStdoutJson } from './hooks/utils/io.js';
 import {
   createDebugLogger,
   createBlockingErrorResponse,
   createPassthroughResponse,
   type DebugConfig,
-} from './lib/debug.js';
-import type { HookInput, HookOutput } from './lib/types.js';
+} from './hooks/utils/debug.js';
+import type { HookInput, HookOutput } from './types/types.js';
 
 // ============================================================================
 // Hook Loading

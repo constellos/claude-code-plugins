@@ -23,7 +23,7 @@
 
 import { spawn } from 'child_process';
 import { join } from 'path';
-import { readTomlFile } from './lib/toml.js';
+import { readTomlFile } from './hooks/utils/toml.js';
 
 interface InstallConfig {
   plugin?: {

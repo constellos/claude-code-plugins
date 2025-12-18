@@ -2,14 +2,15 @@
   "_comment": "Enhanced Rules Plugin - Context-aware rules and constraints",
   "_notes": [
     "This plugin provides rule enforcement through custom checks and markdown heading validation.",
-    "Hooks: PreToolUse (heading validation), PostToolUse (rule checks)"
+    "Hooks: PreToolUse (heading validation), PostToolUse (rule checks)",
+    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/rules/"
   ],
   "PreToolUse": [
     {
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/enforce-rule-md-headings.ts",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/enforce-rule-md-headings.ts",
           "matcher": "Write"
         }
       ]
@@ -20,7 +21,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/run-rule-checks.ts",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/run-rule-checks.ts",
           "matcher": "Write|Edit"
         }
       ]
