@@ -7,5 +7,11 @@
   },
   "repository": "https://github.com/constellos/claude-code-kit",
   "license": "MIT",
-  "keywords": ["nextjs", "supabase", "ai-sdk", "development"]
+  "keywords": ["nextjs", "supabase", "ai-sdk", "development"],
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  }
 }
