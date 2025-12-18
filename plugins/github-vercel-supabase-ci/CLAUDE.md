@@ -8,7 +8,44 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ## Hooks
 
-### 1. SessionStart - Auto-sync with Main Branch
+### 1. SessionStart - Setup Development Environment
+
+**File**: `hooks/setup-environment.ts`
+**Event**: `SessionStart`
+**Matcher**: None (runs on every session start, before other hooks)
+
+**What it does**:
+- Detects whether running in remote (cloud) or local environment
+- In remote: Installs required CLI tools (gh, vercel, docker, supabase)
+- In local: Verifies tools are installed and reports status
+- Starts Docker daemon if not running (both environments)
+- Starts Supabase local development if configured (both environments)
+- Detects package manager (npm/yarn/pnpm/bun) and installs dependencies
+
+**Behavior**:
+- **Remote environment** (CLAUDE_CODE_REMOTE=true):
+  - Installs Vercel CLI via npm
+  - Installs Supabase CLI via APT repository
+  - Attempts to install GitHub CLI (may fail due to network restrictions)
+  - Attempts to install Docker (may fail in containerized environments)
+  - Gracefully handles installation failures
+
+- **Local environment**:
+  - Verifies tools are installed
+  - Reports missing tools without attempting installation
+  - Continues with available tools
+
+- **Both environments**:
+  - Starts Docker daemon if available but not running
+  - Starts Supabase if configured (checks for supabase/config.toml)
+  - Detects package manager from lockfiles
+  - Installs project dependencies if node_modules missing
+
+**Output**: Detailed report of tool installation, service startup, and dependency installation status.
+
+---
+
+### 2. SessionStart - Auto-sync with Main Branch
 
 **File**: `hooks/pull-latest-main.ts`
 **Event**: `SessionStart`
@@ -30,7 +67,7 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
-### 2. PostToolUse[Bash] - Await PR CI Checks
+### 3. PostToolUse[Bash] - Await PR CI Checks
 
 **File**: `hooks/await-pr-checks.ts`
 **Event**: `PostToolUse`
@@ -55,7 +92,7 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
-### 3. SubagentStop - Auto-commit Agent Work
+### 4. SubagentStop - Auto-commit Agent Work
 
 **File**: `hooks/commit-task.ts`
 **Event**: `SubagentStop`
@@ -103,18 +140,26 @@ Enable debug output for hooks:
 
 ```bash
 DEBUG=* claude                          # All debug output
-DEBUG=pull-latest-main claude           # Specific hook
-DEBUG=await-pr-checks claude            # Specific hook
-DEBUG=commit-task claude                # Specific hook
+DEBUG=setup-environment claude          # Environment setup hook
+DEBUG=pull-latest-main claude           # Sync main branch hook
+DEBUG=await-pr-checks claude            # PR checks hook
+DEBUG=commit-task claude                # Commit task hook
 DEBUG=subagent claude                   # Shared subagent hooks
 ```
 
 ## Requirements
 
-- Node.js (for TypeScript hook runner)
-- Git repository
+- Node.js (for TypeScript hook runner and package installations)
+- Git repository (for pull-latest-main and commit-task hooks)
+
+**Optional tools** (auto-installed in remote environments):
 - GitHub CLI (`gh`) for PR hooks
-- Claude Code 2.0.42+ for commit-task hook
+- Vercel CLI for deployment workflows
+- Docker for Supabase local development
+- Supabase CLI for local database development
+
+**Version requirements**:
+- Claude Code 2.0.42+ for commit-task hook (requires `agent_transcript_path`)
 
 ## Configuration
 

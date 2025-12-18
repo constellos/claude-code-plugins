@@ -4,6 +4,10 @@
       "hooks": [
         {
           "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-environment.ts"
+        },
+        {
+          "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/pull-latest-main.ts"
         }
       ]
