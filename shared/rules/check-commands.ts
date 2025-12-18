@@ -12,7 +12,7 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../types/types.js';
 
-export default async function (input: PostToolUseInput): Promise<PostToolUseHookOutput> {
+export default async function (_input: PostToolUseInput): Promise<PostToolUseHookOutput> {
   // Placeholder - no validation implemented yet
   return {};
 }
