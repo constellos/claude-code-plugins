@@ -1,8 +1,15 @@
 {
   "_comment": "Codemap Plugin - Code structure mapping and navigation",
-  "_notes": [
-    "This plugin is a placeholder for future code mapping features.",
-    "No hooks currently implemented."
+  "PostToolUse": [
+    {
+      "matcher": "Read",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
+        }
+      ]
+    }
   ],
   "_planned_features": [
     "Generate code structure maps on SessionStart",
