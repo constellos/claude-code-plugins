@@ -1,7 +1,7 @@
 {
   "outputStyle": "architect-delegator",
   "extraKnownMarketplaces": {
-    "claude-code-kit-local": {
+    "constellos": {
       "source": {
         "source": "file",
         "path": "./.claude-plugin/marketplace.json"
