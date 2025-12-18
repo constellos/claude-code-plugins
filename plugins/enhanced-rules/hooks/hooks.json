@@ -1,14 +1,29 @@
 {
   "_comment": "Enhanced Rules Plugin - Context-aware rules and constraints",
   "_notes": [
-    "This plugin is a placeholder for future rule enforcement features.",
-    "No hooks currently implemented."
+    "This plugin provides rule enforcement through custom checks and markdown heading validation.",
+    "Hooks: PreToolUse (heading validation), PostToolUse (rule checks)"
   ],
-  "_planned_features": [
-    "Load project-specific rules on SessionStart",
-    "Validate code against rules before tool execution (PreToolUse)",
-    "Check code against standards after edits (PostToolUse)",
-    "Block operations that violate critical rules",
-    "Context-aware rule selection based on file type/location"
+  "PreToolUse": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/enforce-rule-md-headings.ts",
+          "matcher": "Write"
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/run-rule-checks.ts",
+          "matcher": "Write|Edit"
+        }
+      ]
+    }
   ]
 }
