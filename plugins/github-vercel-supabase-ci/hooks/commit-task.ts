@@ -10,9 +10,9 @@
  * @module hooks/commit-task
  */
 
-import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/lib/types.js';
-import { createDebugLogger } from '../../../shared/lib/debug.js';
-import { parseTranscript, type AssistantMessage, type TextContent, type Message } from '../../../shared/lib/transcripts.js';
+import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { parseTranscript, type AssistantMessage, type TextContent, type Message } from '../../../shared/hooks/utils/transcripts.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

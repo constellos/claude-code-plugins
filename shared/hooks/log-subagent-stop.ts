@@ -13,8 +13,8 @@
  * Import this hook in any plugin that needs to track subagent file operations.
  */
 
-import type { SubagentStopInput, SubagentStopHookOutput } from '../lib/types.js';
-import { getAgentEdits } from '../lib/subagent-state.js';
+import type { SubagentStopInput, SubagentStopHookOutput } from '../types/types.js';
+import { getAgentEdits } from './utils/subagent-state.js';
 
 export default async function (input: SubagentStopInput): Promise<SubagentStopHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('subagent');

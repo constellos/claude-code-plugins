@@ -1,14 +1,10 @@
 /**
- * Claude Code Kit Library
+ * Claude Code Kit Hooks Utilities
  *
  * Re-exports all utilities for easy importing.
  * Use specific imports for smaller bundles:
- *   import type { PreToolUseHook } from './types.ts';
  *   import { readStdinJson } from './io.ts';
  */
-
-// Types
-export type * from './types.js';
 
 // I/O utilities
 export { readStdinJson, writeStdoutJson } from './io.js';

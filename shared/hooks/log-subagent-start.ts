@@ -8,8 +8,8 @@
  * Import this hook in any plugin that needs to track subagent execution.
  */
 
-import type { SubagentStartInput, SubagentStartHookOutput } from '../lib/types.js';
-import { saveAgentStartContext } from '../lib/subagent-state.js';
+import type { SubagentStartInput, SubagentStartHookOutput } from '../types/types.js';
+import { saveAgentStartContext } from './utils/subagent-state.js';
 
 export default async function (input: SubagentStartInput): Promise<SubagentStartHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('subagent');

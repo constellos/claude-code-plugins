@@ -7,8 +7,8 @@
  * @module hooks/await-pr-checks
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/lib/types.js';
-import { createDebugLogger } from '../../../shared/lib/debug.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

@@ -7,9 +7,9 @@
  * @module hooks/vitest-file
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/lib/types.js';
-import { createDebugLogger } from '../../../shared/lib/debug.js';
-import { getScriptCommand } from '../../../shared/lib/package-manager.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

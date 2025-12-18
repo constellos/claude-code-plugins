@@ -11,7 +11,9 @@
   "enabledPlugins": {
     "github-vercel-supabase-ci@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "claude-code-config@constellos": true
+    "context-awareness@constellos": true,
+    "code-context@constellos": true,
+    "enhanced-rules@constellos": true
   },
   "enabledMcpjsonServers": [
     "next-devtools"

@@ -1,0 +1,44 @@
+{
+  "_comment": "Code Context Plugin - Code structure mapping and navigation",
+  "PreToolUse": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/enforce-rule-md-headings.ts",
+          "matcher": "Write"
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Read",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
+        }
+      ]
+    },
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node ${CLAUDE_PROJECT_DIR}/shared/runner.ts ${CLAUDE_PROJECT_DIR}/shared/rules/run-rule-checks.ts",
+          "matcher": "Write|Edit"
+        }
+      ]
+    }
+  ],
+  "_notes": [
+    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/rules/"
+  ],
+  "_planned_features": [
+    "Generate code structure maps on SessionStart",
+    "Update maps when files are modified (PostToolUse)",
+    "Create navigation indexes for large codebases",
+    "Export architecture diagrams",
+    "Track code dependencies and relationships"
+  ]
+}
