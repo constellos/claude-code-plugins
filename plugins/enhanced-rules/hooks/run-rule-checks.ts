@@ -57,7 +57,7 @@ async function findRuleFiles(cwd: string): Promise<RuleFile[]> {
     }
 
     return ruleFiles;
-  } catch (error) {
+  } catch {
     // .claude/rules directory doesn't exist or can't be read
     return [];
   }

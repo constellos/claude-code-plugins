@@ -65,7 +65,7 @@ async function findRuleFiles(cwd: string): Promise<RuleFile[]> {
     }
 
     return ruleFiles;
-  } catch (error) {
+  } catch {
     // .claude/rules directory doesn't exist or can't be read
     return [];
   }
@@ -136,19 +136,8 @@ function validateHeadings(
     }
   }
 
-  // Check optional headings (just validate pattern, don't require presence)
-  // Optional headings that are present should match the pattern
-  if (spec.optional) {
-    for (const optionalPattern of spec.optional) {
-      // Find headings that attempt to match this pattern
-      const matchingHeadings = headings.filter(h => {
-        // Check if this heading could be attempting to match the pattern
-        // For now, we just validate that if present, they match exactly or with wildcard
-        return matchesHeadingPattern(h, optionalPattern);
-      });
-      // No validation needed for optional - they're just... optional
-    }
-  }
+  // Optional headings don't need validation - they're optional
+  // If present, they'll be counted in the headings array, but we don't enforce them
 
   // Check repeating headings
   if (spec.repeating) {
