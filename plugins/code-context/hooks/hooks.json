@@ -6,7 +6,7 @@
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-rule-md-headings.ts",
-          "matcher": "Write"
+          "matcher": "Write|Edit"
         }
       ]
     }
