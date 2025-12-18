@@ -33,8 +33,8 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
 │   │   │   └── index.ts       # Exports all utilities
 │   │   ├── log-subagent-start.ts  # SubagentStart hook
 │   │   ├── log-subagent-stop.ts   # SubagentStop hook
-│   │   ├── enforce-rule-md-headings.ts  # PreToolUse hook for rule validation
-│   │   └── run-rule-checks.ts           # PostToolUse hook for rule checks
+│   │   ├── enforce-markdown-rules.ts  # PreToolUse hook for markdown heading validation
+│   │   └── run-rule-checks.ts         # PostToolUse hook for rule checks
 │   └── rules/                  # Claude rules documentation (*.md files)
 │       └── CLAUDE.md          # Rules folder documentation
 │
@@ -50,26 +50,21 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     ├── nextjs-supabase-ai-sdk-dev/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
-    │       ├── hooks.json
+    │       ├── hooks.json               # Includes subagent logging hooks
     │       ├── lint-file.ts             # PostToolUse: ESLint
     │       ├── typecheck-file.ts        # PostToolUse: TypeScript
     │       └── vitest-file.ts           # PostToolUse: Vitest
     │
-    ├── context-awareness/
-    │   ├── .claude-plugin/plugin.json
-    │   └── hooks/
-    │       └── hooks.json     # Shared subagent hooks
-    │
     ├── code-context/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
-    │       ├── hooks.json
+    │       ├── hooks.json               # Includes subagent logging hooks
     │       └── add-folder-context.ts    # PostToolUse: CLAUDE.md discovery
     │
-    └── enhanced-rules/
+    └── markdown-rules/
         ├── .claude-plugin/plugin.json
         └── hooks/
-            └── hooks.json     # Rule enforcement hooks
+            └── hooks.json               # Markdown heading validation hooks
 ```
 
 ## Self-Executable Hooks with tsx
@@ -158,7 +153,7 @@ import type {
 
 ### Rule Hooks (`shared/hooks/`)
 
-- **enforce-rule-md-headings.ts** - PreToolUse hook for markdown heading validation
+- **enforce-markdown-rules.ts** - PreToolUse hook for markdown heading validation (supports Write and Edit)
 - **run-rule-checks.ts** - PostToolUse hook for running custom checks
 
 ## Available Plugins
@@ -169,42 +164,39 @@ CI/CD hooks for GitHub, Vercel, and Supabase projects.
 
 **Hooks:**
 - **SessionStart** (`pull-latest-main.ts`) - Auto-fetch and merge latest main/master branch
+- **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
+- **SubagentStop** - Log agent file operations and auto-commit (uses shared `log-subagent-stop.ts` + `commit-task.ts`)
 - **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
-- **SubagentStop** (`commit-task.ts`) - Auto-commit subagent work
 
 ### nextjs-supabase-ai-sdk-dev
 
 Development quality checks for Next.js projects.
 
 **Hooks:**
+- **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
+- **SubagentStop** - Log agent file operations (uses shared `log-subagent-stop.ts`)
 - **PostToolUse[Write|Edit]** (`lint-file.ts`) - Run ESLint on edited files
 - **PostToolUse[Write|Edit]** (`typecheck-file.ts`) - Run TypeScript type checking
 - **PostToolUse[*.test.ts|*.test.tsx]** (`vitest-file.ts`) - Run Vitest on test files
-
-### context-awareness
-
-Subagent tracking for context management.
-
-**Hooks:**
-- **SubagentStart** - Track agent context (uses shared hook)
-- **SubagentStop** - Log agent file operations (uses shared hook)
 
 ### code-context
 
 Code structure mapping and navigation.
 
 **Hooks:**
+- **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
+- **SubagentStop** - Log agent file operations (uses shared `log-subagent-stop.ts`)
+- **PreToolUse[Write|Edit]** - Enforce markdown heading structure (uses shared `enforce-markdown-rules.ts`)
 - **PostToolUse[Read]** (`add-folder-context.ts`) - Discover related CLAUDE.md files
-- **PreToolUse[Write]** - Enforce markdown heading structure (uses shared rule hook)
-- **PostToolUse[Write|Edit]** - Run custom rule checks (uses shared rule hook)
+- **PostToolUse[Write|Edit]** - Run custom rule checks (uses shared `run-rule-checks.ts`)
 
-### enhanced-rules
+### markdown-rules
 
-Context-aware rules and constraints.
+Markdown heading validation and rule enforcement.
 
 **Hooks:**
-- **PreToolUse[Write]** - Validate markdown heading structure (uses shared rule hook)
-- **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared rule hook)
+- **PreToolUse[Write|Edit]** - Validate markdown heading structure (uses shared `enforce-markdown-rules.ts`)
+- **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared `run-rule-checks.ts`)
 
 ## Creating New Plugins
 

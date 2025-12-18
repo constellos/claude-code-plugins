@@ -1,13 +1,13 @@
 ---
-title: Enhanced Rules Plugin
-description: Advanced context-aware rules and constraints for code generation and validation
-tags: [rules, validation, standards, constraints]
+title: Markdown Rules Plugin
+description: Markdown heading validation and rule enforcement for documentation files
+tags: [markdown, rules, validation, headings]
 status: active
 ---
 
-# enhanced-rules Plugin
+# markdown-rules Plugin
 
-Advanced context-aware rules and constraints for code generation and validation.
+Markdown heading validation and rule enforcement for documentation files.
 
 ## Overview
 
@@ -23,11 +23,11 @@ This plugin provides two powerful features for rule enforcement:
 
 ## Hooks
 
-### 1. PreToolUse[Write] - Enforce Markdown Heading Structure
+### 1. PreToolUse[Write|Edit] - Enforce Markdown Heading Structure
 
-**File**: `hooks/enforce-rule-md-headings.ts`
+**File**: `shared/hooks/enforce-markdown-rules.ts`
 **Event**: `PreToolUse`
-**Matcher**: `Write` (only for .md files in .claude/rules)
+**Matcher**: `Write|Edit` (only for .md files in .claude/rules)
 
 **What it does**:
 - Validates markdown heading structure in .claude/rules/*.md files
@@ -184,15 +184,15 @@ This plugin is referenced in `.claude-plugin/marketplace.json`:
 
 ```json
 {
-  "name": "enhanced-rules",
-  "source": "../plugins/enhanced-rules",
+  "name": "markdown-rules",
+  "source": "./plugins/markdown-rules",
   "strict": false
 }
 ```
 
 Install with:
 ```bash
-/plugin install enhanced-rules@claude-code-kit-local
+/plugin install markdown-rules@constellos
 ```
 
 ## Debug Logging
@@ -202,7 +202,7 @@ Enable debug output for hooks:
 ```bash
 DEBUG=* claude                              # All debug output
 DEBUG=run-rule-checks claude                # Check execution only
-DEBUG=enforce-rule-md-headings claude       # Heading validation only
+DEBUG=enforce-markdown-rules claude         # Heading validation only
 ```
 
 ## Testing
@@ -211,7 +211,7 @@ Run the test suite to validate both hooks:
 
 ```bash
 cd /home/user/claude-code-plugins
-./plugins/enhanced-rules/test-hooks.sh
+./plugins/markdown-rules/test-hooks.sh
 ```
 
 The test script validates:
