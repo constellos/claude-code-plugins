@@ -45,10 +45,7 @@ async function checkMergeConflicts(cwd: string): Promise<{
   hasConflicts: boolean;
   conflictedFiles: string[];
 }> {
-  // Check for files with merge conflict markers
-  const statusResult = await gitExec('git diff --check', cwd);
-
-  // Also check git status for unmerged paths
+  // Check git status for unmerged paths
   const unmergedResult = await gitExec('git ls-files --unmerged', cwd);
   const hasUnmerged = unmergedResult.stdout.length > 0;
 
