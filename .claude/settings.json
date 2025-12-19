@@ -1,5 +1,5 @@
 {
-  "outputStyle": "architect-delegator",
+  "outputStyle": "test-emoji-style",
   "extraKnownMarketplaces": {
     "constellos": {
       "source": {
