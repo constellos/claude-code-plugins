@@ -1,0 +1,23 @@
+{
+  "name": "structured-markdown-config",
+  "version": "0.1.0",
+  "description": "Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files",
+  "author": {
+    "name": "Constellos"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/constellos/claude-code-plugins"
+  },
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "validation",
+    "structure",
+    "agents",
+    "skills",
+    "rules",
+    "output-styles",
+    "permissions"
+  ]
+}
