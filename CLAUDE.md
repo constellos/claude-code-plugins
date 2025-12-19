@@ -37,8 +37,9 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
 │   │   │   └── index.ts       # Exports all utilities
 │   │   ├── log-subagent-start.ts  # SubagentStart hook
 │   │   ├── log-subagent-stop.ts   # SubagentStop hook
-│   │   ├── enforce-enhanced-rules.ts  # PreToolUse hook for enhanced rule validation
-│   │   └── run-rule-checks.ts         # PostToolUse hook for rule checks
+│   │   ├── enforce-structured-markdown.ts  # PreToolUse hook for markdown validation
+│   │   ├── enforce-output-style-tools.ts   # PreToolUse hook for tool enforcement
+│   │   └── run-rule-checks.ts              # PostToolUse hook for rule checks
 │   └── rules/                  # Claude rules documentation (*.md files)
 │       └── CLAUDE.md          # Rules folder documentation
 │
@@ -75,10 +76,15 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── hooks.json               # Includes subagent logging hooks
     │       └── add-folder-context.ts    # PostToolUse: CLAUDE.md discovery
     │
-    └── enhanced-rules/
+    ├── enhanced-rules/
+    │   ├── .claude-plugin/plugin.json
+    │   └── hooks/
+    │       └── hooks.json               # Enhanced rule validation hooks
+    │
+    └── structured-markdown-config/
         ├── .claude-plugin/plugin.json
         └── hooks/
-            └── hooks.json               # Enhanced rule validation hooks
+            └── hooks.json               # Comprehensive markdown validation
 ```
 
 ## Self-Executable Hooks with tsx
@@ -167,7 +173,9 @@ import type {
 
 ### Rule Hooks (`shared/hooks/`)
 
-- **enforce-enhanced-rules.ts** - PreToolUse hook for enhanced rule validation including markdown structure and skill requirements (supports Write and Edit)
+- **enforce-enhanced-rules.ts** - PreToolUse hook for enhanced rule validation including markdown structure and skill requirements (supports Write and Edit) - DEPRECATED, use enforce-structured-markdown.ts
+- **enforce-structured-markdown.ts** - PreToolUse hook for comprehensive markdown validation (agents, skills, rules, CLAUDE.md)
+- **enforce-output-style-tools.ts** - PreToolUse hook for output style tool enforcement
 - **run-rule-checks.ts** - PostToolUse hook for running custom checks
 
 ## Available Plugins
@@ -208,7 +216,7 @@ Code structure mapping and navigation.
 **Hooks:**
 - **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
 - **SubagentStop** - Log agent file operations (uses shared `log-subagent-stop.ts`)
-- **PreToolUse[Write|Edit]** - Enforce markdown heading structure (uses shared `enforce-enhanced-rules.ts`)
+- **PreToolUse[Write|Edit]** - Enforce markdown structure validation (uses shared `enforce-structured-markdown.ts`)
 - **PostToolUse[Read]** (`add-folder-context.ts`) - Discover related CLAUDE.md files
 - **PostToolUse[Write|Edit]** - Run custom rule checks (uses shared `run-rule-checks.ts`)
 
@@ -219,6 +227,23 @@ Enhanced rule validation with markdown structure checking and skill requirements
 **Hooks:**
 - **PreToolUse[Write|Edit]** - Validate markdown heading structure and skill requirements (uses shared `enforce-enhanced-rules.ts`)
 - **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared `run-rule-checks.ts`)
+
+**Note**: This plugin is superseded by `structured-markdown-config` which includes all functionality plus additional validation.
+
+### structured-markdown-config
+
+Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files. Merges functionality from `enhanced-rules` and `output-styles-permission-modes`.
+
+**Hooks:**
+- **PreToolUse[Write|Edit]** - Validate agent, skill, rule, and CLAUDE.md structure (uses shared `enforce-structured-markdown.ts`)
+- **PreToolUse** - Enforce output style tool restrictions (uses shared `enforce-output-style-tools.ts`)
+- **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared `run-rule-checks.ts`)
+
+**Validation Rules:**
+- **Agents** (`.claude/agents/*.md`): Require `## Objective`, `## Principles`, `## Agent-scoped project context` headings
+- **Skills** (`.claude/skills/*/*.md`): Require `## Purpose`, `## Skill-scoped context` headings and `name`, `description` metadata (excludes SKILL.md/SKILL.template.md)
+- **Rules** (`.claude/rules/*.md`): Require `## Rules` heading and `Required Skills` metadata
+- **CLAUDE.md** (any directory): Require `name`, `description` metadata; optional `folder`, `files` metadata
 
 ## Creating New Plugins
 

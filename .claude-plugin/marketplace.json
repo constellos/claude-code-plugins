@@ -69,6 +69,16 @@
       },
       "source": "./plugins/output-styles-permission-modes",
       "strict": false
+    },
+    {
+      "name": "structured-markdown-config",
+      "description": "Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files",
+      "version": "0.1.0",
+      "author": {
+        "name": "Constellos"
+      },
+      "source": "./plugins/structured-markdown-config",
+      "strict": false
     }
   ]
 }
