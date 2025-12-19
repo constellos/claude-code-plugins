@@ -21,13 +21,13 @@
       "strict": false
     },
     {
-      "name": "github-integration",
-      "description": "GitHub integration hooks for branch management, auto-commit, and status checking",
+      "name": "github-review-sync",
+      "description": "GitHub review and sync hooks for branch validation, auto-commit, and status checking",
       "version": "0.1.0",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-integration",
+      "source": "./plugins/github-review-sync",
       "strict": false
     },
     {

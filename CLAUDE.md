@@ -51,11 +51,10 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── install-workflows.ts     # SessionStart: GitHub workflows
     │       └── await-pr-checks.ts       # PostToolUse: wait for CI on PR create
     │
-    ├── github-integration/
+    ├── github-review-sync/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
     │       ├── hooks.json
-    │       ├── pull-latest-main.ts      # SessionStart: auto-merge main
     │       ├── check-branch-status.ts   # SessionStop: check conflicts & sync
     │       └── commit-task.ts           # SubagentStop: auto-commit agent work
     │
@@ -182,13 +181,12 @@ CI/CD hooks for GitHub, Vercel, and Supabase projects.
 - **SessionStart** (`install-workflows.ts`) - Install GitHub Actions workflows
 - **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
 
-### github-integration
+### github-review-sync
 
-GitHub integration hooks for branch management, auto-commit, and status checking.
+GitHub review and sync hooks for branch validation, auto-commit, and status checking.
 
 **Hooks:**
-- **SessionStart** (`pull-latest-main.ts`) - Auto-fetch and merge latest main/master branch
-- **SessionStop** (`check-branch-status.ts`) - Check for merge conflicts and branch sync status
+- **SessionStop** (`check-branch-status.ts`) - Check for merge conflicts and branch sync status (blocking)
 - **SubagentStop** (`commit-task.ts`) - Auto-commit agent work with task context
 
 ### nextjs-supabase-ai-sdk-dev
@@ -304,7 +302,7 @@ Configuration in `.claude/settings.json`:
   },
   "enabledPlugins": {
     "github-vercel-supabase-ci@claude-code-kit-local": true,
-    "github-integration@claude-code-kit-local": true,
+    "github-review-sync@claude-code-kit-local": true,
     "nextjs-supabase-ai-sdk-dev@claude-code-kit-local": true
   }
 }
@@ -314,7 +312,7 @@ Configuration in `.claude/settings.json`:
 
 ```
 /plugin install github-vercel-supabase-ci@claude-code-kit-local
-/plugin install github-integration@claude-code-kit-local
+/plugin install github-review-sync@claude-code-kit-local
 /plugin install nextjs-supabase-ai-sdk-dev@claude-code-kit-local
 ```
 
