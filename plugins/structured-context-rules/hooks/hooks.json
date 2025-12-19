@@ -1,7 +1,6 @@
 {
   "_comment": "Structured Context Rules Plugin - Comprehensive validation for context rules, markdown structure, and output styles",
   "_notes": [
-    "This plugin consolidates enhanced-rules and output-styles-permission-modes functionality",
     "Validates agents, skills, rules, plans, and CLAUDE.md files",
     "Enforces tool restrictions from output styles",
     "Hooks use both shared hooks (${CLAUDE_PROJECT_DIR}/shared/hooks/) and plugin hooks (${CLAUDE_PLUGIN_ROOT}/hooks/)"

@@ -16,7 +16,7 @@ Comprehensive markdown structure validation and tool enforcement for Claude Code
 
 ## Overview
 
-This plugin merges the functionality of `enhanced-rules` and `output-styles-permission-modes` into a single comprehensive plugin that:
+This plugin provides comprehensive validation for Claude Code configuration files including:
 
 1. **Validates agent structure** - Ensures agents have proper headings (Objective, Principles, Agent-scoped project context)
 2. **Validates skill structure** - Ensures skills have proper headings (Purpose, Skill-scoped context) and metadata (name, description)
@@ -407,28 +407,22 @@ This module contains all API route handlers and supporting middleware.
 - gray-matter (for YAML frontmatter parsing)
 - tsx (for TypeScript execution)
 
-## Migration from Previous Plugins
+## Installation
 
-If you were using `enhanced-rules` or `output-styles-permission-modes`:
+To enable this plugin:
 
-1. Disable the old plugins:
-   ```json
-   {
-     "enabledPlugins": {
-       "enhanced-rules@constellos": false,
-       "output-styles-permission-modes@constellos": false
-     }
-   }
-   ```
+```bash
+/plugin install structured-context-rules@constellos
+```
 
-2. Enable the new plugin:
-   ```bash
-   /plugin install structured-markdown-config@constellos
-   ```
-
-3. Update any references in your documentation
-
-The new plugin includes all functionality from both previous plugins plus additional validation rules.
+Or add to your `.claude/settings.json`:
+```json
+{
+  "enabledPlugins": {
+    "structured-context-rules@constellos": true
+  }
+}
+```
 
 ## Future Enhancements
 

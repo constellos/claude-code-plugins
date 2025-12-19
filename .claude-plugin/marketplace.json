@@ -51,16 +51,6 @@
       "strict": false
     },
     {
-      "name": "enhanced-rules",
-      "description": "DEPRECATED: Use structured-context-rules instead. Enhanced rule validation with markdown structure checking",
-      "version": "0.1.0",
-      "author": {
-        "name": "Constellos"
-      },
-      "source": "./plugins/enhanced-rules",
-      "strict": false
-    },
-    {
       "name": "structured-context-rules",
       "description": "Comprehensive validation for context rules, markdown structure, and output style enforcement for agents, skills, rules, CLAUDE.md, and plans",
       "version": "0.1.0",
