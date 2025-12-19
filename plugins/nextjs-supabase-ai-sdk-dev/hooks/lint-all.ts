@@ -1,5 +1,5 @@
 /**
- * SessionStop Hook - ESLint full project linting
+ * SessionEnd Hook - ESLint full project linting
  *
  * This hook fires at session end to run ESLint on the entire project,
  * providing comprehensive feedback about code quality issues.
@@ -8,7 +8,7 @@
  * @module hooks/lint-all
  */
 
-import type { SessionStopInput, SessionStopHookOutput } from '../../../shared/types/types.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { runHook } from '../../../shared/hooks/utils/io.js';
 import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
@@ -18,15 +18,15 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
- * SessionStop hook handler for full project linting
+ * SessionEnd hook handler for full project linting
  *
  * Runs ESLint to check for code quality issues before ending the session.
  * Returns blocking error if lint errors are found.
  *
- * @param input - SessionStop hook input from Claude Code
+ * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with lint errors as blocking error if found
  */
-async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> {
+async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
   const logger = createDebugLogger(input.cwd, 'lint-all', true);
 
   try {
@@ -44,12 +44,7 @@ async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> 
     // If lint completes successfully with no errors
     await logger.logOutput({ success: true, errors: [] });
 
-    return {
-      hookSpecificOutput: {
-        hookEventName: 'SessionStop',
-        additionalContext: '✓ ESLint passed - no linting errors found',
-      },
-    };
+    return {};
   } catch (error: unknown) {
     // Lint command exits with non-zero code when there are lint errors
     const err = error as { stdout?: string; stderr?: string; message?: string };

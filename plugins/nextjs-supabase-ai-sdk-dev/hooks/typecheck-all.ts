@@ -1,5 +1,5 @@
 /**
- * SessionStop Hook - TypeScript full project type checking
+ * SessionEnd Hook - TypeScript full project type checking
  *
  * This hook fires at session end to run TypeScript type checking on the entire project,
  * providing comprehensive feedback about type errors.
@@ -8,7 +8,7 @@
  * @module hooks/typecheck-all
  */
 
-import type { SessionStopInput, SessionStopHookOutput } from '../../../shared/types/types.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { runHook } from '../../../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
@@ -17,15 +17,15 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
- * SessionStop hook handler for full project type checking
+ * SessionEnd hook handler for full project type checking
  *
  * Runs `tsc --noEmit` to check for TypeScript errors before ending the session.
  * Returns blocking error if type errors are found.
  *
- * @param input - SessionStop hook input from Claude Code
+ * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with type errors as blocking error if found
  */
-async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> {
+async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
   const logger = createDebugLogger(input.cwd, 'typecheck-all', true);
 
   try {
@@ -42,12 +42,7 @@ async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> 
     // If tsc completes successfully with no errors
     await logger.logOutput({ success: true, errors: [] });
 
-    return {
-      hookSpecificOutput: {
-        hookEventName: 'SessionStop',
-        additionalContext: '✓ TypeScript type checking passed - no type errors found',
-      },
-    };
+    return {};
   } catch (error: unknown) {
     // tsc exits with non-zero code when there are type errors
     const err = error as { stdout?: string; stderr?: string; message?: string };

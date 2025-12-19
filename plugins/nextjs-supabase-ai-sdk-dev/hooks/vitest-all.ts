@@ -1,5 +1,5 @@
 /**
- * SessionStop Hook - Vitest full test suite runner
+ * SessionEnd Hook - Vitest full test suite runner
  *
  * This hook fires at session end to run the entire test suite with Vitest,
  * providing comprehensive feedback about test failures.
@@ -8,7 +8,7 @@
  * @module hooks/vitest-all
  */
 
-import type { SessionStopInput, SessionStopHookOutput } from '../../../shared/types/types.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { runHook } from '../../../shared/hooks/utils/io.js';
 import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
@@ -18,15 +18,15 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
- * SessionStop hook handler for running full test suite
+ * SessionEnd hook handler for running full test suite
  *
  * Runs Vitest on all tests to check for test failures before ending the session.
  * Returns blocking error if test failures are found.
  *
- * @param input - SessionStop hook input from Claude Code
+ * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with test failures as blocking error if found
  */
-async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> {
+async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
   const logger = createDebugLogger(input.cwd, 'vitest-all', true);
 
   try {
@@ -44,12 +44,7 @@ async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> 
     // If tests complete successfully with no failures
     await logger.logOutput({ success: true, test_results: stdout });
 
-    return {
-      hookSpecificOutput: {
-        hookEventName: 'SessionStop',
-        additionalContext: '✓ All tests passed - no test failures found',
-      },
-    };
+    return {};
   } catch (error: unknown) {
     // Vitest exits with non-zero code when there are test failures
     const err = error as { stdout?: string; stderr?: string; message?: string };

@@ -1,5 +1,5 @@
 /**
- * SessionStop Hook - Check branch status for conflicts and sync
+ * SessionEnd Hook - Check branch status for conflicts and sync
  *
  * This hook fires when a Claude Code session ends and checks:
  * 1. If the current branch is up to date with the remote
@@ -10,7 +10,7 @@
  * @module hooks/check-branch-status
  */
 
-import type { SessionStopInput, SessionStopHookOutput } from '../../../shared/types/types.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { runHook } from '../../../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
@@ -133,15 +133,15 @@ async function checkBranchSync(cwd: string): Promise<{
 }
 
 /**
- * SessionStop hook handler
+ * SessionEnd hook handler
  *
  * Checks branch status and merge conflicts at session end.
  * Returns blocking error if issues are found.
  *
- * @param input - SessionStop hook input from Claude Code
+ * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with error if issues detected
  */
-async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> {
+async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
   const logger = createDebugLogger(input.cwd, 'check-branch-status', true);
 
   try {
@@ -201,12 +201,7 @@ async function handler(input: SessionStopInput): Promise<SessionStopHookOutput> 
     }
 
     // All checks passed
-    return {
-      hookSpecificOutput: {
-        hookEventName: 'SessionStop',
-        additionalContext: '✓ Branch is up to date with no conflicts',
-      },
-    };
+    return {};
   } catch (error) {
     await logger.logError(error as Error);
 
