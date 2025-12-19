@@ -59,6 +59,16 @@
       },
       "source": "./plugins/enhanced-rules",
       "strict": false
+    },
+    {
+      "name": "output-styles-permission-modes",
+      "description": "Enforces tool restrictions defined in output style frontmatter for the main agent",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/output-styles-permission-modes",
+      "strict": false
     }
   ]
 }

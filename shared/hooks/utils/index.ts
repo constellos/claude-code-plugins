@@ -49,3 +49,11 @@ export {
 
 // TOML parsing
 export { parseToml, readTomlFile, type TomlValue } from './toml.js';
+
+// Agent type detection
+export {
+  wasToolEventMainAgent,
+  isMainAgentTranscript,
+  isSubagentType,
+  getTranscriptAgentId,
+} from './was-tool-event-main-agent.js';

@@ -1,0 +1,12 @@
+{
+  "PreToolUse": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enforce-output-style-tools.ts"
+        }
+      ]
+    }
+  ]
+}
