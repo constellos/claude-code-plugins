@@ -12,7 +12,8 @@
     "github-vercel-supabase-ci@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
     "code-context@constellos": true,
-    "markdown-rules@constellos": true
+    "markdown-rules@constellos": true,
+    "output-styles-permission-modes@constellos": true
   },
   "enabledMcpjsonServers": [
     "next-devtools"
