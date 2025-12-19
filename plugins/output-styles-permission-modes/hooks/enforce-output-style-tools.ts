@@ -86,7 +86,7 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        permission: 'allow',
+        permissionDecision: 'allow',
       },
     };
   }
@@ -100,7 +100,7 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        permission: 'allow',
+        permissionDecision: 'allow',
       },
     };
   }
@@ -118,7 +118,7 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        permission: 'allow',
+        permissionDecision: 'allow',
       },
     };
   }
@@ -139,8 +139,8 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
     return {
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
-        permission: 'deny',
-        denyReason: `The "${input.tool_name}" tool is not allowed by the current output style "${styleName}". Allowed tools: ${allowedTools.join(', ')}`,
+        permissionDecision: 'deny',
+        permissionDecisionReason: `The "${input.tool_name}" tool is not allowed by the current output style "${styleName}". Allowed tools: ${allowedTools.join(', ')}`,
       },
     };
   }
@@ -152,7 +152,7 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
   return {
     hookSpecificOutput: {
       hookEventName: 'PreToolUse',
-      permission: 'allow',
+      permissionDecision: 'allow',
     },
   };
 }

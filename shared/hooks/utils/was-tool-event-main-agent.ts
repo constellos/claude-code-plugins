@@ -2,7 +2,7 @@
  * Utility to determine if a tool event was executed by the main agent vs a subagent
  */
 
-import { parseTranscript, type Transcript, type AssistantMessage } from './transcripts.js';
+import { parseTranscript, type AssistantMessage } from './transcripts.js';
 
 /**
  * Check if a specific tool use was executed by the main agent (not a subagent)
