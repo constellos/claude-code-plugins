@@ -25,7 +25,7 @@
         },
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-enhanced-rules.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-structured-markdown.ts",
           "matcher": "Write|Edit"
         }
       ]
