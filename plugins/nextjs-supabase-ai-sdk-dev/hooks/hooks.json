@@ -1,11 +1,19 @@
 {
+  "_comment": "Next.js Supabase AI SDK Dev Plugin - Development quality checks and testing",
+  "_notes": [
+    "Runs linting, type checking, and testing for Next.js projects",
+    "Per-file checks on Write/Edit operations",
+    "Full project checks on SessionEnd",
+    "Tracks task/agent calls for context"
+  ],
   "PreToolUse": [
     {
       "matcher": "Task",
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts",
+          "description": "Logs Task tool calls before agent execution. Saves context for later retrieval in SubagentStop hooks."
         }
       ]
     }
@@ -16,7 +24,8 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts",
+          "description": "Logs Task tool results after agent completion. Captures agent output and context for analysis."
         }
       ]
     },
@@ -25,11 +34,13 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/lint-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/lint-file.ts",
+          "description": "Runs ESLint on individual files after Write/Edit operations. Ensures code style and quality standards are met before proceeding."
         },
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-file.ts",
+          "description": "Runs TypeScript type checking on individual files after Write/Edit operations. Catches type errors early in development."
         }
       ]
     },
@@ -38,7 +49,8 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-file.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-file.ts",
+          "description": "Runs Vitest on test files after Write/Edit operations. Ensures tests pass before committing changes."
         }
       ]
     }
@@ -48,15 +60,18 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/lint-all.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/lint-all.ts",
+          "description": "Runs ESLint on entire project at session end. Blocking hook that ensures all code meets linting standards before finishing."
         },
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-all.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-all.ts",
+          "description": "Runs TypeScript type checking on entire project at session end. Blocking hook that ensures no type errors exist before finishing."
         },
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-all.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vitest-all.ts",
+          "description": "Runs full Vitest test suite at session end. Blocking hook that ensures all tests pass before finishing."
         }
       ]
     }

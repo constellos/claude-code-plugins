@@ -16,14 +16,15 @@ Enhanced rule validation with markdown structure checking and skill requirements
 
 ## Overview
 
-This plugin provides two powerful features for rule enforcement:
-1. **Custom checks** - Run executable commands defined in rule frontmatter after file edits
-2. **Markdown heading validation** - Enforce heading structure in .claude/rules/*.md files
+This plugin provides three powerful features for rule enforcement:
+1. **Plan file validation** - Enforce required heading structure in plan files (Intent, Plan, Success Criteria)
+2. **Markdown heading validation** - Enforce heading structure in .claude/rules/*.md files using frontmatter specifications
+3. **Custom checks** - Run executable commands defined in rule frontmatter after file edits
 
 ## Current Status
 
 **2 hooks implemented:**
-- PreToolUse: Markdown heading validation for rule files
+- PreToolUse: Markdown heading validation for rule files and plan files
 - PostToolUse: Custom check execution for matching files
 
 ## Hooks
@@ -32,41 +33,83 @@ This plugin provides two powerful features for rule enforcement:
 
 **File**: `shared/hooks/enforce-enhanced-rules.ts`
 **Event**: `PreToolUse`
-**Matcher**: `Write|Edit` (only for .md files in .claude/rules)
+**Matcher**: `Write|Edit` (for .md files in .claude/rules and .claude/plans)
 
 **What it does**:
-- Validates markdown heading structure in .claude/rules/*.md files
-- Checks against frontmatter `headings:` specification
-- Supports required, optional, and repeating headings
-- Wildcard pattern matching for flexible heading names
+- Validates markdown heading structure in plan files and rule files
+- **Plan files** (.claude/plans/*.md or permission_mode='plan'): Enforces hardcoded required headings
+- **Rule files** (.claude/rules/*.md): Validates against frontmatter `markdown.headings` specification
+- Supports gitignore-style pattern matching (*, ?)
+- Provides clear error messages when validation fails
+
+---
+
+#### Plan File Validation (Automatic)
+
+**Applies to**: Files in `.claude/plans/` or when `permission_mode='plan'`
+
+**Required headings** (hardcoded):
+- `# Intent`
+- `# Plan`
+- `# Success Criteria`
+
+**Behavior**:
+- Automatically enforced for all plan files
+- Cannot be disabled or customized
+- Returns **deny** decision if any required heading is missing
+
+**Example Error**:
+```
+Plan file validation failed for my-plan.md:
+
+Required plan heading missing: "# Intent"
+Required plan heading missing: "# Success Criteria"
+
+All plan files must include these headings:
+- # Intent
+- # Plan
+- # Success Criteria
+```
+
+---
+
+#### Rule File Validation (Frontmatter-Configured)
+
+**Applies to**: Files in `.claude/rules/` with `markdown.headings` in frontmatter
 
 **Frontmatter Format**:
 ```yaml
 ---
-headings:
-  required:
-    - "## Overview"
-    - "## Implementation"
-  optional:
-    - "## Testing"
-    - "## Notes*"  # Suffix wildcard
-  repeating:
-    - pattern: "### Step *"  # Prefix wildcard
-      min: 1
-      max: 10
+markdown:
+  headings:
+    required:
+      - "## Overview"
+      - "## Implementation"
+    allowed:
+      - "## Overview"
+      - "## Implementation"
+      - "## Testing"
+      - "## *"  # Allow any level-2 heading
+    forbidden:
+      - "### Private*"  # Forbid headings starting with "### Private"
 ---
 ```
 
-**Wildcard Support**:
+**Pattern Matching**:
 - **Exact match**: `"## Overview"` matches only "## Overview"
-- **Prefix wildcard**: `"### Step *"` matches "### Step 1", "### Step Two", etc.
-- **Suffix wildcard**: `"## * Notes"` matches "## Important Notes", "## Notes", etc.
+- **Wildcard (*)**: `"## *"` matches "## Foo", "## Bar", any level-2 heading
+- **Wildcard (?)**: `"## Test?"` matches "## Test1", "## TestA", but not "## Test12"
+- **Partial wildcard**: `"### Step *"` matches "### Step 1", "### Step Two", etc.
+
+**Validation Modes**:
+- **required**: Patterns that must have at least one match (fails if missing)
+- **allowed**: Patterns that items must match (fails if heading doesn't match any allowed pattern)
+- **forbidden**: Patterns that must not have any matches (fails if found)
 
 **Behavior**:
-- Only runs for Write operations on .md files in .claude/rules/
+- Only runs for Write/Edit operations on .md files in .claude/rules/
 - Extracts headings from content
-- Validates required headings are present
-- Validates repeating headings meet min/max constraints
+- Validates against frontmatter specification
 - Returns **deny** decision if validation fails
 - Returns **allow** decision if validation passes
 
@@ -76,12 +119,14 @@ headings:
 
 **Example Error**:
 ```
-Markdown heading validation failed for test-rule.md:
+Markdown validation failed for api-standards.md:
 
-Required heading missing: "## Implementation"
-Repeating heading "### Step *" appears 0 time(s), but requires at least 1
+Required heading missing: "## Security"
+Forbidden heading found: "### PrivateAPI" (matches pattern "### Private*")
+Heading "## Random" is not in the allowed list
 
-Please ensure all required headings are present and repeating headings meet min/max constraints.
+Please ensure all required items are present, no forbidden items exist,
+and all items match allowed patterns.
 ```
 
 ---
@@ -140,17 +185,33 @@ Rules are defined in `.claude/rules/*.md` files with YAML frontmatter:
 
 ```yaml
 ---
-# Optional: heading structure validation (for the rule file itself)
-headings:
-  required:
-    - "## Overview"
-    - "## Implementation"
-  optional:
-    - "## Testing"
-  repeating:
-    - pattern: "### Step *"
-      min: 1
-      max: 10
+# Optional: markdown structure validation (for the rule file itself)
+markdown:
+  # Heading structure validation
+  headings:
+    required:
+      - "## Overview"
+      - "## Implementation"
+    allowed:
+      - "## Overview"
+      - "## Implementation"
+      - "## Testing"
+      - "## Examples"
+    forbidden:
+      - "### Private*"
+
+  # Frontmatter field validation
+  frontmatter:
+    required:
+      - "title"
+      - "description"
+    allowed:
+      - "title"
+      - "description"
+      - "tags"
+      - "category"
+    forbidden:
+      - "deprecated"
 
 # Optional: executable checks to run on matching files
 checks:
@@ -163,6 +224,18 @@ checks:
 Rule content goes here...
 ```
 
+**Validation Features**:
+
+1. **Heading Validation** (`markdown.headings`):
+   - Validates heading structure within the rule file
+   - Uses gitignore-style patterns with `*` and `?` wildcards
+   - Supports `required`, `allowed`, and `forbidden` constraints
+
+2. **Frontmatter Validation** (`markdown.frontmatter`):
+   - Validates frontmatter field names (not values)
+   - Uses same pattern matching as headings
+   - Ensures consistency across rule files
+
 **Pattern Matching**:
 - Rule filename (without .md) is used as the pattern
 - Example: `typescript-rule.md` matches files containing "typescript-rule"
@@ -170,10 +243,18 @@ Rule content goes here...
 
 ## Use Cases
 
-### Heading Validation
+### Plan File Validation
+- **Automatic enforcement** of plan structure across all sessions
+- Ensures every plan has clear intent, steps, and success criteria
+- Improves plan quality and consistency
+- No configuration required - works out of the box
+
+### Rule File Heading Validation
 - Ensure consistent structure in rule files
 - Enforce documentation standards
 - Validate step-by-step guides have required sections
+- Prevent forbidden heading patterns
+- Control allowed heading structure
 
 ### Custom Checks
 - Run linting on specific file patterns
@@ -243,17 +324,31 @@ checks:
   - "bun run lint"
   - "bun run typecheck"
   - "bun test"
-headings:
-  required:
-    - "## Overview"
-    - "## Implementation"
-  optional:
-    - "## Testing"
+
+markdown:
+  headings:
+    required:
+      - "## Overview"
+      - "## Implementation"
+    allowed:
+      - "## Overview"
+      - "## Implementation"
+      - "## Testing"
+      - "## Examples"
 ---
 
 # TypeScript Project Rules
 
 All TypeScript files must pass linting, type checking, and tests.
+
+## Overview
+...
+
+## Implementation
+...
+
+## Testing
+...
 ```
 
 ### Example 2: API Route Rules
@@ -263,19 +358,32 @@ All TypeScript files must pass linting, type checking, and tests.
 checks:
   - "npm run lint"
   - "npm test -- api"
-headings:
-  required:
-    - "## Overview"
-    - "## Endpoints"
-    - "## Security"
-  repeating:
-    - pattern: "### *"
-      min: 1
+
+markdown:
+  headings:
+    required:
+      - "## Overview"
+      - "## Endpoints"
+      - "## Security"
+    allowed:
+      - "## *"        # Allow any level-2 heading
+      - "### *"       # Allow any level-3 heading
+    forbidden:
+      - "### Private*"  # Prevent private API documentation
 ---
 
 # API Route Standards
 
 Rules for API endpoint files.
+
+## Overview
+...
+
+## Endpoints
+...
+
+## Security
+...
 ```
 
 ## Future Enhancements

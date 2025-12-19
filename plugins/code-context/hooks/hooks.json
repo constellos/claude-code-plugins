@@ -1,12 +1,19 @@
 {
-  "_comment": "Code Context Plugin - Code structure mapping and navigation",
+  "_comment": "Code Context Plugin - Code structure mapping, navigation, and folder validation",
+  "_notes": [
+    "This plugin provides folder structure validation and context discovery",
+    "Tracks task/agent calls for context management",
+    "Validates folder structure for .claude directories",
+    "Discovers CLAUDE.md files for context enrichment"
+  ],
   "PreToolUse": [
     {
       "matcher": "Task",
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts",
+          "description": "Logs Task tool calls before agent execution. Saves context for later retrieval in SubagentStop hooks."
         }
       ]
     },
@@ -16,17 +23,14 @@
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-folder-structure-write.ts",
-          "matcher": "Write"
+          "matcher": "Write",
+          "description": "Validates folder structure when creating .claude configuration files. Ensures proper directory organization for agents, hooks, skills, and rules."
         },
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-rules-file.ts",
-          "matcher": "Write|Edit"
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-structured-markdown.ts",
-          "matcher": "Write|Edit"
+          "matcher": "Write|Edit",
+          "description": "Validates rule file structure and frontmatter. Ensures rules have proper Required Skills metadata and valid YAML frontmatter."
         }
       ]
     },
@@ -35,7 +39,8 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-folder-structure-mkdir.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-folder-structure-mkdir.ts",
+          "description": "Validates mkdir commands for .claude directories. Prevents creation of invalid or non-standard directory structures."
         }
       ]
     }
@@ -46,7 +51,8 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts",
+          "description": "Logs Task tool results after agent completion. Captures agent output and context for analysis."
         }
       ]
     },
@@ -55,22 +61,11 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
-        }
-      ]
-    },
-    {
-      "matcher": "Write|Edit",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/run-rule-checks.ts"
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts",
+          "description": "Discovers and adds CLAUDE.md context when reading files. Automatically enriches Claude's context with folder-level documentation."
         }
       ]
     }
-  ],
-  "_notes": [
-    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/"
   ],
   "_planned_features": [
     "Generate code structure maps on SessionStart",

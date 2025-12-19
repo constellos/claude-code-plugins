@@ -250,9 +250,51 @@ async function handler(
       };
     }
 
-    // Check if this is a file in .claude/rules
+    // Check if this is a plan file
     const normalizedPath = path.normalize(filePath);
+    const isPlanFile = normalizedPath.includes(path.join('.claude', 'plans')) ||
+                       input.permission_mode === 'plan';
+
+    // Check if this is a file in .claude/rules
     const isRuleFile = normalizedPath.includes(path.join('.claude', 'rules'));
+
+    // Validate plan files with hardcoded structure requirements
+    if (isPlanFile) {
+      await logger.logOutput({ message: 'Validating plan file structure' });
+
+      const headings = extractHeadings(content);
+      const planSpec: ValidationSpec = {
+        required: ['# Intent', '# Plan', '# Success Criteria'],
+      };
+
+      const planValidation = validateAgainstSpec(headings, planSpec, 'plan heading');
+
+      if (!planValidation.valid) {
+        const errorMessage = planValidation.errors.join('\n');
+
+        await logger.logOutput({
+          valid: false,
+          errors: planValidation.errors,
+        });
+
+        return {
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny',
+            permissionDecisionReason: `Plan file validation failed for ${path.basename(filePath)}:\n\n${errorMessage}\n\nAll plan files must include these headings:\n- # Intent\n- # Plan\n- # Success Criteria`,
+          },
+        };
+      }
+
+      await logger.logOutput({ valid: true, type: 'plan' });
+
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+        },
+      };
+    }
 
     if (!isRuleFile) {
       await logger.logOutput({ message: 'Not a rule file, skipping' });

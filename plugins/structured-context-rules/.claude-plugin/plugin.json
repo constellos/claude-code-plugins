@@ -1,7 +1,7 @@
 {
-  "name": "structured-markdown-config",
+  "name": "structured-context-rules",
   "version": "0.1.0",
-  "description": "Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files",
+  "description": "Comprehensive validation for context rules, markdown structure, and output style tool enforcement for agents, skills, rules, CLAUDE.md, and plans",
   "author": {
     "name": "Constellos"
   },
