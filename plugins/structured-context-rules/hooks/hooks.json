@@ -1,0 +1,26 @@
+{
+  "_comment": "Structured Context Rules Plugin - Comprehensive validation for context rules, markdown structure, and output styles",
+  "_notes": [
+    "This plugin consolidates enhanced-rules and output-styles-permission-modes functionality",
+    "Validates agents, skills, rules, plans, and CLAUDE.md files",
+    "Enforces tool restrictions from output styles",
+    "Hooks use both shared hooks (${CLAUDE_PROJECT_DIR}/shared/hooks/) and plugin hooks (${CLAUDE_PLUGIN_ROOT}/hooks/)"
+  ],
+  "PreToolUse": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-structured-markdown.ts",
+          "matcher": "Write|Edit",
+          "description": "Validates markdown heading structure for agents, skills, rules, CLAUDE.md, and plans. Enforces required headings (e.g., Intent/Plan/Success Criteria for plans) and metadata requirements."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enforce-output-style-tools.ts",
+          "description": "Enforces tool restrictions defined in output style frontmatter. Prevents main agent from using tools that are blocked in the current output style configuration."
+        }
+      ]
+    }
+  ]
+}

@@ -1,10 +1,11 @@
 {
-  "_comment": "Enhanced Rules Plugin - Rule validation with markdown structure and skill requirements",
+  "_comment": "Enhanced Rules Plugin - DEPRECATED - Use structured-context-rules instead",
+  "_deprecation_notice": "This plugin is deprecated and will be removed in a future version. All functionality has been consolidated into the 'structured-context-rules' plugin. Please migrate to structured-context-rules@constellos.",
   "_notes": [
-    "This plugin enforces markdown heading structure and runs custom rule checks.",
-    "Validates Required Skills headings in rules files.",
-    "Hooks: PreToolUse (heading validation for Write|Edit), PostToolUse (rule checks for Write|Edit)",
-    "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/"
+    "This plugin enforces plan and rule file markdown structure",
+    "Validates Required Skills headings in rules files",
+    "All hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/",
+    "DEPRECATED: Replaced by structured-context-rules plugin"
   ],
   "PreToolUse": [
     {
@@ -12,18 +13,8 @@
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-enhanced-rules.ts",
-          "matcher": "Write|Edit"
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/run-rule-checks.ts",
-          "matcher": "Write|Edit"
+          "matcher": "Write|Edit",
+          "description": "DEPRECATED: Validates markdown heading structure for plans and rules. Use structured-context-rules plugin instead which includes this functionality plus output style enforcement."
         }
       ]
     }

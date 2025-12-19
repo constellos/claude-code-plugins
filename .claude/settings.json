@@ -13,9 +13,7 @@
     "github-review-sync@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
     "code-context@constellos": true,
-    "enhanced-rules@constellos": true,
-    "structured-markdown-config@constellos": true,
-    "output-styles-permission-modes@constellos": true
+    "structured-context-rules@constellos": true
   },
   "enabledMcpjsonServers": [
     "next-devtools"
