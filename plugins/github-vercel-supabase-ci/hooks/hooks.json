@@ -9,16 +9,41 @@
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/pull-latest-main.ts"
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-workflows.ts"
         }
       ]
     }
   ],
-  "SubagentStart": [
+  "PreToolUse": [
     {
+      "matcher": "Task",
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts"
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Task",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts"
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-checks.ts"
         }
       ]
     }
@@ -28,22 +53,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
-        },
-        {
-          "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task.ts"
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "matcher": "Bash",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-checks.ts"
         }
       ]
     }

@@ -1,33 +1,18 @@
 {
   "_comment": "Code Context Plugin - Code structure mapping and navigation",
-  "SubagentStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
-        }
-      ]
-    }
-  ],
-  "SubagentStop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
-        }
-      ]
-    }
-  ],
   "PreToolUse": [
     {
+      "matcher": "Task",
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-folder-structure-bash.ts",
-          "matcher": "Bash"
-        },
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts"
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-folder-structure-write.ts",
@@ -48,11 +33,29 @@
   ],
   "PostToolUse": [
     {
+      "matcher": "Task",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts"
+        }
+      ]
+    },
+    {
       "matcher": "Read",
       "hooks": [
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/run-rule-checks.ts"
         }
       ]
     }

@@ -37,15 +37,15 @@ export {
   type SystemMessage,
 } from './transcripts.js';
 
-// Subagent state management
+// Task state management
 export {
-  saveAgentStartContext,
-  loadAgentStartContext,
-  removeAgentStartContext,
-  getAgentEdits,
-  type AgentStartContext,
-  type AgentEditsResult,
-} from './subagent-state.js';
+  saveTaskCallContext,
+  loadTaskCallContext,
+  removeTaskCallContext,
+  getTaskEdits,
+  type TaskCallContext,
+  type TaskEditsResult,
+} from './task-state.js';
 
 // TOML parsing
 export { parseToml, readTomlFile, type TomlValue } from './toml.js';
