@@ -1,0 +1,11 @@
+{
+  "name": "github-integration",
+  "version": "0.1.0",
+  "description": "GitHub integration hooks for branch management, auto-commit, and status checking",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-kit",
+  "license": "MIT",
+  "keywords": ["github", "git", "branch", "commit", "integration"]
+}

@@ -47,17 +47,28 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
     │       ├── hooks.json
+    │       ├── setup-environment.ts     # SessionStart: install CI tools
+    │       ├── install-workflows.ts     # SessionStart: GitHub workflows
+    │       └── await-pr-checks.ts       # PostToolUse: wait for CI on PR create
+    │
+    ├── github-integration/
+    │   ├── .claude-plugin/plugin.json
+    │   └── hooks/
+    │       ├── hooks.json
     │       ├── pull-latest-main.ts      # SessionStart: auto-merge main
-    │       ├── await-pr-checks.ts       # PostToolUse: wait for CI on PR create
+    │       ├── check-branch-status.ts   # SessionStop: check conflicts & sync
     │       └── commit-task.ts           # SubagentStop: auto-commit agent work
     │
     ├── nextjs-supabase-ai-sdk-dev/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
-    │       ├── hooks.json               # Includes subagent logging hooks
-    │       ├── lint-file.ts             # PostToolUse: ESLint
-    │       ├── typecheck-file.ts        # PostToolUse: TypeScript
-    │       └── vitest-file.ts           # PostToolUse: Vitest
+    │       ├── hooks.json
+    │       ├── lint-file.ts             # PostToolUse: ESLint on file
+    │       ├── lint-all.ts              # SessionStop: ESLint on all
+    │       ├── typecheck-file.ts        # PostToolUse: TypeScript on file
+    │       ├── typecheck-all.ts         # SessionStop: TypeScript on all
+    │       ├── vitest-file.ts           # PostToolUse: Vitest on file
+    │       └── vitest-all.ts            # SessionStop: Vitest on all
     │
     ├── code-context/
     │   ├── .claude-plugin/plugin.json
@@ -167,21 +178,30 @@ import type {
 CI/CD hooks for GitHub, Vercel, and Supabase projects.
 
 **Hooks:**
-- **SessionStart** (`pull-latest-main.ts`) - Auto-fetch and merge latest main/master branch
-- **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
-- **SubagentStop** - Log agent file operations and auto-commit (uses shared `log-subagent-stop.ts` + `commit-task.ts`)
+- **SessionStart** (`setup-environment.ts`) - Install and configure CI tools (Vercel, Supabase, Docker)
+- **SessionStart** (`install-workflows.ts`) - Install GitHub Actions workflows
 - **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
+
+### github-integration
+
+GitHub integration hooks for branch management, auto-commit, and status checking.
+
+**Hooks:**
+- **SessionStart** (`pull-latest-main.ts`) - Auto-fetch and merge latest main/master branch
+- **SessionStop** (`check-branch-status.ts`) - Check for merge conflicts and branch sync status
+- **SubagentStop** (`commit-task.ts`) - Auto-commit agent work with task context
 
 ### nextjs-supabase-ai-sdk-dev
 
 Development quality checks for Next.js projects.
 
 **Hooks:**
-- **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
-- **SubagentStop** - Log agent file operations (uses shared `log-subagent-stop.ts`)
 - **PostToolUse[Write|Edit]** (`lint-file.ts`) - Run ESLint on edited files
-- **PostToolUse[Write|Edit]** (`typecheck-file.ts`) - Run TypeScript type checking
-- **PostToolUse[*.test.ts|*.test.tsx]** (`vitest-file.ts`) - Run Vitest on test files
+- **PostToolUse[Write|Edit]** (`typecheck-file.ts`) - Run TypeScript type checking on edited files
+- **PostToolUse[*.test.ts|*.test.tsx]** (`vitest-file.ts`) - Run Vitest on edited test files
+- **SessionStop** (`lint-all.ts`) - Run ESLint on entire project (blocking)
+- **SessionStop** (`typecheck-all.ts`) - Run TypeScript type checking on entire project (blocking)
+- **SessionStop** (`vitest-all.ts`) - Run full test suite with Vitest (blocking)
 
 ### code-context
 
@@ -284,6 +304,7 @@ Configuration in `.claude/settings.json`:
   },
   "enabledPlugins": {
     "github-vercel-supabase-ci@claude-code-kit-local": true,
+    "github-integration@claude-code-kit-local": true,
     "nextjs-supabase-ai-sdk-dev@claude-code-kit-local": true
   }
 }
@@ -293,6 +314,7 @@ Configuration in `.claude/settings.json`:
 
 ```
 /plugin install github-vercel-supabase-ci@claude-code-kit-local
+/plugin install github-integration@claude-code-kit-local
 /plugin install nextjs-supabase-ai-sdk-dev@claude-code-kit-local
 ```
 

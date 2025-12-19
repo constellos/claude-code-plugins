@@ -21,6 +21,16 @@
       "strict": false
     },
     {
+      "name": "github-integration",
+      "description": "GitHub integration hooks for branch management, auto-commit, and status checking",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/github-integration",
+      "strict": false
+    },
+    {
       "name": "nextjs-supabase-ai-sdk-dev",
       "description": "Next.js, Supabase, and AI SDK development utilities",
       "version": "0.1.0",
