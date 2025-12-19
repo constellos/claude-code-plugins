@@ -1,3 +1,15 @@
+---
+title: Next.js Supabase AI SDK Dev Plugin
+description: Development quality checks plugin for Next.js, Supabase, and AI SDK projects
+folder:
+  subfolders:
+    allowed: [.claude-plugin, hooks]
+    required: [.claude-plugin, hooks]
+  files:
+    allowed: [CLAUDE.md, README.md, .gitignore]
+    required: [CLAUDE.md]
+---
+
 # nextjs-supabase-ai-sdk-dev Plugin
 
 Development quality checks plugin for Next.js, Supabase, and AI SDK projects.

@@ -1,9 +1,13 @@
 ---
 title: Shared Utilities Library
 description: TypeScript utilities and types shared across all plugins in the marketplace
-tags: [shared, utilities, typescript, hooks, library]
-scope: shared
-parent: /CLAUDE.md
+folder:
+  subfolders:
+    allowed: [hooks, rules, types]
+    required: [hooks, types]
+  files:
+    allowed: [CLAUDE.md, README.md, .gitignore]
+    required: [CLAUDE.md]
 ---
 
 # Shared Utilities Library

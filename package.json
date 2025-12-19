@@ -12,7 +12,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.19.3",
     "eslint": "^9.16.0",
     "globals": "^15.14.0",
     "gray-matter": "^4.0.3",

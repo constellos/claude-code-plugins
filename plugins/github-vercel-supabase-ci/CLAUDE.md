@@ -1,3 +1,15 @@
+---
+title: GitHub Vercel Supabase CI Plugin
+description: CI/CD automation plugin for GitHub, Vercel, and Supabase projects
+folder:
+  subfolders:
+    allowed: [.claude-plugin, hooks]
+    required: [.claude-plugin, hooks]
+  files:
+    allowed: [CLAUDE.md, README.md, .gitignore]
+    required: [CLAUDE.md]
+---
+
 # github-vercel-supabase-ci Plugin
 
 CI/CD automation plugin for GitHub, Vercel, and Supabase projects.

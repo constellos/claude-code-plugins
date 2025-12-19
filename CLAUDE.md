@@ -1,9 +1,13 @@
 ---
 title: Claude Code Plugins Marketplace
 description: A marketplace of Claude Code plugins with shared TypeScript utilities and typed hooks for development workflows
-tags: [plugins, hooks, marketplace, typescript, automation]
-version: "1.0.0"
-type: marketplace
+folder:
+  subfolders:
+    allowed: [.claude, .claude-plugin, .github, docs, plugins, shared]
+    required: [.claude-plugin, plugins, shared]
+  files:
+    allowed: [CLAUDE.md, LICENSE, package.json, package-lock.json, tsconfig.json, vitest.config.ts, eslint.config.mjs, .gitignore, .attw.json, README.md]
+    required: [CLAUDE.md, package.json]
 ---
 
 # Claude Code Plugins

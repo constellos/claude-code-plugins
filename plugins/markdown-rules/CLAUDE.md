@@ -1,8 +1,13 @@
 ---
 title: Markdown Rules Plugin
 description: Markdown heading validation and rule enforcement for documentation files
-tags: [markdown, rules, validation, headings]
-status: active
+folder:
+  subfolders:
+    allowed: [.claude-plugin, hooks]
+    required: [.claude-plugin, hooks]
+  files:
+    allowed: [CLAUDE.md, README.md, TEST-COMMANDS.md, test-hooks.sh, .gitignore]
+    required: [CLAUDE.md]
 ---
 
 # markdown-rules Plugin
