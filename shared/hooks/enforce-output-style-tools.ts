@@ -1,7 +1,7 @@
 #!/usr/bin/env npx tsx
 
-import type { PreToolUseInput, PreToolUseHookOutput } from '../../../shared/types/types.js';
-import { runHook, wasToolEventMainAgent } from '../../../shared/hooks/utils/index.js';
+import type { PreToolUseInput, PreToolUseHookOutput } from '../types/types.js';
+import { runHook, wasToolEventMainAgent } from './utils/index.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import matter from 'gray-matter';
