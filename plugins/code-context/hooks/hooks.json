@@ -40,7 +40,7 @@
         },
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-markdown-rules.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-enhanced-rules.ts",
           "matcher": "Write|Edit"
         }
       ]
