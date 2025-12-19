@@ -3,7 +3,7 @@ markdown:
   headings:
     allowed: ["#*", "##*", "###*"]
     required: ["## Overview", "## Implementation"]
-  metadata:
+  frontmatter:
     allowed: ["*"]
 ---
 

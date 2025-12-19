@@ -4,7 +4,7 @@
  * This hook fires before Write and Edit operations on .md files referenced in .claude/rules
  * to validate markdown structure against frontmatter specifications.
  *
- * Validates against markdown.headings and markdown.metadata specifications:
+ * Validates against markdown.headings and markdown.frontmatter specifications:
  * - allowed: Patterns that items must match (gitignore-style with *, ?)
  * - required: Patterns that must have at least one match
  * - forbidden: Patterns that must not have any matches
@@ -27,7 +27,7 @@ interface ValidationSpec {
 
 interface MarkdownValidation {
   headings?: ValidationSpec;
-  metadata?: ValidationSpec;
+  frontmatter?: ValidationSpec;
 }
 
 interface RuleFrontmatter {
@@ -293,15 +293,15 @@ async function handler(
       }
     }
 
-    // Validate metadata if specified
-    if (markdownSpec.metadata) {
-      const { data: metadata } = matter(content);
-      const metadataKeys = Object.keys(metadata);
-      await logger.logOutput({ metadataKeys });
+    // Validate frontmatter if specified
+    if (markdownSpec.frontmatter) {
+      const { data: frontmatterData } = matter(content);
+      const frontmatterKeys = Object.keys(frontmatterData);
+      await logger.logOutput({ frontmatterKeys });
 
-      const metadataValidation = validateAgainstSpec(metadataKeys, markdownSpec.metadata, 'metadata field');
-      if (!metadataValidation.valid) {
-        allErrors.push(...metadataValidation.errors);
+      const frontmatterValidation = validateAgainstSpec(frontmatterKeys, markdownSpec.frontmatter, 'frontmatter field');
+      if (!frontmatterValidation.valid) {
+        allErrors.push(...frontmatterValidation.errors);
       }
     }
 

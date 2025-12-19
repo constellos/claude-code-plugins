@@ -186,7 +186,7 @@ async function handler(
         `  headings:\n` +
         `    allowed: ["#*", "##*", "###*"]  # Allow h1, h2, h3\n` +
         `    required: ["# *"]               # Require title heading\n` +
-        `  metadata:\n` +
+        `  frontmatter:\n` +
         `    allowed: ["*"]                  # Allow any frontmatter fields\n` +
         `    required: ["title"]             # Require title field\n` +
         `---\n` +

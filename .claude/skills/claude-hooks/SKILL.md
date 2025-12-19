@@ -76,3 +76,131 @@ description: "Create and manage Claude Code lifecycle hooks for validation, auto
 - **hook-executable**: All hook files MUST be executable (`chmod +x`).
 
 - **format-hooks-subfolder**: Format hooks (`*.format.ts`) have specific patterns - see [format-hooks/format-hooks-guide.md](format-hooks/format-hooks-guide.md).
+
+## Hook Testing Best Practices
+
+### Development Testing vs Integration Testing
+
+There are TWO distinct types of hook testing:
+
+#### 1. Development Testing (During Implementation)
+
+**Purpose**: Verify hook logic, type correctness, and error handling during development
+
+**Method**: Use `bash echo` with properly typed JSON input piped to `npx tsx [hook-file].ts`
+
+**When**: While developing or modifying hooks in the `shared/hooks/` directory
+
+**Example**:
+```bash
+echo '{
+  "hook_event_name": "PreToolUse",
+  "session_id": "test-123",
+  "transcript_path": "/tmp/test.jsonl",
+  "cwd": "/home/user/project",
+  "permission_mode": "default",
+  "tool_use_id": "tool_1",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "test.ts",
+    "content": "test"
+  }
+}' | npx tsx shared/hooks/my-hook.ts
+```
+
+**Benefits**:
+- Fast iteration during development
+- Tests hook logic in isolation
+- Verifies TypeScript types are correct
+- Can test edge cases easily
+- No need to restart Claude Code session
+
+**Requirements**:
+- Input JSON MUST match the types from `shared/types/types.ts`
+- Test script should cover: allowed cases, denied cases, edge cases, error handling
+
+**Best Practice**: Create a `test-[hook-name].sh` script with multiple test cases alongside your hook file
+
+#### 2. Integration Testing (Real Usage Validation)
+
+**Purpose**: Verify hook integrates correctly with Claude Code in real usage
+
+**Method**: Perform actual tool actions in a Claude Code session
+
+**When**: After implementing a hook and registering it in hooks.json
+
+**Example**:
+- For PreToolUse[Write] hook: Actually use Write tool to create a file
+- For PreToolUse[Bash] hook: Actually run a Bash command
+- For PostToolUse[Read] hook: Actually use Read tool
+
+**Benefits**:
+- Tests real Claude Code integration
+- Verifies hook registration in hooks.json
+- Tests with actual tool parameters Claude generates
+- Validates user-facing error messages
+
+**Requirements**:
+- Hook MUST be registered in `.claude/hooks/hooks.json` or plugin `hooks/hooks.json`
+- MUST start a NEW Claude Code session (hooks snapshot at startup)
+- Test by performing actual actions, NOT with bash echo
+
+### Recommended Testing Workflow
+
+For new or edited hooks in `shared/hooks/`:
+
+1. **Development Phase**:
+   - Write the hook implementation
+   - Create `test-[hook-name].sh` with typed JSON test cases
+   - Run development tests: `bash shared/hooks/test-[hook-name].sh`
+   - Iterate until all test cases pass
+   - Run `npm run typecheck` to verify types
+
+2. **Integration Phase**:
+   - Register hook in appropriate `hooks/hooks.json`
+   - Create `[hook-name].test.md` documenting manual test steps
+   - Start NEW Claude Code session
+   - Perform actual tool actions to trigger the hook
+   - Verify hook behavior matches expectations
+
+3. **Maintenance**:
+   - Keep `test-[hook-name].sh` for future development
+   - Update tests when modifying hook logic
+   - Re-run both development and integration tests after changes
+
+### Example: Testing a Folder Validation Hook
+
+**Development Test** (`shared/hooks/test-folder-hooks.sh`):
+```bash
+#!/bin/bash
+# Test validate-folder-structure-write.ts
+
+echo "Test 1: Allowed file (should allow)"
+echo '{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": { "file_path": "shared/types/new.ts" },
+  ...
+}' | npx tsx shared/hooks/validate-folder-structure-write.ts
+
+echo "Test 2: Forbidden file (should deny)"
+echo '{
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": { "file_path": "shared/forbidden.exe" },
+  ...
+}' | npx tsx shared/hooks/validate-folder-structure-write.ts
+```
+
+**Integration Test** (`[hook-name].test.md`):
+```markdown
+# Validate Folder Structure Hook - Integration Test
+
+1. Ensure hook is registered in .claude/settings.json
+2. Start NEW Claude Code session
+3. Test: Ask Claude to create a file in an allowed folder
+   - Expected: File is created successfully
+4. Test: Ask Claude to create a file with forbidden extension
+   - Expected: Hook denies with clear error message
+5. DO NOT test with bash echo - perform actual Write operations
+```
