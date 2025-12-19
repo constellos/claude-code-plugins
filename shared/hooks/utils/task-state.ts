@@ -8,7 +8,6 @@ import * as path from 'path';
 import matter from 'gray-matter';
 import {
   parseTranscript,
-  findPendingTaskCall,
   findTaskCallForAgent,
   getNewFiles,
   getDeletedFiles,
