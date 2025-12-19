@@ -1,8 +1,9 @@
 /**
- * SubagentStop Hook - Auto-commit agent work
+ * SubagentStop Hook - Auto-commit agent work with task context
  *
  * This hook fires when a subagent completes and automatically creates a commit
- * using the agent's final message as the commit message.
+ * with only the files edited by that specific agent. It includes the task prompt
+ * and metadata as git trailers.
  *
  * Requires Claude Code 2.0.42+ for agent_transcript_path field.
  * See: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
@@ -13,7 +14,7 @@
 import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
 import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
 import { runHook } from '../../../shared/hooks/utils/io.js';
-import { parseTranscript, type AssistantMessage, type TextContent, type Message } from '../../../shared/hooks/utils/transcripts.js';
+import { getTaskEdits } from '../../../shared/hooks/utils/task-state.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -40,72 +41,56 @@ async function gitExec(
 }
 
 /**
- * Extract the final text message from agent transcript
+ * Format commit message with task prompt and git trailers
  */
-function extractFinalMessage(messages: Message[]): string | null {
-  // Find the last assistant message with text content
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.type === 'assistant') {
-      const assistantMsg = msg as AssistantMessage;
-      const content = assistantMsg.message?.content;
-      if (Array.isArray(content)) {
-        // Find text content in the message
-        for (const item of content) {
-          if (item.type === 'text') {
-            const textContent = item as TextContent;
-            if (textContent.text && textContent.text.trim()) {
-              return textContent.text.trim();
-            }
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
+function formatCommitMessage(options: {
+  agentType: string;
+  agentId: string;
+  prompt: string;
+  filesEdited: number;
+  filesNew: number;
+  filesDeleted: number;
+}): string {
+  const { agentType, agentId, prompt, filesEdited, filesNew, filesDeleted } = options;
 
-/**
- * Clean and format a commit message from agent output
- * Extracts the first meaningful line/paragraph for the commit title
- */
-function formatCommitMessage(agentMessage: string, agentType: string): string {
-  // Remove common prefixes
-  const message = agentMessage
-    .replace(/^(I've |I have |I |Done[.!]? |Completed[.!]? |Finished[.!]? )/i, '')
-    .trim();
+  // Create concise title from prompt (first line or first 50 chars)
+  const promptLines = prompt.split('\n').map(l => l.trim()).filter(Boolean);
+  let title = promptLines[0] || 'Agent task completed';
 
-  // Split into lines
-  const lines = message.split('\n').map((l) => l.trim()).filter(Boolean);
-
-  if (lines.length === 0) {
-    return `[${agentType}] Agent task completed`;
-  }
-
-  // Use the first line as the title
-  let title = lines[0];
-
-  // Truncate if too long (50 chars is git convention for title)
+  // Truncate title if too long (72 chars is git convention)
   if (title.length > 72) {
     title = title.slice(0, 69) + '...';
   }
 
-  // If there are more lines, add them as body
-  if (lines.length > 1) {
-    const body = lines.slice(1).join('\n');
-    // Truncate body if too long
-    const truncatedBody = body.length > 500 ? body.slice(0, 497) + '...' : body;
-    return `[${agentType}] ${title}\n\n${truncatedBody}`;
+  // Build commit message with title, body, and git trailers
+  const lines: string[] = [];
+
+  // Title with agent type prefix
+  lines.push(`[${agentType}] ${title}`);
+  lines.push('');
+
+  // Body: Full prompt (if longer than title)
+  if (promptLines.length > 1 || prompt.length > 100) {
+    lines.push('Task prompt:');
+    lines.push(prompt);
+    lines.push('');
   }
 
-  return `[${agentType}] ${title}`;
+  // Git trailers for metadata
+  lines.push(`Agent-Type: ${agentType}`);
+  lines.push(`Agent-ID: ${agentId}`);
+  lines.push(`Files-Edited: ${filesEdited}`);
+  lines.push(`Files-New: ${filesNew}`);
+  lines.push(`Files-Deleted: ${filesDeleted}`);
+
+  return lines.join('\n');
 }
 
 /**
  * SubagentStop hook handler for auto-committing agent work
  *
- * Reads the agent's transcript, extracts the final message, and creates
- * a commit with that message if there are staged or unstaged changes.
+ * Analyzes the agent's transcript, extracts file edits and task prompt,
+ * and creates a commit with only the files edited by this specific agent.
  *
  * @param input - SubagentStop hook input from Claude Code
  * @returns Hook output (empty on success, blocking on critical error)
@@ -128,53 +113,74 @@ async function handler(
       return {};
     }
 
-    // Check for changes to commit
-    const statusResult = await gitExec('git status --porcelain', input.cwd);
-    if (!statusResult.stdout) {
-      await logger.logOutput({ skipped: true, reason: 'No changes to commit' });
-      return {};
-    }
-
-    // Parse agent transcript to get final message
-    let agentType = 'agent';
-    let finalMessage: string | null = null;
-
+    // Get task edits (file operations and prompt)
+    let taskEdits;
     try {
-      const transcript = await parseTranscript(input.agent_transcript_path);
-      agentType = transcript.agentId ? `agent-${transcript.agentId.slice(0, 8)}` : 'agent';
-
-      // Try to determine agent type from parent Task call
-      const firstMsg = transcript.messages[0];
-      if (firstMsg?.slug) {
-        agentType = firstMsg.slug;
-      }
-
-      finalMessage = extractFinalMessage(transcript.messages);
-    } catch (parseError) {
+      taskEdits = await getTaskEdits(input.agent_transcript_path);
+    } catch (error) {
       await logger.logOutput({
-        warning: 'Could not parse agent transcript',
-        error: String(parseError),
-      });
-    }
-
-    // Format commit message
-    const commitMessage = finalMessage
-      ? formatCommitMessage(finalMessage, agentType)
-      : `[${agentType}] Agent task completed`;
-
-    // Stage all changes
-    const addResult = await gitExec('git add -A', input.cwd);
-    if (!addResult.success) {
-      await logger.logOutput({
-        success: false,
-        stage: 'add',
-        error: addResult.stderr,
+        skipped: true,
+        reason: 'Could not analyze task edits',
+        error: String(error),
       });
       return {};
     }
 
-    // Create commit
-    // Use heredoc-style to handle multiline commit messages safely
+    const {
+      agentSessionId,
+      subagentType,
+      agentPrompt,
+      agentNewFiles,
+      agentEditedFiles,
+      agentDeletedFiles,
+    } = taskEdits;
+
+    // Combine all modified files
+    const allModifiedFiles = [
+      ...agentNewFiles,
+      ...agentEditedFiles,
+      ...agentDeletedFiles,
+    ];
+
+    if (allModifiedFiles.length === 0) {
+      await logger.logOutput({ skipped: true, reason: 'No files modified by agent' });
+      return {};
+    }
+
+    // Stage only the files modified by this agent
+    for (const file of allModifiedFiles) {
+      // For deleted files, use git rm; for others, use git add
+      const isDeleted = agentDeletedFiles.includes(file);
+      const cmd = isDeleted ? `git rm "${file}"` : `git add "${file}"`;
+
+      const addResult = await gitExec(cmd, input.cwd);
+      if (!addResult.success) {
+        // Log warning but continue with other files
+        await logger.logOutput({
+          warning: `Could not stage file: ${file}`,
+          error: addResult.stderr,
+        });
+      }
+    }
+
+    // Check if anything was actually staged
+    const statusResult = await gitExec('git diff --cached --name-only', input.cwd);
+    if (!statusResult.stdout) {
+      await logger.logOutput({ skipped: true, reason: 'No changes staged for commit' });
+      return {};
+    }
+
+    // Format commit message with trailers
+    const commitMessage = formatCommitMessage({
+      agentType: subagentType,
+      agentId: agentSessionId,
+      prompt: agentPrompt,
+      filesEdited: agentEditedFiles.length,
+      filesNew: agentNewFiles.length,
+      filesDeleted: agentDeletedFiles.length,
+    });
+
+    // Create commit with properly escaped message
     const escapedMessage = commitMessage.replace(/'/g, "'\\''");
     const commitResult = await gitExec(`git commit -m '${escapedMessage}'`, input.cwd);
 
@@ -201,8 +207,11 @@ async function handler(
     await logger.logOutput({
       success: true,
       commit_hash: commitHash,
-      commit_message: commitMessage.split('\n')[0], // Just the title
-      files_changed: statusResult.stdout.split('\n').length,
+      agent_type: subagentType,
+      files_modified: allModifiedFiles.length,
+      files_edited: agentEditedFiles.length,
+      files_new: agentNewFiles.length,
+      files_deleted: agentDeletedFiles.length,
     });
 
     return {};
