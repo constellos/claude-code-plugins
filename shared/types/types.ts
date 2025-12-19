@@ -259,6 +259,228 @@ export type PostToolUseHook = (
 ) => PostToolUseHookOutput | Promise<PostToolUseHookOutput>;
 
 // ============================================================================
+// Tool-Specific Input Types (for type-safe multi-tool hooks)
+// ============================================================================
+
+/**
+ * Tool-specific input types for common Claude Code tools
+ *
+ * These types enable type-safe handling of tool inputs in hooks that work
+ * with multiple tools. Use with PostToolUseInputTyped or PreToolUseInputTyped
+ * for compile-time type narrowing based on tool_name.
+ */
+
+/** Input for Write tool - creates or overwrites a file */
+export interface WriteToolInput {
+  file_path: string;
+  content: string;
+}
+
+/** Input for Edit tool - modifies part of an existing file */
+export interface EditToolInput {
+  file_path: string;
+  old_string: string;
+  new_string: string;
+  replace_all?: boolean;
+}
+
+/** Input for Read tool - reads file contents */
+export interface ReadToolInput {
+  file_path: string;
+  offset?: number;
+  limit?: number;
+}
+
+/** Input for Bash tool - executes shell commands */
+export interface BashToolInput {
+  command: string;
+  description?: string;
+  timeout?: number;
+  run_in_background?: boolean;
+}
+
+/** Input for Glob tool - finds files by pattern */
+export interface GlobToolInput {
+  pattern: string;
+  path?: string;
+}
+
+/** Input for Grep tool - searches file contents */
+export interface GrepToolInput {
+  pattern: string;
+  path?: string;
+  glob?: string;
+  type?: string;
+  output_mode?: "content" | "files_with_matches" | "count";
+  "-i"?: boolean;
+  "-n"?: boolean;
+  "-A"?: number;
+  "-B"?: number;
+  "-C"?: number;
+}
+
+/** Input for Task tool - launches subagent */
+export interface TaskToolInput {
+  prompt: string;
+  description: string;
+  subagent_type: string;
+  model?: "sonnet" | "opus" | "haiku";
+  resume?: string;
+}
+
+/**
+ * Type-safe PostToolUse input with discriminated union for tool types
+ *
+ * Use this instead of PostToolUseInput for hooks that need compile-time
+ * type safety when working with specific tools.
+ *
+ * @example
+ * ```typescript
+ * async function handler(input: PostToolUseInputTyped): Promise<PostToolUseHookOutput> {
+ *   if (input.tool_name === 'Write') {
+ *     // TypeScript knows input.tool_input is WriteToolInput
+ *     const filePath = input.tool_input.file_path;
+ *     const content = input.tool_input.content;
+ *   }
+ * }
+ * ```
+ */
+export type PostToolUseInputTyped =
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Write";
+      tool_input: WriteToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Edit";
+      tool_input: EditToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Read";
+      tool_input: ReadToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Bash";
+      tool_input: BashToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Glob";
+      tool_input: GlobToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Grep";
+      tool_input: GrepToolInput;
+      tool_response: unknown;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PostToolUse";
+      tool_use_id: string;
+      tool_name: "Task";
+      tool_input: TaskToolInput;
+      tool_response: unknown;
+    })
+  | PostToolUseInput; // Fallback for other tools
+
+/**
+ * Helper type to extract PostToolUse input for specific tool(s)
+ *
+ * Use this for hooks that only work with specific tools to get precise type narrowing.
+ *
+ * @example
+ * ```typescript
+ * // Hook that only handles Write and Edit
+ * async function handler(
+ *   input: PostToolUseInputFor<'Write' | 'Edit'>
+ * ): Promise<PostToolUseHookOutput> {
+ *   // input.tool_name is 'Write' | 'Edit'
+ *   // input.tool_input is WriteToolInput | EditToolInput
+ *   const filePath = input.tool_input.file_path; // Type-safe!
+ * }
+ * ```
+ */
+export type PostToolUseInputFor<T extends string> = Extract<
+  PostToolUseInputTyped,
+  { tool_name: T }
+>;
+
+/**
+ * Type-safe PreToolUse input with discriminated union for tool types
+ *
+ * Use this instead of PreToolUseInput for hooks that need compile-time
+ * type safety when working with specific tools.
+ */
+export type PreToolUseInputTyped =
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Write";
+      tool_input: WriteToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Edit";
+      tool_input: EditToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Read";
+      tool_input: ReadToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Bash";
+      tool_input: BashToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Glob";
+      tool_input: GlobToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Grep";
+      tool_input: GrepToolInput;
+    })
+  | (BaseHookInput & {
+      hook_event_name: "PreToolUse";
+      tool_use_id: string;
+      tool_name: "Task";
+      tool_input: TaskToolInput;
+    })
+  | PreToolUseInput; // Fallback for other tools
+
+/**
+ * Helper type to extract PreToolUse input for specific tool(s)
+ *
+ * Use this for hooks that only work with specific tools to get precise type narrowing.
+ */
+export type PreToolUseInputFor<T extends string> = Extract<
+  PreToolUseInputTyped,
+  { tool_name: T }
+>;
+
+// ============================================================================
 // SessionStart Hook
 // ============================================================================
 

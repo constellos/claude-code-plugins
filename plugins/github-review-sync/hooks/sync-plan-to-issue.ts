@@ -1,0 +1,296 @@
+/**
+ * PostToolUse Hook - Sync plan files to GitHub issues
+ *
+ * This hook fires when a plan file is written or edited and automatically:
+ * 1. Creates a GitHub issue from the plan content
+ * 2. Links the issue to the current branch
+ * 3. Tracks issue metadata to prevent duplicates on edits
+ *
+ * The issue will auto-close when a PR from this branch is merged (if using
+ * "Closes #<issue>" in PR description).
+ *
+ * @module hooks/sync-plan-to-issue
+ */
+
+import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const execAsync = promisify(exec);
+
+interface PlanIssueState {
+  [sessionId: string]: {
+    planPath: string;
+    issueNumber: number;
+    issueUrl: string;
+    branch: string;
+    createdAt: string;
+    lastUpdated: string;
+  };
+}
+
+/**
+ * Execute a shell command
+ */
+async function execCommand(
+  command: string,
+  cwd: string
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  try {
+    const { stdout, stderr } = await execAsync(command, { cwd, timeout: 30000 });
+    return { success: true, stdout: stdout.trim(), stderr: stderr.trim() };
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; stderr?: string; message?: string };
+    return {
+      success: false,
+      stdout: err.stdout?.trim() || '',
+      stderr: err.stderr?.trim() || err.message || '',
+    };
+  }
+}
+
+/**
+ * Get current git branch name
+ */
+async function getCurrentBranch(cwd: string): Promise<string> {
+  const result = await execCommand('git rev-parse --abbrev-ref HEAD', cwd);
+  return result.success ? result.stdout : '';
+}
+
+/**
+ * Check if gh CLI is available and authenticated
+ */
+async function isGhAvailable(cwd: string): Promise<boolean> {
+  const authCheck = await execCommand('gh auth status', cwd);
+  return authCheck.success;
+}
+
+/**
+ * Extract plan title from content (first # heading or filename)
+ */
+function extractPlanTitle(content: string, filePath: string): string {
+  const headingMatch = content.match(/^#\s+(.+)$/m);
+  if (headingMatch) {
+    return headingMatch[1].trim();
+  }
+
+  // Fallback to filename without extension
+  const basename = path.basename(filePath, '.md');
+  return basename.charAt(0).toUpperCase() + basename.slice(1);
+}
+
+/**
+ * Load plan issue state from disk
+ */
+async function loadPlanIssueState(cwd: string): Promise<PlanIssueState> {
+  const stateFile = path.join(cwd, '.claude', 'logs', 'plan-issues.json');
+
+  try {
+    const data = await fs.readFile(stateFile, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    // File doesn't exist yet or is invalid
+    return {};
+  }
+}
+
+/**
+ * Save plan issue state to disk
+ */
+async function savePlanIssueState(cwd: string, state: PlanIssueState): Promise<void> {
+  const stateDir = path.join(cwd, '.claude', 'logs');
+  const stateFile = path.join(stateDir, 'plan-issues.json');
+
+  await fs.mkdir(stateDir, { recursive: true });
+  await fs.writeFile(stateFile, JSON.stringify(state, null, 2));
+}
+
+/**
+ * Create or update GitHub issue from plan content
+ */
+async function syncPlanToIssue(
+  cwd: string,
+  sessionId: string,
+  planPath: string,
+  planContent: string,
+  branch: string
+): Promise<{ issueNumber: number; issueUrl: string; action: 'created' | 'updated' }> {
+  const state = await loadPlanIssueState(cwd);
+  const existing = state[sessionId];
+
+  const title = extractPlanTitle(planContent, planPath);
+
+  // Prepare issue body with branch reference
+  const body = `**Branch:** \`${branch}\`
+**Plan file:** \`${planPath}\`
+
+---
+
+${planContent}`;
+
+  if (existing && existing.issueNumber) {
+    // Update existing issue
+    const updateCmd = `gh issue edit ${existing.issueNumber} --body ${JSON.stringify(body)}`;
+    const result = await execCommand(updateCmd, cwd);
+
+    if (result.success) {
+      // Update state
+      existing.lastUpdated = new Date().toISOString();
+      await savePlanIssueState(cwd, state);
+
+      return {
+        issueNumber: existing.issueNumber,
+        issueUrl: existing.issueUrl,
+        action: 'updated',
+      };
+    }
+  }
+
+  // Create new issue
+  const createCmd = `gh issue create --title ${JSON.stringify(title)} --body ${JSON.stringify(body)} --label "plan,claude-generated"`;
+  const result = await execCommand(createCmd, cwd);
+
+  if (!result.success) {
+    throw new Error(`Failed to create issue: ${result.stderr || result.stdout}`);
+  }
+
+  // Extract issue URL from output
+  const issueUrl = result.stdout.match(/https:\/\/github\.com\/[^\s]+/)?.[0] || '';
+  const issueNumber = parseInt(issueUrl.match(/\/(\d+)$/)?.[1] || '0', 10);
+
+  if (!issueNumber) {
+    throw new Error('Failed to extract issue number from gh output');
+  }
+
+  // Save state
+  state[sessionId] = {
+    planPath,
+    issueNumber,
+    issueUrl,
+    branch,
+    createdAt: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
+  };
+  await savePlanIssueState(cwd, state);
+
+  return { issueNumber, issueUrl, action: 'created' };
+}
+
+/**
+ * PostToolUse hook handler for plan file sync
+ *
+ * Detects plan file writes/edits and syncs them to GitHub issues.
+ *
+ * @param input - PostToolUse hook input from Claude Code
+ * @returns Hook output with issue creation status
+ */
+async function handler(input: PostToolUseInputTyped): Promise<PostToolUseHookOutput> {
+  const logger = createDebugLogger(input.cwd, 'sync-plan-to-issue', true);
+
+  try {
+    // Only process Write and Edit tools
+    if (input.tool_name !== 'Write' && input.tool_name !== 'Edit') {
+      return {};
+    }
+
+    // Type narrowing: at this point, input is Write or Edit
+    const filePath = (input as Extract<PostToolUseInputTyped, { tool_name: 'Write' | 'Edit' }>).tool_input.file_path;
+
+    // Detect if this is a plan file
+    const isInPlansDir = filePath.includes('/.claude/plans/');
+    const isPlanMode = input.permission_mode === 'plan';
+
+    if (!isInPlansDir && !isPlanMode) {
+      // Not a plan file
+      return {};
+    }
+
+    await logger.logInput({
+      session_id: input.session_id,
+      tool_name: input.tool_name,
+      file_path: filePath,
+      permission_mode: input.permission_mode,
+    });
+
+    // Check if we're in a git repository
+    const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);
+    if (!gitCheck.success) {
+      await logger.logOutput({ skipped: true, reason: 'Not a git repository' });
+      return {};
+    }
+
+    // Check if gh CLI is available
+    if (!(await isGhAvailable(input.cwd))) {
+      await logger.logOutput({ skipped: true, reason: 'gh CLI not authenticated' });
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: '⚠ Cannot sync plan to GitHub: gh CLI not authenticated. Run: gh auth login',
+        },
+      };
+    }
+
+    // Get current branch
+    const branch = await getCurrentBranch(input.cwd);
+    if (!branch) {
+      await logger.logOutput({ skipped: true, reason: 'Could not determine current branch' });
+      return {};
+    }
+
+    // Get plan content
+    let planContent: string;
+    if (input.tool_name === 'Write') {
+      // Write has full content in tool_input
+      planContent = (input as Extract<PostToolUseInputTyped, { tool_name: 'Write' }>).tool_input.content;
+    } else {
+      // Edit - must read file to get full content
+      planContent = await fs.readFile(filePath, 'utf-8');
+    }
+
+    // Sync to GitHub issue
+    const result = await syncPlanToIssue(
+      input.cwd,
+      input.session_id,
+      filePath,
+      planContent,
+      branch
+    );
+
+    await logger.logOutput({
+      action: result.action,
+      issue_number: result.issueNumber,
+      issue_url: result.issueUrl,
+      branch,
+    });
+
+    const emoji = result.action === 'created' ? '✓' : '↻';
+    const verb = result.action === 'created' ? 'Created' : 'Updated';
+
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `${emoji} ${verb} GitHub issue #${result.issueNumber} from plan: ${result.issueUrl}\n\nTo link this issue to your PR, add "Closes #${result.issueNumber}" to the PR description.`,
+      },
+    };
+  } catch (error) {
+    await logger.logError(error as Error);
+
+    // Non-blocking error - just inform Claude
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `⚠ Could not sync plan to GitHub issue: ${error instanceof Error ? error.message : String(error)}`,
+      },
+    };
+  }
+}
+
+// Export handler for testing
+export { handler };
+
+// Make this file self-executable with tsx
+runHook(handler);
