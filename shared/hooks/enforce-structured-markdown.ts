@@ -123,7 +123,6 @@ function getFileValidationRules(filePath: string, cwd: string): {
   requiredMetadata?: string[];
   shouldValidate: boolean;
 } | null {
-  const normalizedPath = path.normalize(filePath);
   const relativePath = path.isAbsolute(filePath)
     ? path.relative(cwd, filePath)
     : filePath;
@@ -228,7 +227,7 @@ async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
     };
   }
 
-  const logger = createDebugLogger(input.cwd, 'enforce-structured-markdown', DEBUG);
+  const logger = createDebugLogger(input.cwd, 'enforce-structured-markdown', DEBUG || false);
 
   try {
     await logger.logInput({

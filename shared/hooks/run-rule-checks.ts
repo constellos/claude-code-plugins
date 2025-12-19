@@ -90,10 +90,11 @@ function executeCheck(command: string, cwd: string, timeout: number = 60000): {
       stdio: 'pipe',
     });
     return { success: true, output };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { stdout?: string; stderr?: string; message?: string };
     return {
       success: false,
-      output: error.stdout || error.stderr || error.message || 'Unknown error',
+      output: err.stdout || err.stderr || err.message || 'Unknown error',
     };
   }
 }
@@ -104,12 +105,10 @@ function executeCheck(command: string, cwd: string, timeout: number = 60000): {
 async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> {
   // Only run for Write and Edit operations
   if (input.tool_name !== 'Write' && input.tool_name !== 'Edit') {
-    return {
-      hookSpecificOutput: null,
-    };
+    return {};
   }
 
-  const logger = createDebugLogger(input.cwd, 'run-rule-checks', DEBUG);
+  const logger = createDebugLogger(input.cwd, 'run-rule-checks', DEBUG || false);
 
   try {
     await logger.logInput({
@@ -123,14 +122,14 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
 
     const filePath = toolInput.file_path;
     if (!filePath) {
-      return { hookSpecificOutput: null };
+      return {};
     }
 
     // Find all rules
     const ruleFiles = await findRuleFiles(input.cwd);
     if (ruleFiles.length === 0) {
       await logger.logOutput({ message: 'No rule files found' });
-      return { hookSpecificOutput: null };
+      return {};
     }
 
     // Find matching rules that have checks
@@ -142,7 +141,7 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
 
     if (matchingRules.length === 0) {
       await logger.logOutput({ message: 'No matching rules with checks found' });
-      return { hookSpecificOutput: null };
+      return {};
     }
 
     await logger.logOutput({
@@ -186,10 +185,11 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
       });
 
       return {
+        decision: 'block',
+        reason: `Rule checks failed for ${path.basename(filePath)}:\n\n${errorMessages.join('\n\n')}\n\nPlease fix these issues.`,
         hookSpecificOutput: {
           hookEventName: 'PostToolUse',
-          decision: 'block',
-          reason: `Rule checks failed for ${path.basename(filePath)}:\n\n${errorMessages.join('\n\n')}\n\nPlease fix these issues.`,
+          additionalContext: `Rule checks failed for ${path.basename(filePath)}`,
         },
       };
     }
@@ -199,7 +199,7 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
       allPassed: true,
     });
 
-    return { hookSpecificOutput: null };
+    return {};
 
   } catch (error: unknown) {
     await logger.logError(error as Error);
@@ -207,7 +207,6 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
     // On error, don't block but log a system message
     return {
       systemMessage: `Rule checks hook failed: ${(error as Error).message || 'Unknown error'}`,
-      hookSpecificOutput: null,
     };
   }
 }
