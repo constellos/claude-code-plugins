@@ -1,25 +1,25 @@
 {
-  "SubagentStart": [
+  "PreToolUse": [
     {
+      "matcher": "Task",
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-start.ts"
-        }
-      ]
-    }
-  ],
-  "SubagentStop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-subagent-stop.ts"
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts"
         }
       ]
     }
   ],
   "PostToolUse": [
+    {
+      "matcher": "Task",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts"
+        }
+      ]
+    },
     {
       "matcher": "Write|Edit",
       "hooks": [
