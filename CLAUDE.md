@@ -76,12 +76,7 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── hooks.json               # Includes subagent logging hooks
     │       └── add-folder-context.ts    # PostToolUse: CLAUDE.md discovery
     │
-    ├── enhanced-rules/
-    │   ├── .claude-plugin/plugin.json
-    │   └── hooks/
-    │       └── hooks.json               # Enhanced rule validation hooks
-    │
-    └── structured-markdown-config/
+    └── structured-context-rules/
         ├── .claude-plugin/plugin.json
         └── hooks/
             └── hooks.json               # Comprehensive markdown validation
@@ -173,7 +168,6 @@ import type {
 
 ### Rule Hooks (`shared/hooks/`)
 
-- **enforce-enhanced-rules.ts** - PreToolUse hook for enhanced rule validation including markdown structure and skill requirements (supports Write and Edit) - DEPRECATED, use enforce-structured-markdown.ts
 - **enforce-structured-markdown.ts** - PreToolUse hook for comprehensive markdown validation (agents, skills, rules, CLAUDE.md)
 - **enforce-output-style-tools.ts** - PreToolUse hook for output style tool enforcement
 - **run-rule-checks.ts** - PostToolUse hook for running custom checks
@@ -220,19 +214,9 @@ Code structure mapping and navigation.
 - **PostToolUse[Read]** (`add-folder-context.ts`) - Discover related CLAUDE.md files
 - **PostToolUse[Write|Edit]** - Run custom rule checks (uses shared `run-rule-checks.ts`)
 
-### enhanced-rules
+### structured-context-rules
 
-Enhanced rule validation with markdown structure checking and skill requirements.
-
-**Hooks:**
-- **PreToolUse[Write|Edit]** - Validate markdown heading structure and skill requirements (uses shared `enforce-enhanced-rules.ts`)
-- **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared `run-rule-checks.ts`)
-
-**Note**: This plugin is superseded by `structured-markdown-config` which includes all functionality plus additional validation.
-
-### structured-markdown-config
-
-Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files. Merges functionality from `enhanced-rules` and `output-styles-permission-modes`.
+Comprehensive markdown structure validation and tool enforcement for agents, skills, rules, and CLAUDE.md files.
 
 **Hooks:**
 - **PreToolUse[Write|Edit]** - Validate agent, skill, rule, and CLAUDE.md structure (uses shared `enforce-structured-markdown.ts`)

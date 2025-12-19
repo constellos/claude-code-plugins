@@ -17,7 +17,7 @@
       "author": {
         "name": "Sylvan Systems + Claude"
       },
-      "source": "./plugins/github-vercel-supabase-ci",
+      "source": "/home/user/claude-code-plugins/plugins/github-vercel-supabase-ci",
       "strict": false
     },
     {
@@ -27,7 +27,7 @@
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-review-sync",
+      "source": "/home/user/claude-code-plugins/plugins/github-review-sync",
       "strict": false
     },
     {
@@ -37,7 +37,7 @@
       "author": {
         "name": "Sylvan Systems + Claude"
       },
-      "source": "./plugins/nextjs-supabase-ai-sdk-dev",
+      "source": "/home/user/claude-code-plugins/plugins/nextjs-supabase-ai-sdk-dev",
       "strict": false
     },
     {
@@ -47,17 +47,7 @@
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/code-context",
-      "strict": false
-    },
-    {
-      "name": "enhanced-rules",
-      "description": "DEPRECATED: Use structured-context-rules instead. Enhanced rule validation with markdown structure checking",
-      "version": "0.1.0",
-      "author": {
-        "name": "Constellos"
-      },
-      "source": "./plugins/enhanced-rules",
+      "source": "/home/user/claude-code-plugins/plugins/code-context",
       "strict": false
     },
     {
@@ -67,7 +57,7 @@
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/structured-context-rules",
+      "source": "/home/user/claude-code-plugins/plugins/structured-context-rules",
       "strict": false
     }
   ]
