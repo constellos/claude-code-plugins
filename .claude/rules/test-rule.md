@@ -1,17 +1,10 @@
 ---
-headings:
-  required:
-    - "## Overview"
-    - "## Implementation"
-  optional:
-    - "## Testing"
-    - "## Notes*"
-  repeating:
-    - pattern: "### Step *"
-      min: 1
-      max: 10
-checks:
-  - "echo 'Running test check'"
+markdown:
+  headings:
+    allowed: ["#*", "##*", "###*"]
+    required: ["## Overview", "## Implementation"]
+  metadata:
+    allowed: ["*"]
 ---
 
 # Test Rule

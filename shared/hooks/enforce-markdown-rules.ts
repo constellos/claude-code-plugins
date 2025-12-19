@@ -2,13 +2,12 @@
  * PreToolUse Hook - Enforce Markdown Rules
  *
  * This hook fires before Write and Edit operations on .md files referenced in .claude/rules
- * to validate markdown heading structure against frontmatter specifications.
+ * to validate markdown structure against frontmatter specifications.
  *
- * Supports:
- * - Required headings (must be present)
- * - Optional headings (may be present)
- * - Repeating headings with min/max counts
- * - Wildcard patterns (prefix: "### Step *", suffix: "## * Notes")
+ * Validates against markdown.headings and markdown.metadata specifications:
+ * - allowed: Patterns that items must match (gitignore-style with *, ?)
+ * - required: Patterns that must have at least one match
+ * - forbidden: Patterns that must not have any matches
  *
  * @module hooks/enforce-markdown-rules
  */
@@ -20,18 +19,19 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import matter from 'gray-matter';
 
-interface HeadingSpec {
+interface ValidationSpec {
+  allowed?: string[];
   required?: string[];
-  optional?: string[];
-  repeating?: Array<{
-    pattern: string;
-    min?: number;
-    max?: number;
-  }>;
+  forbidden?: string[];
+}
+
+interface MarkdownValidation {
+  headings?: ValidationSpec;
+  metadata?: ValidationSpec;
 }
 
 interface RuleFrontmatter {
-  headings?: HeadingSpec;
+  markdown?: MarkdownValidation;
   [key: string]: unknown;
 }
 
@@ -91,76 +91,65 @@ function extractHeadings(content: string): string[] {
 }
 
 /**
- * Check if a heading matches a pattern with wildcard support
+ * Check if a string matches a gitignore-style pattern
  * Supports:
  * - Exact match: "## Overview"
- * - Prefix wildcard: "### Step *" matches "### Step 1", "### Step Two"
- * - Suffix wildcard: "## * Notes" matches "## Important Notes", "## Notes"
+ * - Wildcard: "*" matches anything, "##*" matches "## Foo", "### Bar"
+ * - Question mark: "?" matches single character
  */
-function matchesHeadingPattern(heading: string, pattern: string): boolean {
+function matchesGitignorePattern(value: string, pattern: string): boolean {
   // Exact match
-  if (heading === pattern) {
+  if (value === pattern) {
     return true;
   }
 
-  // Wildcard matching
-  if (pattern.includes('*')) {
-    // Convert pattern to regex
-    // Escape regex special chars except *
-    const regexPattern = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*');
+  // Convert gitignore pattern to regex
+  // Escape regex special chars except * and ?
+  const regexPattern = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.');
 
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(heading);
-  }
-
-  return false;
+  const regex = new RegExp(`^${regexPattern}$`);
+  return regex.test(value);
 }
 
 /**
- * Validate heading structure against specification
+ * Validate items against specification with allowed/required/forbidden patterns
  */
-function validateHeadings(
-  headings: string[],
-  spec: HeadingSpec
+function validateAgainstSpec(
+  items: string[],
+  spec: ValidationSpec,
+  itemType: string
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Check required headings
+  // Check required items
   if (spec.required) {
     for (const requiredPattern of spec.required) {
-      const found = headings.some(h => matchesHeadingPattern(h, requiredPattern));
+      const found = items.some(item => matchesGitignorePattern(item, requiredPattern));
       if (!found) {
-        errors.push(`Required heading missing: "${requiredPattern}"`);
+        errors.push(`Required ${itemType} missing: "${requiredPattern}"`);
       }
     }
   }
 
-  // Optional headings don't need validation - they're optional
-  // If present, they'll be counted in the headings array, but we don't enforce them
-
-  // Check repeating headings
-  if (spec.repeating) {
-    for (const repeatSpec of spec.repeating) {
-      const matchingHeadings = headings.filter(h =>
-        matchesHeadingPattern(h, repeatSpec.pattern)
-      );
-
-      const count = matchingHeadings.length;
-      const min = repeatSpec.min ?? 1;
-      const max = repeatSpec.max ?? Infinity;
-
-      if (count < min) {
-        errors.push(
-          `Repeating heading "${repeatSpec.pattern}" appears ${count} time(s), but requires at least ${min}`
-        );
+  // Check forbidden items
+  if (spec.forbidden) {
+    for (const forbiddenPattern of spec.forbidden) {
+      const found = items.filter(item => matchesGitignorePattern(item, forbiddenPattern));
+      if (found.length > 0) {
+        errors.push(`Forbidden ${itemType} found: ${found.map(f => `"${f}"`).join(', ')} (matches pattern "${forbiddenPattern}")`);
       }
+    }
+  }
 
-      if (count > max) {
-        errors.push(
-          `Repeating heading "${repeatSpec.pattern}" appears ${count} time(s), but allows at most ${max}`
-        );
+  // Check allowed items (if specified, items must match at least one allowed pattern)
+  if (spec.allowed && spec.allowed.length > 0) {
+    for (const item of items) {
+      const isAllowed = spec.allowed.some(pattern => matchesGitignorePattern(item, pattern));
+      if (!isAllowed) {
+        errors.push(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} "${item}" is not in the allowed list`);
       }
     }
   }
@@ -280,8 +269,8 @@ async function handler(
     const filename = path.basename(filePath);
     const matchingRule = ruleFiles.find(r => r.filename === filename);
 
-    if (!matchingRule || !matchingRule.frontmatter.headings) {
-      await logger.logOutput({ message: 'No heading spec found for this rule' });
+    if (!matchingRule || !matchingRule.frontmatter.markdown) {
+      await logger.logOutput({ message: 'No markdown validation spec found for this rule' });
       return {
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
@@ -290,26 +279,45 @@ async function handler(
       };
     }
 
-    // Extract headings from the content
-    const headings = extractHeadings(content);
-    await logger.logOutput({ headings });
+    const markdownSpec = matchingRule.frontmatter.markdown;
+    const allErrors: string[] = [];
 
-    // Validate headings against spec
-    const validation = validateHeadings(headings, matchingRule.frontmatter.headings);
+    // Validate headings if specified
+    if (markdownSpec.headings) {
+      const headings = extractHeadings(content);
+      await logger.logOutput({ headings });
 
-    if (!validation.valid) {
-      const errorMessage = validation.errors.join('\n');
+      const headingValidation = validateAgainstSpec(headings, markdownSpec.headings, 'heading');
+      if (!headingValidation.valid) {
+        allErrors.push(...headingValidation.errors);
+      }
+    }
+
+    // Validate metadata if specified
+    if (markdownSpec.metadata) {
+      const { data: metadata } = matter(content);
+      const metadataKeys = Object.keys(metadata);
+      await logger.logOutput({ metadataKeys });
+
+      const metadataValidation = validateAgainstSpec(metadataKeys, markdownSpec.metadata, 'metadata field');
+      if (!metadataValidation.valid) {
+        allErrors.push(...metadataValidation.errors);
+      }
+    }
+
+    if (allErrors.length > 0) {
+      const errorMessage = allErrors.join('\n');
 
       await logger.logOutput({
         valid: false,
-        errors: validation.errors,
+        errors: allErrors,
       });
 
       return {
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
-          permissionDecisionReason: `Markdown heading validation failed for ${filename}:\n\n${errorMessage}\n\nPlease ensure all required headings are present and repeating headings meet min/max constraints.`,
+          permissionDecisionReason: `Markdown validation failed for ${filename}:\n\n${errorMessage}\n\nPlease ensure all required items are present, no forbidden items exist, and all items match allowed patterns.`,
         },
       };
     }

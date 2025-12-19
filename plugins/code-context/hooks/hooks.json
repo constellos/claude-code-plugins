@@ -25,6 +25,11 @@
       "hooks": [
         {
           "type": "command",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/validate-rules-file.ts",
+          "matcher": "Write|Edit"
+        },
+        {
+          "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-markdown-rules.ts",
           "matcher": "Write|Edit"
         }
@@ -38,15 +43,6 @@
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts"
-        }
-      ]
-    },
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/run-rule-checks.ts",
-          "matcher": "Write|Edit"
         }
       ]
     }

@@ -1,7 +1,5 @@
 ---
-checks:
-  - "echo 'Check 1: Passed'"
-  - "echo 'Check 2: Passed'"
+# Empty frontmatter - this rule has no validation
 ---
 
 # TypeScript Rule
