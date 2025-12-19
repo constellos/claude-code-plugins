@@ -1,6 +1,6 @@
 ---
-title: Markdown Rules Plugin
-description: Markdown heading validation and rule enforcement for documentation files
+title: Enhanced Rules Plugin
+description: Enhanced rule validation with markdown structure checking and skill requirements
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks]
@@ -10,9 +10,9 @@ folder:
     required: [CLAUDE.md]
 ---
 
-# markdown-rules Plugin
+# enhanced-rules Plugin
 
-Markdown heading validation and rule enforcement for documentation files.
+Enhanced rule validation with markdown structure checking and skill requirements.
 
 ## Overview
 
@@ -30,7 +30,7 @@ This plugin provides two powerful features for rule enforcement:
 
 ### 1. PreToolUse[Write|Edit] - Enforce Markdown Heading Structure
 
-**File**: `shared/hooks/enforce-markdown-rules.ts`
+**File**: `shared/hooks/enforce-enhanced-rules.ts`
 **Event**: `PreToolUse`
 **Matcher**: `Write|Edit` (only for .md files in .claude/rules)
 
@@ -189,15 +189,15 @@ This plugin is referenced in `.claude-plugin/marketplace.json`:
 
 ```json
 {
-  "name": "markdown-rules",
-  "source": "./plugins/markdown-rules",
+  "name": "enhanced-rules",
+  "source": "./plugins/enhanced-rules",
   "strict": false
 }
 ```
 
 Install with:
 ```bash
-/plugin install markdown-rules@constellos
+/plugin install enhanced-rules@constellos
 ```
 
 ## Debug Logging
@@ -207,7 +207,7 @@ Enable debug output for hooks:
 ```bash
 DEBUG=* claude                              # All debug output
 DEBUG=run-rule-checks claude                # Check execution only
-DEBUG=enforce-markdown-rules claude         # Heading validation only
+DEBUG=enforce-enhanced-rules claude         # Enhanced rule validation only
 ```
 
 ## Testing
@@ -216,7 +216,7 @@ Run the test suite to validate both hooks:
 
 ```bash
 cd /home/user/claude-code-plugins
-./plugins/markdown-rules/test-hooks.sh
+./plugins/enhanced-rules/test-hooks.sh
 ```
 
 The test script validates:

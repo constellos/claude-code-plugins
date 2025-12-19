@@ -1,6 +1,6 @@
-# Markdown Rules Plugin
+# Enhanced Rules Plugin
 
-Markdown heading validation and rule enforcement for documentation files.
+Enhanced rule validation with markdown structure checking and skill requirements.
 
 ## Features
 
@@ -46,22 +46,22 @@ Rule content goes here...
 ### Install Plugin
 
 ```bash
-/plugin install markdown-rules@constellos
+/plugin install enhanced-rules@constellos
 ```
 
 ## Files Created
 
-- `/home/user/claude-code-plugins/shared/hooks/enforce-markdown-rules.ts`
+- `/home/user/claude-code-plugins/shared/hooks/enforce-enhanced-rules.ts`
 - `/home/user/claude-code-plugins/shared/hooks/run-rule-checks.ts`
-- `/home/user/claude-code-plugins/plugins/markdown-rules/hooks/hooks.json`
-- `/home/user/claude-code-plugins/plugins/markdown-rules/test-hooks.sh`
-- `/home/user/claude-code-plugins/plugins/markdown-rules/CLAUDE.md` (updated)
+- `/home/user/claude-code-plugins/plugins/enhanced-rules/hooks/hooks.json`
+- `/home/user/claude-code-plugins/plugins/enhanced-rules/test-hooks.sh`
+- `/home/user/claude-code-plugins/plugins/enhanced-rules/CLAUDE.md` (updated)
 
 ## Testing
 
 ```bash
 # Run manual test
-cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts | jq .
+cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-enhanced-rules.ts | jq .
 {
   "hook_event_name": "PreToolUse",
   "tool_use_id": "test",
@@ -78,9 +78,9 @@ cat << 'EOF' | npx tsx shared/runner.ts shared/hooks/enforce-markdown-rules.ts |
 EOF
 
 # Run test suite (demonstration)
-./plugins/markdown-rules/test-hooks.sh
+./plugins/enhanced-rules/test-hooks.sh
 ```
 
 ## Documentation
 
-See `/home/user/claude-code-plugins/plugins/markdown-rules/CLAUDE.md` for complete documentation.
+See `/home/user/claude-code-plugins/plugins/enhanced-rules/CLAUDE.md` for complete documentation.

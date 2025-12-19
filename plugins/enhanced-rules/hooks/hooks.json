@@ -1,7 +1,8 @@
 {
-  "_comment": "Markdown Rules Plugin - Markdown heading validation and rule enforcement",
+  "_comment": "Enhanced Rules Plugin - Rule validation with markdown structure and skill requirements",
   "_notes": [
     "This plugin enforces markdown heading structure and runs custom rule checks.",
+    "Validates Required Skills headings in rules files.",
     "Hooks: PreToolUse (heading validation for Write|Edit), PostToolUse (rule checks for Write|Edit)",
     "Rule hooks are shared from ${CLAUDE_PROJECT_DIR}/shared/hooks/"
   ],
@@ -10,7 +11,7 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-markdown-rules.ts",
+          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/enforce-enhanced-rules.ts",
           "matcher": "Write|Edit"
         }
       ]

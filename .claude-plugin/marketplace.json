@@ -41,13 +41,13 @@
       "strict": false
     },
     {
-      "name": "markdown-rules",
-      "description": "Markdown heading validation and rule enforcement for documentation files",
+      "name": "enhanced-rules",
+      "description": "Enhanced rule validation and enforcement with markdown structure checking and skill requirements",
       "version": "0.1.0",
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/markdown-rules",
+      "source": "./plugins/enhanced-rules",
       "strict": false
     }
   ]
