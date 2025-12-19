@@ -1,3 +1,15 @@
+---
+title: Claude Rules Documentation
+description: Claude Code rule documentation files that provide context, constraints, and guidelines
+folder:
+  subfolders:
+    allowed: []
+    forbidden: ["*"]
+  files:
+    allowed: ["*.md", CLAUDE.md]
+    required: [CLAUDE.md]
+---
+
 # Claude Rules
 
 This folder is for Claude Code rule documentation files (`.md` files).

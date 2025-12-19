@@ -1,8 +1,13 @@
 ---
-title: Codemap Plugin
-description: Generate and maintain code structure maps and navigation aids for large codebases
-tags: [codemap, navigation, architecture, documentation]
-status: placeholder
+title: Code Context Plugin
+description: Discovers CLAUDE.md files and provides folder navigation for code structure mapping
+folder:
+  subfolders:
+    allowed: [.claude-plugin, hooks]
+    required: [.claude-plugin, hooks]
+  files:
+    allowed: [CLAUDE.md, README.md, .gitignore]
+    required: [CLAUDE.md]
 ---
 
 # codemap Plugin
