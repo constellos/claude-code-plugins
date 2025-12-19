@@ -1,7 +1,7 @@
 {
-  "name": "markdown-rules",
+  "name": "enhanced-rules",
   "version": "0.1.0",
-  "description": "Markdown heading validation and rule enforcement for documentation files",
+  "description": "Enhanced rule validation and enforcement with markdown structure checking and skill requirements",
   "author": {
     "name": "Constellos"
   },

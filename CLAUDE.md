@@ -37,7 +37,7 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
 │   │   │   └── index.ts       # Exports all utilities
 │   │   ├── log-subagent-start.ts  # SubagentStart hook
 │   │   ├── log-subagent-stop.ts   # SubagentStop hook
-│   │   ├── enforce-markdown-rules.ts  # PreToolUse hook for markdown heading validation
+│   │   ├── enforce-enhanced-rules.ts  # PreToolUse hook for enhanced rule validation
 │   │   └── run-rule-checks.ts         # PostToolUse hook for rule checks
 │   └── rules/                  # Claude rules documentation (*.md files)
 │       └── CLAUDE.md          # Rules folder documentation
@@ -65,10 +65,10 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── hooks.json               # Includes subagent logging hooks
     │       └── add-folder-context.ts    # PostToolUse: CLAUDE.md discovery
     │
-    └── markdown-rules/
+    └── enhanced-rules/
         ├── .claude-plugin/plugin.json
         └── hooks/
-            └── hooks.json               # Markdown heading validation hooks
+            └── hooks.json               # Enhanced rule validation hooks
 ```
 
 ## Self-Executable Hooks with tsx
@@ -157,7 +157,7 @@ import type {
 
 ### Rule Hooks (`shared/hooks/`)
 
-- **enforce-markdown-rules.ts** - PreToolUse hook for markdown heading validation (supports Write and Edit)
+- **enforce-enhanced-rules.ts** - PreToolUse hook for enhanced rule validation including markdown structure and skill requirements (supports Write and Edit)
 - **run-rule-checks.ts** - PostToolUse hook for running custom checks
 
 ## Available Plugins
@@ -190,16 +190,16 @@ Code structure mapping and navigation.
 **Hooks:**
 - **SubagentStart** - Track agent context (uses shared `log-subagent-start.ts`)
 - **SubagentStop** - Log agent file operations (uses shared `log-subagent-stop.ts`)
-- **PreToolUse[Write|Edit]** - Enforce markdown heading structure (uses shared `enforce-markdown-rules.ts`)
+- **PreToolUse[Write|Edit]** - Enforce markdown heading structure (uses shared `enforce-enhanced-rules.ts`)
 - **PostToolUse[Read]** (`add-folder-context.ts`) - Discover related CLAUDE.md files
 - **PostToolUse[Write|Edit]** - Run custom rule checks (uses shared `run-rule-checks.ts`)
 
-### markdown-rules
+### enhanced-rules
 
-Markdown heading validation and rule enforcement.
+Enhanced rule validation with markdown structure checking and skill requirements.
 
 **Hooks:**
-- **PreToolUse[Write|Edit]** - Validate markdown heading structure (uses shared `enforce-markdown-rules.ts`)
+- **PreToolUse[Write|Edit]** - Validate markdown heading structure and skill requirements (uses shared `enforce-enhanced-rules.ts`)
 - **PostToolUse[Write|Edit]** - Execute custom checks from rule frontmatter (uses shared `run-rule-checks.ts`)
 
 ## Creating New Plugins

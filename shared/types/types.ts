@@ -75,7 +75,13 @@ export type HookEventName =
 export interface BaseHookInput {
   /** Unique identifier for the current Claude Code session */
   session_id: string;
-  /** Absolute path to the JSONL transcript file for this session */
+  /**
+   * Absolute path to the JSONL transcript file for this session
+   *
+   * IMPORTANT: This always points to the main session transcript, even when hooks
+   * are executed within a subagent context. To access the current agent's transcript
+   * in SubagentStop hooks, use the agent_transcript_path field instead.
+   */
   transcript_path: string;
   /** Current working directory for the session */
   cwd: string;
