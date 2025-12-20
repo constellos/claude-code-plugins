@@ -115,8 +115,12 @@ function validateAgainstSpec(
 function extractMkdirPaths(command: string): string[] {
   const paths: string[] = [];
 
-  // Check if this is a mkdir command
-  if (!command.includes('mkdir')) {
+  // Extract the actual command (before pipes, semicolons, &&, etc.)
+  // This prevents false positives from strings containing "mkdir"
+  const actualCommand = command.split(/[|;&]/)[0].trim();
+
+  // Check if this is actually a mkdir command (not just containing "mkdir" in a string)
+  if (!actualCommand.match(/^\s*(sudo\s+)?mkdir\b/)) {
     return paths;
   }
 
