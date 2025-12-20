@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "markdown-structure-rules@constellos": true
+  }
+}

@@ -1,16 +1,23 @@
 /**
- * SessionEnd Hook - TypeScript full project type checking
+ * Full project TypeScript validation hook
  *
- * This hook fires at session end to run TypeScript type checking on the entire project,
- * providing comprehensive feedback about type errors.
- * Returns an error if type checking fails, blocking session end.
+ * SessionEnd hook that runs TypeScript compiler on the entire project before
+ * allowing the session to end. This ensures type safety is maintained throughout
+ * the codebase.
  *
- * @module hooks/typecheck-all
+ * Unlike typecheck-file which provides advisory feedback, this hook **blocks**
+ * session end if type errors exist. This prevents type-unsafe code from being
+ * committed, enforcing TypeScript's type guarantees.
+ *
+ * The hook runs `tsc --noEmit` with a 2-minute timeout, suitable for most
+ * project sizes. Type errors are provided in the blocking error message.
+ *
+ * @module typecheck-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

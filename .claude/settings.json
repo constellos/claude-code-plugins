@@ -1,62 +1,28 @@
 {
-  "outputStyle": "test-emoji-style",
-  "extraKnownMarketplaces": {
-    "constellos": {
-      "source": {
-        "source": "file",
-        "path": "./.claude-plugin/marketplace.json"
-      }
-    }
-  },
-  "enabledPlugins": {
-    "github-vercel-supabase-ci@constellos": true,
-    "github-review-sync@constellos": true,
-    "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "code-context@constellos": true,
-    "structured-context-rules@constellos": true
-  },
-  "enabledMcpjsonServers": [
-    "next-devtools"
-  ],
-  "disabledMcpjsonServers": [
-    "chrome-devtools",
-    "google-sheets",
-    "playwright",
-    "supabase",
-    "vercel"
-  ],
   "permissions": {
     "allow": [
       "WebSearch",
       "WebFetch",
-
       "Skill",
       "Task",
-
       "mcp__context7",
       "mcp__next-devtools",
-      
       "Bash(ls:*)",
       "Bash(tree:*)",
       "Bash(pwd:*)",
-      
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(wc:*)",
       "Bash(file:*)",
       "Bash(stat:*)",
-      
       "Bash(find:*)",
       "Bash(grep:*)",
       "Bash(rg:*)",
-      
       "Bash(cut:*)",
       "Bash(tr:*)",
       "Bash(sort:*)",
       "Bash(uniq:*)",
-
       "Glob",
-
       "Bash(jq:*)",
       "Bash(bun test:*)",
       "Bash(bun run test:*)",
@@ -73,26 +39,20 @@
       "Bash(nano :*)",
       "Bash(emacs :*)",
       "Bash(vi :*)",
-      
       "Bash(touch :*)",
       "Bash(cat :*)",
       "Bash(tee :*)",
-      
       "Bash(sed :*)",
       "Bash(awk :*)",
       "Bash(perl :*)",
-      
       "Bash(ed :*)",
       "Bash(ex :*)",
-      
       "Bash(patch :*)",
       "Bash(dd :*)",
-
       "Bash(npm publish:*)",
       "Bash(bun publish:*)"
     ],
     "ask": [
-    
       "Bash(curl:*)",
       "Bash(pkill:*)",
       "Bash(mv:*)",
@@ -100,14 +60,39 @@
       "Bash(rm:*)",
       "Bash(echo:*)",
       "Bash(sh:*)",
-
       "Bash(bun run build:*)",
       "Bash(bun run start:*)",
       "Bash(bun run dev:*)",
-
       "Bash(echo:*)",
-      "Bash(printf:*)",
+      "Bash(printf:*)"
     ],
     "defaultMode": "plan"
-  }
+  },
+  "enabledMcpjsonServers": [
+    "next-devtools"
+  ],
+  "disabledMcpjsonServers": [
+    "chrome-devtools",
+    "google-sheets",
+    "playwright",
+    "supabase",
+    "vercel"
+  ],
+  "enabledPlugins": {
+    "plugin-dev@claude-code-plugins": true,
+    "github-vercel-supabase-ci@constellos": true,
+    "nextjs-supabase-ai-sdk-dev@constellos": true,
+    "markdown-structure-rules@constellos": true,
+    "code-context@constellos": true,
+    "github-review-sync@constellos": true
+  },
+  "extraKnownMarketplaces": {
+    "constellos": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude-plugin"
+      }
+    }
+  },
+  "outputStyle": "test-emoji-style"
 }

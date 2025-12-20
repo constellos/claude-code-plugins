@@ -1,20 +1,26 @@
 /**
- * SubagentStop Hook - Check for needed documentation updates
+ * Documentation completeness analysis hook
  *
- * This hook fires when a subagent completes and analyzes the agent's work
- * to suggest documentation updates. It provides non-blocking guidance about:
- * - Folder-level CLAUDE.md files that may need updates
- * - Agent definitions that may be deprecated or missing
- * - Skill definitions that may need updates
- * - Missing documentation for new features
+ * SubagentStop hook that analyzes agent work and suggests documentation updates.
+ * Scans for common documentation gaps and provides non-blocking suggestions to
+ * keep project documentation in sync with code changes.
  *
- * @module hooks/check-documentation
+ * This hook checks for:
+ * - **CLAUDE.md updates** - Folder-level docs that may be stale after changes
+ * - **Agent definitions** - Deprecated or missing agent documentation
+ * - **Skill definitions** - Skills that need documentation updates
+ * - **New feature docs** - Missing documentation for newly added functionality
+ *
+ * All suggestions are advisory - the hook never blocks execution. It simply
+ * makes Claude aware of potential documentation debt.
+ *
+ * @module check-documentation
  */
 
-import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getTaskEdits } from '../../../shared/hooks/utils/task-state.js';
+import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getTaskEdits } from '../shared/hooks/utils/task-state.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 

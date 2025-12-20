@@ -1,20 +1,37 @@
 /**
- * SubagentStop Hook - Auto-commit agent work with task context
+ * Automatic commit generation from agent task completion
  *
- * This hook fires when a subagent completes and automatically creates a commit
- * with only the files edited by that specific agent. It includes the task prompt
- * and metadata as git trailers.
+ * SubagentStop hook that automatically creates git commits when agents complete
+ * tasks. Analyzes the agent's file operations and generates commits with rich
+ * metadata including the original task prompt and execution statistics.
  *
- * Requires Claude Code 2.0.42+ for agent_transcript_path field.
- * See: https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+ * This hook:
+ * - Only commits files modified by the specific agent (not all changes)
+ * - Generates commit messages from task prompts
+ * - Adds git trailers with agent metadata
+ * - Handles new files, edits, and deletions separately
+ * - Skips commit if no files were modified
  *
- * @module hooks/commit-task
+ * Commit message format:
+ * ```
+ * [AgentType] Task description
+ *
+ * Full task prompt
+ *
+ * Agent-Type: Explore
+ * Agent-ID: agent-abc123
+ * Files-Edited: 2
+ * Files-New: 1
+ * Files-Deleted: 0
+ * ```
+ *
+ * @module commit-task
  */
 
-import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getTaskEdits } from '../../../shared/hooks/utils/task-state.js';
+import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getTaskEdits } from '../shared/hooks/utils/task-state.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

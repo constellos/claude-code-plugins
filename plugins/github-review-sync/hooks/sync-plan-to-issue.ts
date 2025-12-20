@@ -1,21 +1,26 @@
 /**
- * PostToolUse Hook - Sync plan files to GitHub issues
+ * Plan-to-issue synchronization hook
  *
- * This hook fires when a plan file is written or edited and automatically:
- * 1. Creates a GitHub issue from the plan content
- * 2. Links the issue to the current branch
- * 3. Tracks issue metadata to prevent duplicates on edits
+ * PostToolUse hook that automatically creates GitHub issues from plan files when
+ * they are written or edited. Maintains a 1:1 relationship between plan sessions
+ * and GitHub issues for better project tracking and collaboration.
  *
- * The issue will auto-close when a PR from this branch is merged (if using
- * "Closes #<issue>" in PR description).
+ * This hook provides:
+ * - **Automatic issue creation** - Creates issue on first plan Write/Edit
+ * - **Duplicate prevention** - Tracks created issues to avoid duplicates on plan updates
+ * - **Branch linking** - Associates issues with the current branch
+ * - **Auto-close on merge** - Issues close automatically when PR is merged (via "Closes #N" syntax)
  *
- * @module hooks/sync-plan-to-issue
+ * State is tracked in .claude/logs/plan-issues.json to remember which plan
+ * sessions have already created issues.
+ *
+ * @module sync-plan-to-issue
  */
 
-import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { exec } from 'child_process';
+import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -51,6 +56,51 @@ async function execCommand(
       stderr: err.stderr?.trim() || err.message || '',
     };
   }
+}
+
+/**
+ * Execute gh command with stdin for large body content
+ * This avoids shell escaping issues when passing markdown content
+ */
+async function execGhWithStdin(
+  args: string[],
+  stdin: string,
+  cwd: string
+): Promise<{ success: boolean; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    const child = spawn('gh', args, { cwd });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      resolve({
+        success: code === 0,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+    });
+
+    child.on('error', (error) => {
+      resolve({
+        success: false,
+        stdout: '',
+        stderr: error.message,
+      });
+    });
+
+    // Write body to stdin and close
+    child.stdin.write(stdin);
+    child.stdin.end();
+  });
 }
 
 /**
@@ -133,9 +183,12 @@ async function syncPlanToIssue(
 ${planContent}`;
 
   if (existing && existing.issueNumber) {
-    // Update existing issue
-    const updateCmd = `gh issue edit ${existing.issueNumber} --body ${JSON.stringify(body)}`;
-    const result = await execCommand(updateCmd, cwd);
+    // Update existing issue using stdin to avoid shell escaping issues
+    const result = await execGhWithStdin(
+      ['issue', 'edit', String(existing.issueNumber), '--body-file', '-'],
+      body,
+      cwd
+    );
 
     if (result.success) {
       // Update state
@@ -150,9 +203,12 @@ ${planContent}`;
     }
   }
 
-  // Create new issue
-  const createCmd = `gh issue create --title ${JSON.stringify(title)} --body ${JSON.stringify(body)} --label "plan,claude-generated"`;
-  const result = await execCommand(createCmd, cwd);
+  // Create new issue using stdin to avoid shell escaping issues
+  const result = await execGhWithStdin(
+    ['issue', 'create', '--title', title, '--body-file', '-', '--label', 'plan'],
+    body,
+    cwd
+  );
 
   if (!result.success) {
     throw new Error(`Failed to create issue: ${result.stderr || result.stdout}`);

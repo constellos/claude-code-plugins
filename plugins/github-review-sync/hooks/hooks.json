@@ -8,7 +8,9 @@
     "Code review triggers on commits",
     "Branch status validation on session end"
   ],
-  "UserPromptSubmit": [
+  "description": "GitHub review and sync hooks for branch validation, auto-commit, and status checking",
+  "hooks": {
+    "UserPromptSubmit": [
     {
       "hooks": [
         {
@@ -68,4 +70,5 @@
       ]
     }
   ]
+  }
 }

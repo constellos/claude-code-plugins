@@ -1,0 +1,20 @@
+{
+  "name": "markdown-structure-rules",
+  "version": "0.1.0",
+  "description": "Markdown structure validation for rules files in .claude/rules/",
+  "author": {
+    "name": "Constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "validation",
+    "structure",
+    "agents",
+    "skills",
+    "rules",
+    "output-styles",
+    "permissions"
+  ]
+}

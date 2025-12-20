@@ -1,15 +1,20 @@
 /**
- * PostToolUse Hook - TypeScript type checking
+ * Real-time TypeScript type checking hook
  *
- * This hook fires after Write/Edit operations to run TypeScript type checking
- * on the project, providing immediate feedback about type errors.
+ * PostToolUse hook that runs TypeScript compiler in check mode immediately after
+ * Write/Edit operations. Provides instant feedback on type errors, enabling Claude
+ * to fix type issues in the same conversation turn.
  *
- * @module hooks/typecheck-file
+ * This hook runs `tsc --noEmit` which performs type checking without generating
+ * output files. Type errors are provided as additional context (non-blocking),
+ * allowing Claude to see and address issues without halting execution.
+ *
+ * @module typecheck-file
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

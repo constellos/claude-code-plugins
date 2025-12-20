@@ -6,7 +6,9 @@
     "Waits for CI checks after PR creation",
     "Tracks task/agent calls for context"
   ],
-  "SessionStart": [
+  "description": "CI/CD automation hooks for GitHub, Vercel, and Supabase projects",
+  "hooks": {
+    "SessionStart": [
     {
       "hooks": [
         {
@@ -56,4 +58,5 @@
       ]
     }
   ]
+  }
 }

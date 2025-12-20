@@ -1,28 +1,32 @@
 /**
- * SessionStart Hook - Setup Development Environment
+ * Development environment setup and verification hook
  *
- * This hook sets up the required development tools and services for the
- * GitHub/Vercel/Supabase CI workflow. It behaves differently based on whether
- * running in a remote or local environment.
+ * SessionStart hook that configures the development environment for GitHub, Vercel,
+ * and Supabase workflows. Behaves differently based on execution context to optimize
+ * for both cloud and local development scenarios.
  *
- * Remote (cloud) environment:
- * - Installs required CLI tools: gh, vercel, docker, supabase
+ * **Remote (cloud) environment behavior:**
+ * - Installs required CLI tools: GitHub CLI (gh), Vercel CLI, Docker, Supabase CLI
  * - Starts Docker daemon if not running
- * - Starts Supabase local development if not running
+ * - Initializes Supabase local development stack
  * - Installs project dependencies using detected package manager
  *
- * Local environment:
- * - Verifies required tools are installed and reports status
- * - Starts services if needed
- * - Installs dependencies if needed
+ * **Local environment behavior:**
+ * - Verifies all required tools are installed and reports their status
+ * - Starts services that aren't running (Docker, Supabase)
+ * - Installs dependencies only if node_modules doesn't exist
+ * - Provides diagnostic output about tool availability
  *
- * @module hooks/setup-environment
+ * Environment detection is based on the presence of specific environment variables
+ * or markers that indicate cloud execution contexts.
+ *
+ * @module setup-environment
  */
 
-import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { detectPackageManager } from '../../../shared/hooks/utils/package-manager.js';
+import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
@@ -37,7 +41,24 @@ interface ExecResult {
 }
 
 /**
- * Execute a command and return structured result
+ * Execute a shell command with error handling
+ *
+ * Wraps child_process.exec with structured error handling and timeout support.
+ * Returns a consistent result object regardless of success or failure.
+ *
+ * @param command - The shell command to execute
+ * @param options - Execution options (cwd, timeout, env vars)
+ * @returns Structured result with success flag and output streams
+ *
+ * @example
+ * ```typescript
+ * const result = await execCommand('gh --version', { cwd: '/project' });
+ * if (result.success) {
+ *   console.log('GitHub CLI version:', result.stdout);
+ * } else {
+ *   console.error('Command failed:', result.stderr);
+ * }
+ * ```
  */
 async function execCommand(
   command: string,

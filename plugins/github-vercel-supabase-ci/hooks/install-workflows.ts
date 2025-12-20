@@ -1,15 +1,22 @@
 /**
- * SessionStart Hook - Install GitHub Actions workflows
+ * GitHub Actions workflow installation hook
  *
- * This hook copies bundled workflow files from the plugin to the user's project.
- * It runs on session start and only copies files that don't already exist.
+ * SessionStart hook that copies bundled workflow files from the plugin directory
+ * to the project's .github/workflows/ directory. Preserves existing workflows by
+ * only copying files that don't already exist.
  *
- * @module hooks/install-workflows
+ * This enables projects to automatically receive CI/CD workflow templates for:
+ * - Type checking and linting
+ * - Test execution
+ * - Vercel deployments
+ * - Supabase migrations
+ *
+ * @module install-workflows
  */
 
-import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
@@ -18,7 +25,27 @@ import * as path from 'path';
 const execAsync = promisify(exec);
 
 /**
- * Copy a file if it doesn't exist at destination
+ * Copy a file only if destination doesn't exist
+ *
+ * Safe copy operation that preserves existing files. Creates parent directories
+ * as needed before copying.
+ *
+ * @param src - Source file path
+ * @param dest - Destination file path
+ * @returns Result object with copy status and existence flags
+ *
+ * @example
+ * ```typescript
+ * const result = await copyFileIfNotExists(
+ *   '/plugin/.github-workflows/ci.yml',
+ *   '/project/.github/workflows/ci.yml'
+ * );
+ * if (result.copied) {
+ *   console.log('Workflow installed');
+ * } else if (result.existed) {
+ *   console.log('Workflow already exists');
+ * }
+ * ```
  */
 async function copyFileIfNotExists(
   src: string,

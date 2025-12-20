@@ -5,10 +5,7 @@
   "author": {
     "name": "Constellos"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/constellos/claude-code-plugins"
-  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
   "license": "MIT",
   "keywords": [
     "code-context",

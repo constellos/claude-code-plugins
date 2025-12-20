@@ -6,7 +6,9 @@
     "Full project checks on SessionEnd",
     "Tracks task/agent calls for context"
   ],
-  "PreToolUse": [
+  "description": "Development quality checks for Next.js, Supabase, and AI SDK projects",
+  "hooks": {
+    "PreToolUse": [
     {
       "matcher": "Task",
       "hooks": [
@@ -76,4 +78,5 @@
       ]
     }
   ]
+  }
 }
