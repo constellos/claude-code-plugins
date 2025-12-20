@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "Plugin marketplace for Constellos development tools",
-    "pluginRoot": "../plugins"
+    "pluginRoot": "./plugins"
   },
   "plugins": [
     {
@@ -17,7 +17,7 @@
       "author": {
         "name": "Sylvan Systems + Claude"
       },
-      "source": "/home/user/claude-code-plugins/plugins/github-vercel-supabase-ci",
+      "source": "./plugins/github-vercel-supabase-ci",
       "strict": false
     },
     {
@@ -27,7 +27,7 @@
       "author": {
         "name": "constellos"
       },
-      "source": "/home/user/claude-code-plugins/plugins/github-review-sync",
+      "source": "./plugins/github-review-sync",
       "strict": false
     },
     {
@@ -37,7 +37,7 @@
       "author": {
         "name": "Sylvan Systems + Claude"
       },
-      "source": "/home/user/claude-code-plugins/plugins/nextjs-supabase-ai-sdk-dev",
+      "source": "./plugins/nextjs-supabase-ai-sdk-dev",
       "strict": false
     },
     {
@@ -47,17 +47,17 @@
       "author": {
         "name": "Constellos"
       },
-      "source": "/home/user/claude-code-plugins/plugins/code-context",
+      "source": "./plugins/code-context",
       "strict": false
     },
     {
-      "name": "structured-context-rules",
-      "description": "Comprehensive validation for context rules, markdown structure, and output style enforcement for agents, skills, rules, CLAUDE.md, and plans",
+      "name": "markdown-structure-rules",
+      "description": "Markdown structure validation for rules files in .claude/rules/",
       "version": "0.1.0",
       "author": {
         "name": "Constellos"
       },
-      "source": "/home/user/claude-code-plugins/plugins/structured-context-rules",
+      "source": "./plugins/markdown-structure-rules",
       "strict": false
     }
   ]

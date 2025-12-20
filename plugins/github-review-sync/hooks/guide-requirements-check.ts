@@ -1,23 +1,28 @@
 /**
- * UserPromptSubmit Hook - Guide Claude to check requirements and plan updates
+ * Requirements analysis and planning guidance hook
  *
- * This hook fires on every user prompt submission and adds guidance to Claude
- * to ensure thorough requirement analysis and plan consideration.
+ * UserPromptSubmit hook that adds systematic requirement analysis instructions
+ * to every user prompt. Ensures Claude follows a consistent process for
+ * understanding requests and maintaining plans.
  *
- * The hook instructs Claude to:
- * 1. List all explicit and implicit requirements from the user's message
- * 2. Consider whether the current plan needs updating
- * 3. Proceed with implementation after documentation
+ * This hook instructs Claude to:
+ * 1. **List requirements** - Document all explicit and implicit requirements
+ * 2. **Plan consideration** - Evaluate if current plan needs revision
+ * 3. **Proceed systematically** - Implement only after documenting understanding
  *
- * @module hooks/guide-requirements-check
+ * The guidance is added as additional context to the user's prompt, making it
+ * part of Claude's instruction set for that turn. This creates a consistent
+ * workflow across all user interactions.
+ *
+ * @module guide-requirements-check
  */
 
 import type {
   UserPromptSubmitInput,
   UserPromptSubmitHookOutput,
-} from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+} from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 
 /**
  * UserPromptSubmit hook handler

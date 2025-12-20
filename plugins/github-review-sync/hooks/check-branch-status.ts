@@ -1,18 +1,25 @@
 /**
- * SessionEnd Hook - Check branch status for conflicts and sync
+ * Branch sync and conflict detection hook
  *
- * This hook fires when a Claude Code session ends and checks:
- * 1. If the current branch is up to date with the remote
- * 2. If there are any merge conflicts in the working directory
+ * SessionEnd hook that validates branch state before ending the session. Prevents
+ * users from leaving sessions with unresolved conflicts or out-of-sync branches.
  *
- * Returns an error if issues are detected, requiring manual resolution.
+ * This hook performs two critical checks:
+ * 1. **Remote sync check** - Verifies current branch is up-to-date with remote
+ * 2. **Conflict detection** - Scans for unresolved merge conflicts in working directory
  *
- * @module hooks/check-branch-status
+ * If either check fails, the hook blocks session end and provides detailed guidance
+ * on resolving the issue. This prevents common git workflow mistakes like:
+ * - Working on a stale branch
+ * - Leaving conflicts unresolved
+ * - Creating divergent history
+ *
+ * @module check-branch-status
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

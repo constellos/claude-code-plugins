@@ -1,16 +1,24 @@
 /**
- * PostToolUse Hook - Vitest test runner
+ * Real-time Vitest test execution hook
  *
- * This hook fires after Write/Edit operations on test files to run Vitest,
- * providing immediate feedback about test failures.
+ * PostToolUse hook that runs Vitest immediately after Write/Edit operations on
+ * test files. Provides instant feedback on test failures, enabling Claude to fix
+ * broken tests in the same conversation turn.
  *
- * @module hooks/vitest-file
+ * This hook only triggers for files matching *.test.ts or *.test.tsx patterns.
+ * It uses the project's package manager to run the test script, ensuring
+ * compatibility with project-specific Vitest configurations.
+ *
+ * Test failures are provided as additional context (non-blocking), allowing
+ * Claude to see and address issues without halting execution.
+ *
+ * @module vitest-file
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

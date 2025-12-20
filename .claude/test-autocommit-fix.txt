@@ -1,1 +1,0 @@
-Testing autocommit after fixing gray-matter dependency issue

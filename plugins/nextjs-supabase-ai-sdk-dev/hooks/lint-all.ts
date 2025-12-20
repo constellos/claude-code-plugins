@@ -1,17 +1,24 @@
 /**
- * SessionEnd Hook - ESLint full project linting
+ * Full project ESLint validation hook
  *
- * This hook fires at session end to run ESLint on the entire project,
- * providing comprehensive feedback about code quality issues.
- * Returns an error if linting fails, blocking session end.
+ * SessionEnd hook that runs ESLint on the entire project before allowing the
+ * session to end. This ensures no code quality regressions are introduced
+ * during the session.
  *
- * @module hooks/lint-all
+ * Unlike lint-file which provides advisory feedback, this hook **blocks** session
+ * end if linting fails. This forces resolution of all code quality issues before
+ * the session completes, preventing broken code from being committed.
+ *
+ * The hook uses the project's package manager to run the lint script, ensuring
+ * compatibility with project-specific ESLint configurations.
+ *
+ * @module lint-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

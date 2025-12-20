@@ -1,15 +1,24 @@
 /**
- * PostToolUse Hook - Await PR CI checks
+ * Pull request CI status monitoring hook
  *
- * This hook fires after Bash tool calls that create PRs (gh pr create).
- * It waits for CI checks to complete using `gh run watch` and reports the results.
+ * PostToolUse hook that intercepts PR creation commands and automatically waits
+ * for CI checks to complete. Provides immediate feedback on build and test results
+ * without requiring manual verification.
  *
- * @module hooks/await-pr-checks
+ * When a PR is created via `gh pr create`, this hook:
+ * 1. Detects the PR creation command
+ * 2. Extracts the PR number from command output
+ * 3. Watches CI runs using `gh run watch`
+ * 4. Reports success or blocks on failure
+ *
+ * This ensures Claude is aware of CI status before proceeding with additional work.
+ *
+ * @module await-pr-checks
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

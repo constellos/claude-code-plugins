@@ -1,17 +1,24 @@
 /**
- * SessionEnd Hook - Vitest full test suite runner
+ * Full test suite validation hook
  *
- * This hook fires at session end to run the entire test suite with Vitest,
- * providing comprehensive feedback about test failures.
- * Returns an error if tests fail, blocking session end.
+ * SessionEnd hook that runs the entire Vitest test suite before allowing the
+ * session to end. This ensures all tests pass and no regressions were introduced
+ * during the session.
  *
- * @module hooks/vitest-all
+ * Unlike vitest-file which provides advisory feedback on individual test files,
+ * this hook **blocks** session end if any tests fail. This enforces test quality
+ * and prevents broken code from being committed.
+ *
+ * The hook uses the project's package manager to run the test script with a
+ * 5-minute timeout, suitable for most test suites.
+ *
+ * @module vitest-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
+import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

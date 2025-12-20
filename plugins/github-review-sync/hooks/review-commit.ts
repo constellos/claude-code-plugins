@@ -1,16 +1,23 @@
 /**
- * PostToolUse Hook - Trigger CI review agent on commits
+ * Commit review guidance hook
  *
- * This hook fires after git commit commands and provides guidance to Claude
- * to invoke a code review agent. For commits from subagents, the agent prompt
- * is used as context. For manual commits, the plan/issue content is used.
+ * PostToolUse hook that suggests code review after git commits. Provides context-aware
+ * guidance to Claude about invoking review agents based on commit type and source.
  *
- * @module hooks/review-commit
+ * Review strategy varies by commit type:
+ * - **Subagent commits** - Uses original task prompt as review context
+ * - **Manual commits** - Uses plan/issue content for review scope
+ * - **No context** - Suggests general commit review
+ *
+ * This hook is advisory only - it doesn't force reviews but makes Claude aware
+ * that review would be appropriate at this point in the workflow.
+ *
+ * @module review-commit
  */
 
-import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'node:fs/promises';

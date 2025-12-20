@@ -1,16 +1,22 @@
 /**
- * PostToolUse Hook - ESLint file linting
+ * Real-time ESLint validation hook
  *
- * This hook fires after Write/Edit operations to run ESLint on the project,
- * providing immediate feedback about code quality issues.
+ * PostToolUse hook that runs ESLint immediately after Write/Edit operations,
+ * providing instant feedback on code quality issues. Enables Claude to fix
+ * linting errors in the same conversation turn.
  *
- * @module hooks/lint-file
+ * This hook detects the project's package manager and runs the appropriate
+ * lint command (npm run lint, yarn lint, pnpm lint, or bun run lint).
+ * Errors are provided as additional context, making Claude aware of issues
+ * without blocking execution.
+ *
+ * @module lint-file
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { getScriptCommand } from '../../../shared/hooks/utils/package-manager.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
