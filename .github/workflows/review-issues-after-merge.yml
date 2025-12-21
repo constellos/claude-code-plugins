@@ -1,0 +1,276 @@
+name: Review and Close Issues After Merge
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/workflows/**'  # Prevent infinite loops
+
+jobs:
+  review-issues:
+    runs-on: ubuntu-latest
+
+    permissions:
+      issues: write       # Need to comment and close issues
+      contents: read      # Read repo content
+      pull-requests: read # Read PR details
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history to analyze commits
+
+      - name: Setup environment
+        run: |
+          # Ensure gh CLI is available (comes with ubuntu-latest)
+          gh --version
+
+      - name: Get merged PR details
+        id: pr-details
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find PR associated with this merge commit
+          PR_NUMBER=$(gh pr list --state merged --json number,mergeCommit \
+            --jq ".[] | select(.mergeCommit.oid == \"${{ github.sha }}\") | .number")
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No merged PR found for commit ${{ github.sha }}"
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+
+          # Get PR details
+          gh pr view $PR_NUMBER --json title,body > pr-details.json
+
+          # Extract commit messages
+          gh pr view $PR_NUMBER --json commits \
+            --jq '.commits[].commit.message' > commit-messages.txt
+
+          # Get files changed
+          gh pr view $PR_NUMBER --json files \
+            --jq '.files[].path' > files-changed.txt
+
+      - name: Find unlinked issues
+        id: find-issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all git branches (to identify linked issues)
+          git branch -r --format="%(refname:short)" | sed 's/origin\///' > all-branches.txt
+
+          # Get all open issues
+          gh issue list --state open --json number,title,body,labels \
+            --limit 100 > all-issues.json
+
+          # Filter for unlinked issues using Node.js
+          cat > filter-issues.js << 'EOF'
+          const fs = require('fs');
+
+          const issues = JSON.parse(fs.readFileSync('all-issues.json', 'utf-8'));
+          const branches = new Set(
+            fs.readFileSync('all-branches.txt', 'utf-8')
+              .split('\n')
+              .filter(Boolean)
+          );
+
+          const unlinked = issues.filter(issue => {
+            // Check for branch marker in body
+            const match = issue.body?.match(/\*\*Branch:\*\*\s+`([^`]+)`/);
+
+            if (!match) {
+              return true; // No branch marker = unlinked
+            }
+
+            const branchName = match[1];
+            return !branches.has(branchName); // Branch doesn't exist = unlinked
+          });
+
+          fs.writeFileSync('unlinked-issues.json', JSON.stringify(unlinked, null, 2));
+          console.log('Found', unlinked.length, 'unlinked issues');
+          EOF
+
+          node filter-issues.js
+
+          UNLINKED_COUNT=$(node -p "JSON.parse(require('fs').readFileSync('unlinked-issues.json', 'utf-8')).length")
+          echo "unlinked_count=$UNLINKED_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Analyze issues against merged PR
+        if: steps.find-issues.outputs.unlinked_count > 0 && steps.pr-details.outputs.pr_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Bash script to analyze each unlinked issue
+
+          PR_TITLE=$(node -p "JSON.parse(require('fs').readFileSync('pr-details.json', 'utf-8')).title")
+          PR_BODY=$(node -p "JSON.parse(require('fs').readFileSync('pr-details.json', 'utf-8')).body || ''")
+          COMMIT_MESSAGES=$(cat commit-messages.txt)
+          FILES_CHANGED=$(cat files-changed.txt)
+
+          # Create analysis results file
+          echo "[]" > issue-analysis.json
+
+          # Common words to skip in keyword matching
+          COMMON_WORDS="this that with from have been were make into about when which there their would could should these those"
+
+          # Analyze each unlinked issue
+          node -p "JSON.parse(require('fs').readFileSync('unlinked-issues.json', 'utf-8')).map(i => JSON.stringify(i)).join('\n')" | \
+          while IFS= read -r issue_json; do
+            ISSUE_NUMBER=$(echo "$issue_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).number")
+            ISSUE_TITLE=$(echo "$issue_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).title")
+            ISSUE_BODY=$(echo "$issue_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).body || ''")
+
+            echo "Analyzing issue #$ISSUE_NUMBER: $ISSUE_TITLE"
+
+            # Extract keywords from issue (4+ chars, lowercase)
+            ISSUE_KEYWORDS=$(echo "$ISSUE_TITLE $ISSUE_BODY" | \
+              tr '[:upper:]' '[:lower:]' | \
+              grep -oE '\b[a-z]{4,}\b' | \
+              sort -u)
+
+            # Check for keyword matches in PR content
+            TITLE_MATCHES=0
+            COMMIT_MATCHES=0
+            FILE_MATCHES=0
+
+            for keyword in $ISSUE_KEYWORDS; do
+              # Skip common words
+              if echo "$COMMON_WORDS" | grep -qw "$keyword"; then
+                continue
+              fi
+
+              # Check PR title
+              if echo "$PR_TITLE" | tr '[:upper:]' '[:lower:]' | grep -qw "$keyword"; then
+                TITLE_MATCHES=$((TITLE_MATCHES + 1))
+              fi
+
+              # Check commit messages
+              if echo "$COMMIT_MESSAGES" | tr '[:upper:]' '[:lower:]' | grep -qw "$keyword"; then
+                COMMIT_MATCHES=$((COMMIT_MATCHES + 1))
+              fi
+
+              # Check file paths (case-insensitive)
+              if echo "$FILES_CHANGED" | grep -qi "$keyword"; then
+                FILE_MATCHES=$((FILE_MATCHES + 1))
+              fi
+            done
+
+            TOTAL_MATCHES=$((TITLE_MATCHES + COMMIT_MATCHES + FILE_MATCHES))
+
+            # Determine resolution status
+            STATUS="not_addressed"
+            if [ $TOTAL_MATCHES -ge 3 ]; then
+              STATUS="fully_resolved"
+            elif [ $TOTAL_MATCHES -ge 1 ]; then
+              STATUS="partially_resolved"
+            fi
+
+            # Store analysis result
+            cat > temp-result.json << EOF
+{
+  "number": $ISSUE_NUMBER,
+  "title": "$ISSUE_TITLE",
+  "status": "$STATUS",
+  "match_score": $TOTAL_MATCHES,
+  "title_matches": $TITLE_MATCHES,
+  "commit_matches": $COMMIT_MATCHES,
+  "file_matches": $FILE_MATCHES
+}
+EOF
+
+            # Append to results
+            node -e "
+              const fs = require('fs');
+              const results = JSON.parse(fs.readFileSync('issue-analysis.json', 'utf-8'));
+              const newResult = JSON.parse(fs.readFileSync('temp-result.json', 'utf-8'));
+              results.push(newResult);
+              fs.writeFileSync('issue-analysis.json', JSON.stringify(results, null, 2));
+            "
+          done
+
+          echo "Analysis complete"
+          cat issue-analysis.json
+
+      - name: Take action on issues
+        if: steps.find-issues.outputs.unlinked_count > 0 && steps.pr-details.outputs.pr_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-details.outputs.pr_number }}
+        run: |
+          # Process each analyzed issue
+
+          FULLY_RESOLVED=0
+          PARTIALLY_RESOLVED=0
+          NOT_ADDRESSED=0
+
+          node -p "JSON.parse(require('fs').readFileSync('issue-analysis.json', 'utf-8')).map(r => JSON.stringify(r)).join('\n')" | \
+          while IFS= read -r result_json; do
+            ISSUE_NUMBER=$(echo "$result_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).number")
+            STATUS=$(echo "$result_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).status")
+            TITLE=$(echo "$result_json" | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf-8')).title")
+
+            if [ "$STATUS" = "fully_resolved" ]; then
+              echo "✓ Issue #$ISSUE_NUMBER appears fully resolved"
+
+              # Comment and close
+              gh issue comment $ISSUE_NUMBER --body \
+                "This issue appears to have been resolved by PR #$PR_NUMBER. Closing automatically.
+
+If this was closed in error, please reopen and link it to a branch to prevent auto-closure."
+
+              gh issue close $ISSUE_NUMBER --reason completed
+
+              FULLY_RESOLVED=$((FULLY_RESOLVED + 1))
+
+            elif [ "$STATUS" = "partially_resolved" ]; then
+              echo "⚠ Issue #$ISSUE_NUMBER partially addressed"
+
+              # Comment about partial resolution
+              gh issue comment $ISSUE_NUMBER --body \
+                "This issue may have been partially addressed by PR #$PR_NUMBER.
+
+Please review and:
+- Close this issue if fully resolved
+- Create a new issue for remaining work and link it
+- Link this issue to a branch if work is ongoing"
+
+              PARTIALLY_RESOLVED=$((PARTIALLY_RESOLVED + 1))
+
+            else
+              echo "- Issue #$ISSUE_NUMBER not addressed"
+              NOT_ADDRESSED=$((NOT_ADDRESSED + 1))
+            fi
+          done
+
+          # Store counts in env for next step
+          echo "FULLY_RESOLVED=$FULLY_RESOLVED" >> $GITHUB_ENV
+          echo "PARTIALLY_RESOLVED=$PARTIALLY_RESOLVED" >> $GITHUB_ENV
+          echo "NOT_ADDRESSED=$NOT_ADDRESSED" >> $GITHUB_ENV
+
+      - name: Post summary on PR
+        if: steps.pr-details.outputs.pr_number != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-details.outputs.pr_number }}
+        run: |
+          # Post summary comment on PR
+          gh pr comment $PR_NUMBER --body \
+            "## Issue Review Summary
+
+- ✓ Fully resolved: ${FULLY_RESOLVED:-0} issue(s)
+- ⚠ Partially resolved: ${PARTIALLY_RESOLVED:-0} issue(s)
+- - Not addressed: ${NOT_ADDRESSED:-0} issue(s)
+
+Review the issue comments for details."
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Remove temporary files
+          rm -f pr-details.json commit-messages.txt files-changed.txt \
+                all-branches.txt all-issues.json unlinked-issues.json \
+                issue-analysis.json temp-result.json filter-issues.js
