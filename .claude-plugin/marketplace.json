@@ -21,23 +21,13 @@
       "strict": false
     },
     {
-      "name": "github-context-sync",
-      "description": "Git worktree context synchronization - fetches origin/main in worktree sessions",
-      "version": "0.1.0",
+      "name": "github-orchestration",
+      "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
+      "version": "1.0.0",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-context-sync",
-      "strict": false
-    },
-    {
-      "name": "github-claude-review-actions",
-      "description": "GitHub Actions workflows for CI/CD validation of Claude Code tasks",
-      "version": "0.1.0",
-      "author": {
-        "name": "Constellos"
-      },
-      "source": "./plugins/github-claude-review-actions",
+      "source": "./plugins/github-orchestration",
       "strict": false
     },
     {

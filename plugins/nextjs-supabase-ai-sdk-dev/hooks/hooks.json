@@ -28,6 +28,11 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts",
           "description": "Logs Task tool results after agent completion. Captures agent output and context for analysis."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/encourage-ui-review.ts",
+          "description": "Encourages ui-reviewer after ui-developer agent completes"
         }
       ]
     },
