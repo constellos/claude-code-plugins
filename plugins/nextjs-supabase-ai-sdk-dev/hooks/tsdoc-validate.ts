@@ -53,9 +53,9 @@ async function handler(
     return {};
   }
 
-  // Extract file path from tool parameters
-  const toolParams = input.toolParams as { file_path?: string };
-  const filePath = toolParams.file_path;
+  // Extract file path from tool input
+  const toolInput = input.tool_input as { file_path?: string };
+  const filePath = toolInput.file_path;
 
   if (!filePath) {
     return {};
