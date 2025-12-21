@@ -30,7 +30,7 @@ jobs:
           echo ""
 
           # Check for git trailers
-          HAS_TRAILERS=$(echo "$COMMIT_MSG" | grep -E '^[A-Z][a-z-]+:' && echo "yes" || echo "no")
+          HAS_TRAILERS=$(echo "$COMMIT_MSG" | grep -qE '^[A-Z][a-z-]+:' && echo "yes" || echo "no")
           echo "has_trailers=$HAS_TRAILERS" >> $GITHUB_OUTPUT
 
       - name: Validate commit structure
