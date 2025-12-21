@@ -8,6 +8,17 @@
   ],
   "description": "GitHub context and state synchronization",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/fetch-branch-context.ts",
+            "description": "Displays current branch issue and outstanding unlinked issues"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit",
