@@ -43,6 +43,11 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/typecheck-file.ts",
           "description": "Runs TypeScript type checking on individual files after Write/Edit operations. Catches type errors early in development."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/tsdoc-validate.ts",
+          "description": "Validates TSDoc documentation on TypeScript files after Write/Edit operations. Ensures exported members have comprehensive documentation following TSDoc 2025 best practices."
         }
       ]
     },
