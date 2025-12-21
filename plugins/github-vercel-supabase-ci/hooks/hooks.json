@@ -3,6 +3,7 @@
   "_notes": [
     "Installs and configures CI tools on session start",
     "Installs GitHub Actions workflows",
+    "Syncs Vercel environment variables to .env.local",
     "Waits for CI checks after PR creation",
     "Tracks task/agent calls for context"
   ],
@@ -20,6 +21,11 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-workflows.ts",
           "description": "Installs GitHub Actions workflow files for CI/CD automation. Sets up automated testing, deployment, and quality checks."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vercel-env-setup.ts",
+          "description": "Syncs Vercel environment variables from project to .env.local on session start. Ensures worktrees have the same environment configuration."
         }
       ]
     }
