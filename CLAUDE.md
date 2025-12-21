@@ -78,6 +78,7 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── lint-all.ts              # SessionStop: ESLint on all
     │       ├── typecheck-file.ts        # PostToolUse: TypeScript on file
     │       ├── typecheck-all.ts         # SessionStop: TypeScript on all
+    │       ├── tsdoc-validate.ts        # PostToolUse: TSDoc validation on file
     │       ├── vitest-file.ts           # PostToolUse: Vitest on file
     │       └── vitest-all.ts            # SessionStop: Vitest on all
     │
@@ -238,6 +239,7 @@ Development quality checks for Next.js projects.
 **Hooks:**
 - **PostToolUse[Write|Edit]** (`lint-file.ts`) - Run ESLint on edited files
 - **PostToolUse[Write|Edit]** (`typecheck-file.ts`) - Run TypeScript type checking on edited files
+- **PostToolUse[Write|Edit]** (`tsdoc-validate.ts`) - Validate TSDoc documentation on TypeScript files
 - **PostToolUse[*.test.ts|*.test.tsx]** (`vitest-file.ts`) - Run Vitest on edited test files
 - **SessionStop** (`lint-all.ts`) - Run ESLint on entire project (blocking)
 - **SessionStop** (`typecheck-all.ts`) - Run TypeScript type checking on entire project (blocking)

@@ -171,6 +171,63 @@ When developing UI locally:
 
 ---
 
+### 4. PostToolUse[Write|Edit] - TSDoc Validation
+
+**File**: `hooks/tsdoc-validate.ts`
+**Event**: `PostToolUse`
+**Matcher**: `Write|Edit` (runs on .ts files only)
+**Non-blocking**: Yes
+
+**What it does**:
+- Validates TSDoc documentation using ESLint with eslint-plugin-jsdoc
+- Checks for missing documentation on exported functions/classes
+- Ensures @param, @returns, @example tags are present
+- Provides guidance on TSDoc 2025 best practices from CLAUDE.md
+- Encourages comprehensive documentation without blocking development
+
+**Behavior**:
+- Only triggers on `.ts` files (skips `.test.ts` and `.d.ts`)
+- 30-second timeout
+- Non-blocking warnings via additionalContext
+- Silent skip if ESLint TSDoc config not found
+- Categorizes violations (missing JSDoc, params, returns, examples, formatting)
+
+**Output**:
+- Success: Empty (no violations found)
+- Documentation issues: Contextual guidance with categorized violations
+- Execution failure: System message
+
+**TSDoc Standards Enforced**:
+- @module tag at file top (for context)
+- Multi-line format for all public exports
+- @param tags with descriptions for all parameters
+- @returns tags with descriptions
+- @example blocks showing usage (recommended/warning level)
+- Proper formatting and alignment
+
+**Example Output**:
+```
+TSDoc documentation issues found in src/utils/helper.ts:
+
+📝 Missing JSDoc on exported functions/classes
+📋 Missing @param tags or descriptions
+↩️  Missing @returns tags or descriptions
+💡 Missing @example blocks (recommended)
+
+ESLint Output:
+src/utils/helper.ts
+  5:1  error  Missing JSDoc comment  jsdoc/require-jsdoc
+
+TSDoc 2025 Requirements (from CLAUDE.md):
+- @module tag at top of file
+- Multi-line format for all public exports
+- @param tags for all parameters with descriptions
+- @returns tags describing return values
+- @example blocks showing realistic usage
+```
+
+---
+
 ## Subagent Logging
 
 For subagent execution tracking and file operation logging, install the **logging** plugin:
@@ -195,6 +252,7 @@ Enable debug output for hooks:
 DEBUG=* claude                    # All debug output
 DEBUG=lint-file claude            # Lint hook only
 DEBUG=typecheck-file claude       # Type check hook only
+DEBUG=tsdoc-validate claude       # TSDoc validation hook only
 DEBUG=vitest-file claude          # Test hook only
 DEBUG=subagent claude             # Shared subagent hooks
 ```
