@@ -4,7 +4,9 @@
     "Installs and configures CI tools on session start",
     "Installs GitHub Actions workflows",
     "Syncs Vercel environment variables to .env.local",
+    "Installs Playwright browsers (CI only)",
     "Waits for CI checks after PR creation",
+    "Checks UI review status and blocks on critical issues",
     "Tracks task/agent calls for context"
   ],
   "description": "CI/CD automation hooks for GitHub, Vercel, and Supabase projects",
@@ -60,6 +62,17 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-checks.ts",
           "description": "Waits for CI checks to complete after PR creation. Watches GitHub PR checks and reports results, blocking on failure."
+        }
+      ]
+    }
+  ],
+  "SubagentStop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-ui-review-status.ts",
+          "description": "Checks UI review workflow status for subagent commits. Blocks if critical UI issues are found in automated review."
         }
       ]
     }

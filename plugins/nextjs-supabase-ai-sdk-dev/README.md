@@ -16,9 +16,83 @@ Development quality checks plugin for Next.js, Supabase, and AI SDK projects.
 
 ## Overview
 
-This plugin provides automated quality checks that run after file edits, ensuring code quality through linting, type checking, and test execution. Perfect for Next.js projects using TypeScript and Vitest.
+This plugin provides:
+- **Automated quality checks** - Linting, type checking, and test execution after file edits
+- **UI development system** - Progressive skills and UI developer agent for systematic UI development
+- **MCP integration** - Local development tools (ai-elements, shadcn, next-devtools)
 
-## Hooks
+Perfect for Next.js projects using TypeScript, Supabase, and Vercel AI SDK.
+
+## UI Development Features
+
+### UI Developer Agent
+
+**Location**: `agents/ui-developer.md`
+
+Systematic UI development agent with 5 progressive skills:
+
+1. **ui-wireframing** - Mobile-first ASCII wireframes in `WIREFRAME.md` files
+2. **ui-design** - Contract-first static UI with compound components (Shadcn/AI Elements/Radix)
+3. **ui-interaction** - Client-side events, local state, validation with Zod
+4. **ui-integration** - Server actions, Supabase queries, backend integration
+5. **ai-sdk-ui** - AI-powered features with Vercel AI SDK
+
+**Workflow**:
+```
+Wireframe → Design → Interaction → Integration → AI
+```
+
+**Principles**:
+- Mobile-first design
+- Contract-first development (TypeScript interfaces before implementation)
+- Compound components pattern (Card.Root, Card.Header, Card.Content)
+- Server Component defaults (push 'use client' deep)
+- Defense-in-depth (explicit auth checks + RLS)
+
+**MCP Tools Available**:
+- `mcp__ai_elements__*` - AI Elements component library
+- `mcp__shadcn__*` - Shadcn component installation and management
+- `mcp__next_devtools__*` - Live preview and debugging for local development
+
+### MCP Server Configuration
+
+**Location**: `.claude-plugin/.mcp.json`
+
+Bundled MCP servers:
+- **ai-elements**: HTTP transport to AI SDK registry
+- **shadcn**: Local command execution for component installation
+- **next-devtools**: Local development server integration
+
+These servers are automatically available when using the ui-developer agent in projects with this plugin enabled.
+
+### UI Skills Documentation
+
+All skills are located in `../../shared/skills/`:
+
+- **ui-wireframing/SKILL.md** - ASCII wireframes with mobile-first notation
+- **ui-design/SKILL.md** - Component hierarchy and composition patterns
+- **ui-interaction/SKILL.md** - useTransition, useOptimistic, client-side validation
+- **ui-integration/SKILL.md** - Server actions, Supabase, revalidation strategies
+- **ai-sdk-ui/SKILL.md** - useChat, useCompletion, streaming UI, tool calling
+
+### Technology Stack
+
+- **UI Components**: Shadcn (default), AI Elements, Radix, HTML
+- **Styling**: Tailwind CSS with mobile-first approach
+- **State Management**: Server Components (default), client components when needed
+- **Validation**: Zod schemas (client + server)
+- **Backend**: Supabase with defense-in-depth (RLS + explicit auth checks)
+- **AI Integration**: Vercel AI SDK with streaming UI
+
+### Local Development
+
+When developing UI locally:
+1. Use **next-devtools MCP** for live preview (no Playwright needed)
+2. Invoke ui-developer agent for systematic feature development
+3. Follow progressive skill workflow (wireframe → design → interaction → integration → AI)
+4. Test with moderate Vitest tests (only for custom logic/complexity)
+
+## Quality Check Hooks
 
 ### 1. PostToolUse[Write|Edit] - ESLint Linting
 

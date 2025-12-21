@@ -72,6 +72,57 @@ async function execCommand(
 }
 
 /**
+ * Check if branch is synced with remote tracking branch
+ */
+async function checkRemoteSync(cwd: string): Promise<string> {
+  // Check if has upstream
+  const hasUpstream = await execCommand('git rev-parse --abbrev-ref @{u}', cwd);
+  if (!hasUpstream.success) {
+    return '⚠️ No remote tracking branch configured';
+  }
+
+  // Compare with upstream
+  const counts = await execCommand('git rev-list --left-right --count @{u}...HEAD', cwd);
+  if (!counts.success) {
+    return 'ℹ️ Unable to determine sync status';
+  }
+
+  const [behind, ahead] = counts.stdout.split('\t').map(Number);
+
+  if (behind === 0 && ahead === 0) {
+    return `✅ Up to date with remote`;
+  } else if (behind > 0 && ahead === 0) {
+    return `⚠️ ${behind} commit${behind > 1 ? 's' : ''} behind remote`;
+  } else if (behind === 0 && ahead > 0) {
+    return `ℹ️ ${ahead} commit${ahead > 1 ? 's' : ''} ahead of remote (unpushed)`;
+  } else {
+    return `⚠️ ${behind} behind, ${ahead} ahead of remote (diverged)`;
+  }
+}
+
+/**
+ * Check if branch is synced with origin/main
+ */
+async function checkMainSync(cwd: string): Promise<string> {
+  const counts = await execCommand('git rev-list --left-right --count origin/main...HEAD', cwd);
+  if (!counts.success) {
+    return 'ℹ️ Unable to check main sync (is origin/main fetched?)';
+  }
+
+  const [behind, ahead] = counts.stdout.split('\t').map(Number);
+
+  if (behind === 0 && ahead === 0) {
+    return `✅ In sync with origin/main`;
+  } else if (behind > 0 && ahead === 0) {
+    return `ℹ️ ${behind} commit${behind > 1 ? 's' : ''} behind origin/main`;
+  } else if (behind === 0 && ahead > 0) {
+    return `ℹ️ ${ahead} commit${ahead > 1 ? 's' : ''} ahead of origin/main`;
+  } else {
+    return `ℹ️ ${behind} behind, ${ahead} ahead of origin/main`;
+  }
+}
+
+/**
  * Load plan issue state from disk
  */
 async function loadPlanIssueState(cwd: string): Promise<PlanIssueState> {
@@ -335,6 +386,10 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       current_branch: currentBranch,
     });
 
+    // Check branch sync status
+    const remoteSync = await checkRemoteSync(input.cwd);
+    const mainSync = await checkMainSync(input.cwd);
+
     // Find linked issue for current branch
     const branchIssue = await findBranchIssue(currentBranch, input.cwd, input.session_id);
 
@@ -348,6 +403,10 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     sections.push('## Current Branch Work');
     sections.push('');
     sections.push(`**Branch:** \`${currentBranch}\``);
+    sections.push('');
+    sections.push('📊 **Sync Status:**');
+    sections.push(`- Remote: ${remoteSync}`);
+    sections.push(`- Main: ${mainSync}`);
 
     if (branchIssue?.fullIssue) {
       sections.push(`**Issue:** #${branchIssue.issueNumber} - ${branchIssue.fullIssue.title}`);

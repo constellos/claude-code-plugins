@@ -1,162 +1,198 @@
-# GitHub Review Sync Plugin
+---
+title: GitHub Context Sync Plugin
+description: GitHub context synchronization hooks for branch awareness and UI review workflow
+folder:
+  subfolders:
+    allowed: [.claude-plugin, hooks]
+    required: [.claude-plugin, hooks]
+  files:
+    allowed: [CLAUDE.md, README.md, .gitignore]
+    required: [CLAUDE.md]
+---
 
-Git workflow automation and quality checks for Claude Code.
+# github-context-sync Plugin
+
+GitHub context synchronization hooks for branch awareness and UI review workflow encouragement.
 
 ## Overview
 
-This plugin provides automated workflows for:
-- Plan-to-issue synchronization
-- Requirements checking on every user prompt
-- Auto-commit for subagent work
-- Documentation update recommendations
-- Code review triggers on commits
-- Branch status validation on session end
+This plugin provides GitHub-aware context at session start and encourages proper UI review workflow after UI development agents complete their work.
 
 ## Hooks
 
-### UserPromptSubmit
+### SessionStart - Branch Context and Sync Status
 
-**`guide-requirements-check.ts`**
-- Adds guidance to Claude on every user prompt to list requirements precisely and consider plan updates
-- Ensures thorough requirement analysis before implementation
+**File**: `hooks/fetch-branch-context.ts`
+**Event**: `SessionStart`
+**Matcher**: None (runs on every session start)
 
-### PostToolUse[Write|Edit]
+**What it does**:
+- Displays full content of linked GitHub issue for current branch
+- Shows branch sync status with remote tracking branch (informational)
+- Shows branch sync status with origin/main (informational)
+- Lists outstanding open issues not linked to any branch
+- Non-blocking (errors don't stop session)
 
-**`sync-plan-to-issue.ts`**
-- Automatically creates/updates GitHub issues from plan files
-- Detects plan file edits and syncs content to GitHub
-- Tracks state to prevent duplicates
+**Issue Discovery**:
+Cascading search strategy to find linked issues:
+1. `.claude/logs/plan-issues.json` state file (primary source)
+2. GitHub search by branch name (fallback)
+3. Issue body `**Branch:** \`name\`` markers (last resort)
 
-### PostToolUse[Bash]
+**Branch Sync Status**:
+- **Remote sync**: Compares local branch with remote tracking branch
+  - `✅ Up to date with remote`
+  - `⚠️ X commits behind remote`
+  - `ℹ️ X commits ahead of remote (unpushed)`
+  - `⚠️ X behind, Y ahead of remote (diverged)`
+- **Main sync**: Compares current branch with origin/main
+  - `✅ In sync with origin/main`
+  - `ℹ️ X commits behind origin/main`
+  - `ℹ️ X commits ahead of origin/main`
+  - `ℹ️ X behind, Y ahead of origin/main`
 
-**`review-commit.ts`**
-- Triggers code review guidance after git commits
-- Detects subagent vs manual commits
-- Provides context-aware review recommendations
+**Output Format**:
+```markdown
+## Current Branch Work
 
-### SessionEnd - PR Readiness Check
+**Branch:** `feature-ui-update`
 
-**File:** `hooks/check-pr-readiness.ts`
-**Event:** Stop (SessionEnd)
-**What it does:** Validates branch status and encourages PR creation when ready
-**Type:** Mixed (blocking for critical issues, non-blocking for PR encouragement)
+📊 **Sync Status:**
+- Remote: ✅ Up to date with remote
+- Main: ℹ️ 2 commits behind, 5 commits ahead of origin/main
 
-**Checks performed:**
-1. **Claude Code health** - Blocks if `claude doctor` reports issues
-2. **Hook files** - Blocks if registered hooks point to missing files
-3. **Merge conflicts** - Blocks if unresolved conflicts exist
-4. **Branch sync** - Blocks if branch is behind remote
-5. **PR readiness** - Non-blocking reminder if ready for PR
+**Issue:** #42 - Add user profile page
 
-**Behavior:**
-- **BLOCKING** (prevents session end):
-  - Claude Code settings issues detected (via `claude doctor`)
-  - Missing hook files (broken plugin installations)
-  - Merge conflicts detected in working directory
-  - Branch is behind remote (needs pull/rebase)
-- **NON-BLOCKING REMINDER** (allows session end):
-  - Branch has unpushed commits
-  - No PR exists for current branch
-  - No conflicts and synced with remote
-  - Provides `gh pr create` command for convenience
-- **SILENT** (no message):
-  - No commits to push (all work is pushed)
-  - PR already exists for branch
-  - On main/master/develop branch
-  - GitHub CLI not available or not authenticated
+### Issue Description
+[Full issue body content]
 
-**Example outputs:**
+### Comments
+[All issue comments if any]
 
-*Blocking (settings issues):*
-```
-🚨 Claude Code Settings Issues Detected:
+---
 
-⚠️  Invalid plugin configuration in .claude/settings.json
-⚠️  Missing required environment variable: ANTHROPIC_API_KEY
+## Outstanding Issues (Not Linked to Branches)
 
-Please fix these settings issues before ending the session:
-  • Run: claude doctor
-  • Review and fix reported issues
-  • Check .claude/settings.json for configuration errors
+- #45: Fix navigation bug
+- #47: Update documentation
+- #48: Improve performance
+
+💡 These issues are available for work. Create a branch to link one.
 ```
 
-*Blocking (missing hooks):*
+### PostToolUse[Task] - UI Review Encouragement
+
+**File**: `hooks/encourage-ui-review.ts`
+**Event**: `PostToolUse[Task]`
+**Matcher**: `Task` tool use
+
+**What it does**:
+- Detects when ui-developer agent completes
+- Encourages main agent to invoke ui-reviewer for visual inspection
+- Suggests starting dev server if not running
+- Provides validation checklist against agent/skill documentation
+
+**Behavior**:
+- **Agent detection**: Parses task result for `"subagent_type": "ui-developer"`
+- **Non-blocking**: Uses `systemMessage` (informational only)
+- **Only triggers for**: ui-developer agent completions
+- **Encouragement message**: Provides actionable next steps
+
+**Output**:
+```markdown
+🎨 UI Development Complete
+
+The ui-developer agent has finished implementing UI changes.
+
+📋 Recommended Next Steps:
+
+1. **Start dev server** (if not running):
+   bun run dev
+
+2. **Invoke ui-reviewer agent** to visually inspect changes:
+   "Review the UI changes at http://localhost:3000/[route]"
+
+3. **Validate against**:
+   - ui-developer agent principles (mobile-first, compound components, Server Components)
+   - Skill documentation (ui-wireframing, ui-design, ui-interaction, ui-integration, ai-sdk-ui)
+   - Wireframe files in src/views/*/WIREFRAME.md
+
+4. **Check responsive behavior** at:
+   - Mobile (375px)
+   - Tablet (768px)
+   - Desktop (1920px)
+
+5. **Verify**:
+   - Component composition follows compound components pattern
+   - Proper use of 'use client' directive (pushed deep)
+   - Zod validation on client and server
+   - Accessibility (color contrast, semantic HTML)
 ```
-🚨 Missing Hook Files Detected:
 
-⚠️  3 hook file(s) are missing:
-  - github-context-sync@constellos: hooks/sync-plan-to-issue.ts
-  - nextjs-supabase-ai-sdk-dev@constellos: hooks/lint-file.ts
-  - .claude/hooks: custom-validation.ts
+---
 
-Please fix these hook issues before ending the session:
-  • Reinstall affected plugins: claude plugin install <plugin-name>
-  • Or remove broken plugins from .claude/settings.json
-  • Check plugin cache: ~/.claude/plugins/cache/
-```
+## Debug Logging
 
-*Blocking (conflicts):*
-```
-🚨 Merge Conflicts Detected:
-
-⚠️  3 file(s) have unresolved conflicts:
-  - src/components/Header.tsx
-  - src/utils/api.ts
-  - README.md
-
-Please resolve these conflicts before ending the session:
-  • Open conflicted files and resolve markers (<<<<<<, ======, >>>>>>)
-  • Stage resolved files: git add <file>
-  • Or use: git mergetool
-```
-
-*Non-blocking (ready for PR):*
-```
-✓ Branch is ready for pull request!
-
-📋 **Branch:** `feature/add-authentication`
-📊 **Status:** 5 commits ahead of origin/main
-
-🚀 **Ready to create PR:**
-   gh pr create --fill
-
-Or create PR with custom title and body:
-   gh pr create --title "Your PR title" --body "Description"
-
-*This is a reminder, not a requirement. Create a PR when you're ready!*
-```
-
-### SubagentStop
-
-**`commit-task.ts`**
-- Auto-commits agent work with task context
-- Creates commits with only files edited by the specific agent
-- Includes task prompt and metadata as git trailers
-
-**`check-documentation.ts`**
-- Analyzes agent file operations and suggests documentation updates
-- Provides non-blocking recommendations for CLAUDE.md files, agents, and skills that may need updates
-
-## Installation
+Enable debug output for hooks:
 
 ```bash
-claude plugin install github-review-sync@constellos
+DEBUG=* claude                         # All debug output
+DEBUG=fetch-branch-context claude      # Branch context hook only
+DEBUG=encourage-ui-review claude       # UI review hook only
 ```
+
+Logs are written to `.claude/logs/hook-events.json` in JSONL format.
+
+---
 
 ## Requirements
 
-- Git repository
-- GitHub CLI (`gh`) for plan-to-issue sync
-- Node.js for hook execution
+- Git repository (local or remote)
+- GitHub CLI (`gh`) authenticated (`gh auth login`)
+- Network access to GitHub API
+
+---
 
 ## Configuration
 
-Enable in `.claude/settings.json`:
+This plugin is referenced in `.claude-plugin/marketplace.json`:
 
 ```json
 {
-  "enabledPlugins": {
-    "github-review-sync@constellos": true
-  }
+  "name": "github-context-sync",
+  "version": "0.2.0",
+  "description": "GitHub context and state synchronization with branch sync status",
+  "source": "./plugins/github-context-sync",
+  "strict": false
 }
 ```
+
+Install with:
+```bash
+claude plugin install github-context-sync@constellos
+```
+
+---
+
+## Integration with Other Plugins
+
+This plugin complements:
+- **github-vercel-supabase-ci**: CI-based UI review on PRs (automated)
+- **github-review-sync**: Plan-to-issue synchronization and commit validation
+- **nextjs-supabase-ai-sdk-dev**: Development quality checks
+
+### UI Review Workflow
+
+**Local Development** (this plugin):
+1. ui-developer agent completes UI changes
+2. encourage-ui-review hook suggests next steps
+3. User invokes ui-reviewer agent for visual inspection
+4. User validates against wireframes and skill docs
+
+**CI/CD** (github-vercel-supabase-ci plugin):
+1. PR created with UI changes
+2. Vercel deploys preview URLs
+3. ui-review.yml workflow triggers on PR
+4. Playwright captures screenshots
+5. Claude reviews screenshots via API
+6. Blocks PR if critical issues found

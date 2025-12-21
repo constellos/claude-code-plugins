@@ -214,6 +214,12 @@ CI/CD hooks for GitHub, Vercel, and Supabase projects.
 - **SessionStart** (`install-workflows.ts`) - Install GitHub Actions workflows
 - **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
 
+**GitHub Actions Workflows:**
+- **ui-review.yml** - Automated UI review using Playwright screenshots and Claude
+  - **Trigger**: Pull requests only (not commits)
+  - **Process**: Waits for Vercel preview URLs → Runs Playwright e2e tests → Captures screenshots → Reviews with Claude API → Blocks if critical issues found
+  - **Integration**: Complements local ui-reviewer agent workflow (github-context-sync plugin)
+
 ### github-review-sync
 
 GitHub review and sync hooks for branch validation, auto-commit, plan synchronization, and quality enforcement.
@@ -260,6 +266,147 @@ Validates markdown structure for rules files in `.claude/rules/`.
 
 **Validation Rules:**
 - **Rules** (`.claude/rules/*.md`): Require `Required Skills` frontmatter field and `## Rules` heading
+
+### github-context-sync
+
+GitHub context and state synchronization with branch sync status.
+
+**Hooks:**
+- **SessionStart** (`fetch-branch-context.ts`) - Displays branch issue context, sync status, and outstanding issues
+- **PostToolUse[Task]** (`encourage-ui-review.ts`) - Encourages ui-reviewer after ui-developer agent completes
+
+**SessionStart Features:**
+- Shows full linked GitHub issue content for current branch (title, body, comments)
+- **NEW: Branch sync status** - Informational sync status with remote tracking branch and origin/main
+- Lists outstanding open issues not linked to any branch
+- Cascading issue discovery: state file → GitHub search → issue body markers
+- Non-blocking - errors don't stop session
+
+**PostToolUse[Task] Features:**
+- Detects ui-developer agent completion
+- Encourages main agent to invoke ui-reviewer for visual inspection
+- Suggests starting dev server if needed
+- Provides validation checklist against agent/skill documentation
+- Non-blocking - informational only
+
+## Vercel Preview Configuration
+
+This project is configured to deploy all Turborepo apps on every commit and PR:
+
+- **Web App** (`apps/web`) - Main application
+- **Admin App** (`apps/admin`) - Administration dashboard
+- **Docs App** (`apps/docs`) - Documentation site
+
+**Preview URL Detection:**
+- Vercel bot posts preview URLs as PR comments
+- UI review workflow polls for these URLs (10 minute timeout)
+- Each app gets its own preview URL: `https://[app-name]-[hash].vercel.app`
+
+**E2E Testing:**
+- Playwright tests run against preview URLs in CI
+- Tests are isolated to `@app` and `@web` tags only
+- Screenshots captured during test execution at key moments
+- Claude API reviews screenshots per app and per test
+
+## Worktree Operation Restrictions
+
+**IMPORTANT**: When working in git worktrees, follow these best practices:
+
+### Recommended Settings (Local Development)
+
+Add to your local `.claude/settings.json` (NOT committed to repo):
+
+```json
+{
+  "workingDirectoryRestrictions": {
+    "enabled": true,
+    "allowedPaths": [
+      "/home/user/projects/my-repo/.worktrees/claude-*"
+    ]
+  }
+}
+```
+
+### Why Worktree Safety Matters
+
+- **Isolation**: Each worktree is an independent branch checkout
+- **Context**: Main repo and worktree can have different files
+- **Safety**: Operations outside worktree can affect main repo or other worktrees
+- **Best Practice**: Review all file operations to ensure they target the worktree
+
+### Worktree Context
+
+The `github-context-sync` plugin automatically:
+- Shows linked GitHub issue for current branch (full content with comments)
+- Displays branch sync status (remote tracking branch and origin/main)
+- Lists outstanding unlinked issues available for work
+- Encourages UI review after ui-developer agent completes
+
+### Manual Verification
+
+Always verify you're in the correct worktree:
+
+```bash
+pwd                    # Check current directory
+git rev-parse --show-toplevel  # Show worktree root
+git branch --show-current      # Show current branch
+```
+
+## UI Development Workflow
+
+This project includes a comprehensive UI development system with progressive skills and automated review:
+
+### UI Development Skills (Progressive)
+
+1. **ui-wireframing** - Mobile-first ASCII wireframes in `WIREFRAME.md` files
+2. **ui-design** - Contract-first static UI with compound components
+3. **ui-interaction** - Client-side events, local state, validation
+4. **ui-integration** - Server actions, Supabase queries, backend integration
+5. **ai-sdk-ui** - AI-powered features with Vercel AI SDK
+
+### UI Developer Agent
+
+The `ui-developer` agent (in `nextjs-supabase-ai-sdk-dev` plugin) provides:
+- All 5 UI skills preloaded
+- MCP integration (ai-elements, shadcn, next-devtools)
+- Systematic workflow: wireframe → design → interaction → integration → AI
+- Mobile-first, contract-first, Server Component defaults
+
+**Local Development:**
+- Uses next-devtools MCP for live preview and debugging
+- No Playwright installation needed locally
+- Real-time UI feedback during development
+
+### UI Review System
+
+**Manual Review:**
+- Invoke `ui-reviewer` agent with screenshot paths
+- Provides systematic quality review
+- Identifies critical, major, and minor issues
+
+**Automated CI Review:**
+- GitHub Actions workflow (`ui-review.yml`) runs on commits/PRs
+- Playwright e2e tests for `@app` and `@web` tags
+- Screenshots captured during test execution
+- Claude API reviews each test's screenshots with vision
+- Per-test reviews aggregated into final report
+- Blocks merge if critical issues found
+
+**Review Criteria:**
+- Visual consistency across breakpoints
+- Responsive behavior (mobile, tablet, desktop)
+- Accessibility (color contrast, semantic HTML)
+- Component composition patterns
+- User experience quality
+
+### Technology Stack
+
+- **UI Components**: Shadcn (default), AI Elements, Radix, HTML
+- **Styling**: Tailwind CSS with mobile-first approach
+- **State Management**: Server Components (default), client components when needed
+- **Validation**: Zod schemas (client + server)
+- **Backend**: Supabase with defense-in-depth (RLS + explicit auth checks)
+- **AI Integration**: Vercel AI SDK with streaming UI
 
 ## Creating New Plugins
 
