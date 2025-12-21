@@ -129,7 +129,7 @@ function validatePath(
  * ```
  */
 async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'enforce-plan-scoping', input.debug);
+  const logger = createDebugLogger(input.cwd, 'enforce-plan-scoping', false);
 
   try {
     await logger.logInput({
@@ -287,9 +287,9 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
           : `Note: Plan indicates this file is outside subagent scope. This may load expensive context. Consider having the main agent handle this or request plan updates.`;
 
         return {
-          additionalContext: `\n\n${message}\n\nPath: ${relativePath}\nReason: ${validation.reason}`,
           hookSpecificOutput: {
             hookEventName: 'PostToolUse',
+            additionalContext: `\n\n${message}\n\nPath: ${relativePath}\nReason: ${validation.reason}`,
           },
         };
       } else {
@@ -299,10 +299,11 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
           : `Write denied: ${validation.reason}\n\nSubagent scope is restricted by plan. Have main agent handle this area or update plan.\n\nPath: ${relativePath}`;
 
         return {
+          decision: 'block',
+          reason: message,
           hookSpecificOutput: {
             hookEventName: 'PostToolUse',
-            permissionDecision: 'deny',
-            permissionDecisionReason: message,
+            additionalContext: message,
           },
         };
       }

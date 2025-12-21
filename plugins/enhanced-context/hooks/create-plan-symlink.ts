@@ -37,7 +37,7 @@ import * as path from 'path';
  * ```
  */
 async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'create-plan-symlink', input.debug);
+  const logger = createDebugLogger(input.cwd, 'create-plan-symlink', false);
 
   try {
     await logger.logInput({
