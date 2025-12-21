@@ -7,9 +7,9 @@
  * @module check-ui-review-status
  */
 
-import type { SubagentStopInput, SubagentStopHookOutput } from '../../../shared/types/types.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

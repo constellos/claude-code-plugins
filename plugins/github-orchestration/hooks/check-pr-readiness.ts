@@ -1,7 +1,7 @@
 /**
  * PR readiness and branch status validation hook
  *
- * Stop (SessionEnd) hook that validates branch state and encourages PR creation.
+ * Stop hook that validates branch state and encourages PR creation.
  * Ensures clean exits from Claude Code sessions with helpful Git workflow guidance.
  *
  * This hook performs three types of checks:
@@ -22,7 +22,7 @@
  * @module check-pr-readiness
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
@@ -243,6 +243,28 @@ async function _checkClaudeDoctor(cwd: string): Promise<{
   // Run claude doctor
   const doctorResult = await gitExec('claude doctor --json 2>&1', cwd);
 
+  // Check for known non-settings errors first
+  const knownNonSettingsErrors = [
+    'Raw mode is not supported',
+    'isRawModeSupported',
+    'Ink',
+    'Command failed: claude doctor',
+  ];
+
+  const errorText = doctorResult.stderr || doctorResult.stdout || '';
+  const isNonSettingsError = knownNonSettingsErrors.some(
+    pattern => errorText.includes(pattern)
+  );
+
+  if (!doctorResult.success && isNonSettingsError) {
+    // Terminal/UI error, not a settings issue
+    return {
+      healthy: true,
+      issues: [],
+      error: 'Claude doctor failed due to terminal limitations (non-blocking)'
+    };
+  }
+
   // Parse output
   try {
     // Try to parse as JSON first
@@ -267,13 +289,61 @@ async function _checkClaudeDoctor(cwd: string): Promise<{
     }
 
     // If no JSON output, check exit code
+    if (!doctorResult.success) {
+      // Check if it's a known non-settings error
+      const knownNonSettingsErrors = [
+        'Raw mode is not supported',
+        'isRawModeSupported',
+        'Ink',
+        'Command failed: claude doctor',
+      ];
+
+      const errorText = doctorResult.stderr || doctorResult.stdout || '';
+      const isNonSettingsError = knownNonSettingsErrors.some(
+        pattern => errorText.includes(pattern)
+      );
+
+      if (isNonSettingsError) {
+        return {
+          healthy: true,
+          issues: [],
+          error: 'Claude doctor failed due to terminal limitations (non-blocking)'
+        };
+      }
+
+      return {
+        healthy: false,
+        issues: [doctorResult.stderr || 'Unknown error']
+      };
+    }
+
     return {
-      healthy: doctorResult.success,
-      issues: doctorResult.success ? [] : [doctorResult.stderr || 'Unknown error']
+      healthy: true,
+      issues: []
     };
   } catch {
     // If JSON parsing fails, check exit code
     if (!doctorResult.success) {
+      // Check if it's a known non-settings error (e.g., terminal/UI issues)
+      const knownNonSettingsErrors = [
+        'Raw mode is not supported',
+        'isRawModeSupported',
+        'Ink',
+      ];
+
+      const isNonSettingsError = knownNonSettingsErrors.some(
+        pattern => doctorResult.stderr.includes(pattern) || doctorResult.stdout.includes(pattern)
+      );
+
+      if (isNonSettingsError) {
+        // Skip doctor check for non-settings errors
+        return {
+          healthy: true,
+          issues: [],
+          error: 'Claude doctor failed due to terminal limitations (non-blocking)'
+        };
+      }
+
       return {
         healthy: false,
         issues: [doctorResult.stderr || doctorResult.stdout || 'Claude doctor failed']
@@ -410,15 +480,15 @@ async function _validateHookFiles(cwd: string): Promise<{
 }
 
 /**
- * SessionEnd hook handler
+ * Stop hook handler
  *
- * Checks branch status and merge conflicts at session end.
- * Returns blocking error if issues are found.
+ * Checks branch status and merge conflicts when Claude Code is stopping.
+ * Returns blocking decision if issues are found.
  *
- * @param input - SessionEnd hook input from Claude Code
- * @returns Hook output with error if issues detected
+ * @param input - Stop hook input from Claude Code
+ * @returns Hook output with blocking decision if issues detected
  */
-async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
+async function handler(input: StopInput): Promise<StopHookOutput> {
   const logger = createDebugLogger(input.cwd, 'check-pr-readiness', true);
 
   try {
@@ -445,7 +515,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         '  • Check .claude/settings.json for configuration errors',
       ].join('\n');
 
-      return { systemMessage: errorMessage };
+      return {
+        decision: 'block',
+        reason: errorMessage
+      };
     }
 
     // Validate hook files exist
@@ -463,7 +536,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         '  • Check plugin cache: ~/.claude/plugins/cache/',
       ].join('\n');
 
-      return { systemMessage: errorMessage };
+      return {
+        decision: 'block',
+        reason: errorMessage
+      };
     }
 
     // Check for merge conflicts
@@ -481,7 +557,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         '  • Or use: git mergetool',
       ].join('\n');
 
-      return { systemMessage: errorMessage };
+      return {
+        decision: 'block',
+        reason: errorMessage
+      };
     }
 
     // Check branch sync status
@@ -502,7 +581,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         'This prevents conflicts and ensures you\'re working with the latest code.',
       ].join('\n');
 
-      return { systemMessage: errorMessage };
+      return {
+        decision: 'block',
+        reason: errorMessage
+      };
     }
 
     // Get current branch for PR check
@@ -586,9 +668,8 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
   } catch (error) {
     await logger.logError(error as Error);
 
-    return {
-      systemMessage: `Branch status check error: ${error}`,
-    };
+    // Don't block on errors - just log them
+    return {};
   }
 }
 

@@ -19,9 +19,9 @@
  * @module add-branch-context
  */
 
-import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'node:fs/promises';
