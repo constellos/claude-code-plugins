@@ -1,0 +1,77 @@
+name: Validate Task Completion
+
+# Enhanced task validation workflow
+# Validates subagent commits against .claude/rules/*.md patterns
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  validate-task:
+    runs-on: ubuntu-latest
+    # Only run on commits with Agent-ID trailer (from subagent commits)
+    if: contains(github.event.head_commit.message, 'Agent-ID:')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Extract commit metadata
+        id: metadata
+        run: |
+          COMMIT_MSG=$(git log -1 --format=%B)
+          echo "Full commit message:"
+          echo "$COMMIT_MSG"
+          echo ""
+
+          # Extract trailers
+          AGENT_TYPE=$(echo "$COMMIT_MSG" | grep -oP '^Agent-Type: \K.*' || echo "unknown")
+          AGENT_ID=$(echo "$COMMIT_MSG" | grep -oP '^Agent-ID: \K.*' || echo "unknown")
+          FILES_EDITED=$(echo "$COMMIT_MSG" | grep -oP '^Files-Edited: \K.*' || echo "0")
+          FILES_NEW=$(echo "$COMMIT_MSG" | grep -oP '^Files-New: \K.*' || echo "0")
+
+          echo "agent_type=$AGENT_TYPE" >> $GITHUB_OUTPUT
+          echo "agent_id=$AGENT_ID" >> $GITHUB_OUTPUT
+          echo "files_edited=$FILES_EDITED" >> $GITHUB_OUTPUT
+          echo "files_new=$FILES_NEW" >> $GITHUB_OUTPUT
+
+      - name: Get changed files
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD || git diff --name-only HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo ""
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Validate task completion
+        env:
+          AGENT_TYPE: ${{ steps.metadata.outputs.agent_type }}
+          CHANGED_FILES: ${{ steps.changes.outputs.files }}
+        run: |
+          echo "=== Task Validation ==="
+          echo "Agent Type: $AGENT_TYPE"
+          echo ""
+
+          # TODO: Implement actual validation:
+          # - Match changed files to .claude/rules/*.md patterns
+          # - Extract rule requirements from frontmatter
+          # - Validate against task prompt
+          # - Check for rule violations
+
+          echo "✓ Task validation passed (placeholder)"
+
+      - name: Report validation status
+        if: always()
+        run: |
+          echo "Task validation complete"
+          # TODO: Post results to PR comments

@@ -1,0 +1,50 @@
+name: Review Documentation
+
+# Documentation completeness check
+# Suggests documentation updates when code changes
+
+on:
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  review-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changes
+        run: |
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Check documentation completeness
+        env:
+          CHANGED_FILES: ${{ steps.changes.outputs.files }}
+        run: |
+          echo "=== Documentation Review ==="
+          echo ""
+
+          # TODO: Implement checks:
+          # - Missing CLAUDE.md files in modified directories
+          # - Outdated documentation when code changes
+          # - Agent/skill definition updates needed
+          # - New feature documentation gaps
+
+          echo "✓ Documentation review passed (placeholder)"
+
+      - name: Post documentation suggestions
+        if: always()
+        run: |
+          echo "Documentation review complete"
+          # TODO: Post suggestions as PR comments

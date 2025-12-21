@@ -1,0 +1,55 @@
+name: Review Commit Quality
+
+# Commit message and structure review
+# Validates commit format and content
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+jobs:
+  review-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Extract commit details
+        id: commit
+        run: |
+          COMMIT_MSG=$(git log -1 --format=%B)
+          echo "Commit message:"
+          echo "$COMMIT_MSG"
+          echo ""
+
+          # Check for git trailers
+          HAS_TRAILERS=$(echo "$COMMIT_MSG" | grep -E '^[A-Z][a-z-]+:' && echo "yes" || echo "no")
+          echo "has_trailers=$HAS_TRAILERS" >> $GITHUB_OUTPUT
+
+      - name: Validate commit structure
+        env:
+          HAS_TRAILERS: ${{ steps.commit.outputs.has_trailers }}
+        run: |
+          echo "=== Commit Review ==="
+          echo ""
+
+          # TODO: Implement checks:
+          # - Commit message format (conventional commits)
+          # - Git trailer format and content
+          # - Commit size and scope
+          # - Breaking change detection
+
+          echo "✓ Commit review passed (placeholder)"
+
+      - name: Post commit feedback
+        if: always()
+        run: |
+          echo "Commit review complete"
+          # TODO: Post feedback as PR comment or commit status
