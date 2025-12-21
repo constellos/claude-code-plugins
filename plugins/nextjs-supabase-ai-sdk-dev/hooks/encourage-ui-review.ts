@@ -7,9 +7,9 @@
  * @module encourage-ui-review
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 
 /**
  * PostToolUse[Task] hook handler for UI review encouragement
