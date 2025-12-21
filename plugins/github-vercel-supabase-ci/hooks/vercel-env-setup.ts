@@ -43,7 +43,7 @@ async function handler(
   const logger = createDebugLogger(
     input.cwd,
     'vercel-env-setup',
-    input.debug ?? true
+    true
   );
 
   try {
