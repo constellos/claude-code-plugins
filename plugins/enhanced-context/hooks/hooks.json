@@ -71,12 +71,32 @@
       ]
     },
     {
+      "matcher": "Write|Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/create-plan-symlink.ts",
+          "description": "Creates PLAN.md symlink when plan files are written. Maintains active plan reference."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/shared/hooks/enforce-plan-scoping.ts",
+          "description": "Enforces plan-based path scoping for writes/edits. Denies operations outside allowed scope."
+        }
+      ]
+    },
+    {
       "matcher": "Read",
       "hooks": [
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-folder-context.ts",
           "description": "Discovers and adds CLAUDE.md context when reading files. Automatically enriches Claude's context with folder-level documentation."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/shared/hooks/enforce-plan-scoping.ts",
+          "description": "Warns when reads are outside plan scope. Non-blocking guidance to stay within plan boundaries."
         }
       ]
     }
