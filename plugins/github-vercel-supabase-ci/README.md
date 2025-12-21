@@ -57,29 +57,50 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
-### 2. SessionStart - Auto-sync with Main Branch
+### 2. SessionStart - Install GitHub Actions Workflows
 
-**File**: `hooks/pull-latest-main.ts`
+**File**: `hooks/install-workflows.ts`
 **Event**: `SessionStart`
-**Matcher**: None (runs on every session start)
+**Matcher**: None (runs on every session start, after setup-environment)
 
 **What it does**:
-- Automatically fetches latest changes from origin
-- Merges origin/main (or origin/master as fallback) into current branch
-- Handles merge conflicts gracefully by aborting the merge
-- Provides context about sync status to Claude
+- Installs GitHub Actions workflow files for automated CI/CD
+- Sets up workflows for testing, deployment, and quality checks
+- Ensures consistent CI configuration across team
 
 **Behavior**:
-- Skips if not in a git repository
-- Skips if no main/master branch exists on origin
-- Aborts merge and notifies on conflicts
-- Reports success with merge status
+- Copies workflow templates to `.github/workflows/`
+- Skips if workflows already exist
+- Non-blocking (continues even if installation fails)
 
-**Output**: Additional context message describing the sync result.
+**Output**: Additional context message about workflow installation status.
 
 ---
 
-### 3. PostToolUse[Bash] - Await PR CI Checks
+### 3. SessionStart - Vercel Environment Setup
+
+**File**: `hooks/vercel-env-setup.ts`
+**Event**: `SessionStart`
+**Matcher**: None (runs on every session start, after install-workflows)
+
+**What it does**:
+- Syncs Vercel environment variables from your project to local `.env.local`
+- Ensures worktrees have the same environment configuration as main repo
+- Critical for isolated Claude Code worktree sessions
+
+**Behavior**:
+- Checks if `.vercel/` directory exists
+- If exists, runs `vercel env pull --yes` to download environment variables
+- Skips gracefully if Vercel is not configured
+- Non-blocking (continues even if env pull fails)
+
+**Output**: Additional context message about environment sync status.
+
+**Requirements**: Vercel CLI installed (auto-installed by setup-environment hook)
+
+---
+
+### 4. PostToolUse[Bash] - Await PR CI Checks
 
 **File**: `hooks/await-pr-checks.ts`
 **Event**: `PostToolUse`
@@ -104,48 +125,6 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
-### 4. SubagentStop - Auto-commit Agent Work
-
-**File**: `hooks/commit-task.ts`
-**Event**: `SubagentStop`
-**Matcher**: None (runs when any subagent completes)
-
-**What it does**:
-- Automatically creates a git commit when a subagent completes work
-- Reads agent's transcript to extract final message
-- Formats commit message with agent type prefix
-- Stages all changes and commits them
-
-**Behavior**:
-- Skips if not in a git repository
-- Skips if no changes to commit
-- Extracts agent type from transcript (falls back to "agent")
-- Formats commit message: `[agent-type] Commit title`
-- Includes multi-line body if agent message is long
-- Non-blocking (errors are logged but don't stop execution)
-
-**Requirements**: Claude Code 2.0.42+ (for `agent_transcript_path` field)
-
-**Output**: Empty (no additional context, non-blocking)
-
----
-
-## Subagent Logging
-
-For subagent execution tracking and file operation logging, install the **logging** plugin:
-
-```bash
-/plugin install logging@claude-code-kit-local
-```
-
-The logging plugin provides:
-- SubagentStart hook - Tracks agent context when subagents begin
-- SubagentStop hook - Logs file operations when subagents complete
-
-See `plugins/logging/CLAUDE.md` for details.
-
----
-
 ## Debug Logging
 
 Enable debug output for hooks:
@@ -153,10 +132,9 @@ Enable debug output for hooks:
 ```bash
 DEBUG=* claude                          # All debug output
 DEBUG=setup-environment claude          # Environment setup hook
-DEBUG=pull-latest-main claude           # Sync main branch hook
+DEBUG=install-workflows claude          # GitHub Actions workflows hook
+DEBUG=vercel-env-setup claude           # Vercel environment sync hook
 DEBUG=await-pr-checks claude            # PR checks hook
-DEBUG=commit-task claude                # Commit task hook
-DEBUG=subagent claude                   # Shared subagent hooks
 ```
 
 ## Requirements
@@ -166,12 +144,9 @@ DEBUG=subagent claude                   # Shared subagent hooks
 
 **Optional tools** (auto-installed in remote environments):
 - GitHub CLI (`gh`) for PR hooks
-- Vercel CLI for deployment workflows
+- Vercel CLI for deployment workflows and environment sync
 - Docker for Supabase local development
 - Supabase CLI for local database development
-
-**Version requirements**:
-- Claude Code 2.0.42+ for commit-task hook (requires `agent_transcript_path`)
 
 ## Configuration
 
@@ -187,5 +162,15 @@ This plugin is referenced in `.claude-plugin/marketplace.json`:
 
 Install with:
 ```bash
-/plugin install github-vercel-supabase-ci@claude-code-kit-local
+claude plugin install github-vercel-supabase-ci@constellos
 ```
+
+## Usage with claude-worktree
+
+This plugin is designed to work seamlessly with the `claude-worktree.sh` script for isolated worktree sessions:
+
+1. **Worktree creation**: Use `claude-worktree` to create an isolated git worktree
+2. **Environment sync**: The `vercel-env-setup` hook automatically syncs Vercel environment variables
+3. **CI checks**: The `await-pr-checks` hook watches PR CI when you create pull requests
+
+See the main README for `claude-worktree.sh` setup instructions.

@@ -45,6 +45,58 @@ Or enable them in your settings:
 }
 ```
 
+## Claude Worktree Setup
+
+The `claude-worktree.sh` script creates isolated git worktrees for each Claude Code session. This enables:
+- Independent branches for each session
+- No interference with your main working directory
+- Easy cleanup and experimentation
+
+### Installation
+
+Add to your `.bashrc` or `.zshrc`:
+
+```bash
+# Claude Code worktree launcher
+claude-worktree() {
+  bash /path/to/claude-code-plugins/claude-worktree.sh "$@"
+}
+```
+
+Or create a global alias:
+
+```bash
+alias claude-worktree='bash /path/to/claude-code-plugins/claude-worktree.sh'
+```
+
+### Usage
+
+Launch Claude Code in a new worktree:
+
+```bash
+claude-worktree              # Basic usage
+claude-worktree --verbose    # With CLI flags
+claude-worktree --no-context # Pass any claude CLI flag
+```
+
+**What it does:**
+1. Detects if you're in a worktree and navigates to parent repo
+2. Fetches latest from `origin/main` (or `origin/master`)
+3. Creates a new worktree with unique branch name (e.g., `claude-serene-marmot-n6cukzn7`)
+4. Launches `claude` in the worktree directory
+
+**With Vercel:**
+
+If you have the `github-vercel-supabase-ci` plugin installed, environment variables are automatically synced from Vercel at session start via the `vercel-env-setup` hook.
+
+### Cleanup
+
+Worktrees are stored in `.worktrees/` and can be removed with:
+
+```bash
+git worktree remove .worktrees/claude-branch-name
+```
+
 ## Available Plugins
 
 ### github-vercel-supabase-ci
@@ -54,10 +106,11 @@ CI/CD automation for GitHub, Vercel, and Supabase projects.
 **Features:**
 - Auto-install and configure CI tools (Vercel CLI, Supabase CLI, Docker)
 - Install GitHub Actions workflows
+- Sync Vercel environment variables to worktrees
 - Wait for CI checks after PR creation
 
 **Hooks:**
-- `SessionStart` - Setup environment and workflows
+- `SessionStart` - Setup environment, install workflows, sync Vercel env vars
 - `PostToolUse[Bash]` - Monitor PR checks
 
 ### github-review-sync
