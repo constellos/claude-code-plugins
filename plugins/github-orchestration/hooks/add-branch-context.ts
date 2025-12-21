@@ -16,7 +16,7 @@
  * 2. GitHub search by branch name (fallback)
  * 3. Issue body `**Branch:** \`name\`` markers (last resort)
  *
- * @module fetch-branch-context
+ * @module add-branch-context
  */
 
 import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
@@ -339,7 +339,7 @@ function formatComments(comments: GitHubIssue['comments']): string[] {
  * ```
  */
 async function handler(input: SessionStartInput): Promise<SessionStartHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'fetch-branch-context', true);
+  const logger = createDebugLogger(input.cwd, 'add-branch-context', true);
 
   try {
     // Check if we're in a git repository

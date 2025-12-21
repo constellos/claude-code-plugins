@@ -1,0 +1,84 @@
+{
+  "_comment": "GitHub Orchestration Plugin - Unified GitHub integration",
+  "_notes": [
+    "Branch context and issue sync at session start",
+    "Commit enhancement with CI review integration",
+    "Auto-commit for subagent work",
+    "Plan-to-issue synchronization",
+    "PR readiness validation on session end"
+  ],
+  "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-branch-context.ts",
+            "description": "Displays branch issue context, sync status, and outstanding issues"
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-review-workflows.ts",
+            "description": "Installs GitHub Actions review workflows"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/guide-requirements-check.ts",
+            "description": "Adds systematic requirement analysis guidance to user prompts"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/sync-plan-to-issue.ts",
+            "description": "Automatically creates/updates GitHub issues from plan files"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enhance-commit-message.ts",
+            "description": "Enhances commits with task context and triggers CI review"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task.ts",
+            "description": "Auto-commits agent work with task context and git trailers"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-pr-readiness.ts",
+            "description": "Validates branch status for conflicts and sync issues before session end"
+          }
+        ]
+      }
+    ]
+  }
+}

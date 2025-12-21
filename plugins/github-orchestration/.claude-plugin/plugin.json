@@ -1,0 +1,9 @@
+{
+  "name": "github-orchestration",
+  "version": "1.0.0",
+  "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
+  "author": {
+    "name": "constellos"
+  },
+  "hooks": "./hooks/hooks.json"
+}

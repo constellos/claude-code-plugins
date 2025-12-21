@@ -1,9 +1,0 @@
-{
-  "name": "github-context-sync",
-  "version": "0.2.0",
-  "description": "GitHub context and state synchronization with branch sync status",
-  "author": {
-    "name": "constellos"
-  },
-  "hooks": "./hooks/hooks.json"
-}

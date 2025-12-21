@@ -77,11 +77,10 @@
     "vercel"
   ],
   "enabledPlugins": {
+    "github-orchestration@constellos": true,
     "plugin-dev@claude-code-plugins": true,
     "github-vercel-supabase-ci@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "github-context-sync@constellos": true,
-    "claude-review-github-actions@constellos": true,
     "enhanced-context@constellos": true
   },
   "extraKnownMarketplaces": {
