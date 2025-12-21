@@ -1,0 +1,11 @@
+{
+  "name": "github-context-sync",
+  "version": "0.2.0",
+  "description": "GitHub context and state synchronization",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": ["github", "git", "context", "sync", "branch", "commit"]
+}

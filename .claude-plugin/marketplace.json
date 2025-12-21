@@ -21,13 +21,23 @@
       "strict": false
     },
     {
-      "name": "github-review-sync",
-      "description": "GitHub review and sync hooks for branch validation, auto-commit, and status checking",
-      "version": "0.1.0",
+      "name": "github-context-sync",
+      "description": "GitHub context and state synchronization",
+      "version": "0.2.0",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-review-sync",
+      "source": "./plugins/github-context-sync",
+      "strict": false
+    },
+    {
+      "name": "claude-review-github-actions",
+      "description": "GitHub Actions workflows for CI/CD validation of Claude Code tasks",
+      "version": "0.1.0",
+      "author": {
+        "name": "Constellos"
+      },
+      "source": "./plugins/claude-review-github-actions",
       "strict": false
     },
     {
@@ -41,13 +51,13 @@
       "strict": false
     },
     {
-      "name": "code-context",
-      "description": "Generate and maintain code context maps and navigation aids for Claude Code",
-      "version": "0.1.0",
+      "name": "enhanced-context",
+      "description": "Enhanced context discovery and maintenance for Claude Code",
+      "version": "0.2.0",
       "author": {
         "name": "Constellos"
       },
-      "source": "./plugins/code-context",
+      "source": "./plugins/enhanced-context",
       "strict": false
     },
     {

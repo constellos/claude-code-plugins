@@ -5,8 +5,9 @@
       "WebFetch",
       "Skill",
       "Task",
-      "mcp__context7",
-      "mcp__next-devtools",
+      "Read",
+      "mcp__context7__*",
+      "mcp__next-devtools__*",
       "Bash(ls:*)",
       "Bash(tree:*)",
       "Bash(pwd:*)",
@@ -32,7 +33,16 @@
       "Bash(bun tsc:*)",
       "Bash(gh:*)",
       "Bash(git:*)",
-      "Bash(bun:*)"
+      "Bash(bun:*)",
+      "Bash(curl:*)",
+      "Bash(pkill:*)",
+      "Bash(mv:*)",
+      "Bash(cp:*)",
+      "Bash(rm:*)",
+      "Bash(echo:*)",
+      "Bash(bun run build:*)",
+      "Bash(bun run start:*)",
+      "Bash(bun run dev:*)"
     ],
     "deny": [
       "Bash(vim :*)",
@@ -48,22 +58,10 @@
       "Bash(ed :*)",
       "Bash(ex :*)",
       "Bash(patch :*)",
-      "Bash(dd :*)",
-      "Bash(npm publish:*)",
-      "Bash(bun publish:*)"
+      "Bash(dd :*)"
     ],
     "ask": [
-      "Bash(curl:*)",
-      "Bash(pkill:*)",
-      "Bash(mv:*)",
-      "Bash(cp:*)",
-      "Bash(rm:*)",
-      "Bash(echo:*)",
       "Bash(sh:*)",
-      "Bash(bun run build:*)",
-      "Bash(bun run start:*)",
-      "Bash(bun run dev:*)",
-      "Bash(echo:*)",
       "Bash(printf:*)"
     ],
     "defaultMode": "plan"
@@ -82,9 +80,9 @@
     "plugin-dev@claude-code-plugins": true,
     "github-vercel-supabase-ci@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "markdown-structure-rules@constellos": true,
-    "code-context@constellos": true,
-    "github-review-sync@constellos": true
+    "github-context-sync@constellos": true,
+    "claude-review-github-actions@constellos": true,
+    "enhanced-context@constellos": true
   },
   "extraKnownMarketplaces": {
     "constellos": {

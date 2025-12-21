@@ -1,0 +1,8 @@
+{
+  "name": "claude-review-github-actions",
+  "version": "0.1.0",
+  "description": "GitHub Actions workflows for CI/CD validation of Claude Code tasks",
+  "author": {
+    "name": "Constellos"
+  }
+}
