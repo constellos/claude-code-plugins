@@ -16,12 +16,13 @@ Automatic context discovery and project structure validation for Claude Code pro
 
 ## Overview
 
-The Code Context plugin provides two main capabilities:
+The Code Context plugin provides three main capabilities:
 
 1. **Context Discovery** - Automatically finds and links related CLAUDE.md documentation when reading files
 2. **Structure Validation** - Validates .claude directory structure and ensures proper project organization
+3. **Plan-Based Path Scoping** - Enforces file operation boundaries based on plan frontmatter to manage context and separate concerns
 
-This plugin helps Claude understand project structure and maintain consistent documentation organization.
+This plugin helps Claude understand project structure, maintain consistent documentation organization, and work within defined scope boundaries.
 
 ## Hooks
 
@@ -130,6 +131,70 @@ Validates `mkdir` commands that create directories in `.claude/`. Prevents creat
 
 ---
 
+### PostToolUse[Write|Edit] - Plan Symlink Creation
+
+**File:** `hooks/create-plan-symlink.ts`
+
+**Event:** PostToolUse (Write/Edit to plan files)
+
+**What it does:**
+When a plan file is written to `.claude/plans/*.md`, this hook creates or updates a `PLAN.md` symlink in the project root pointing to the active plan. This allows other hooks to easily access the current plan without maintaining external state.
+
+**Behavior:**
+1. Detects writes to `.claude/plans/*.md`
+2. Removes existing `PLAN.md` symlink (if present)
+3. Creates new symlink: `${cwd}/PLAN.md` → plan file path
+
+**Non-blocking:** Yes - failures don't prevent Write operations
+
+---
+
+### PostToolUse[Write|Edit|Read] - Plan Path Scoping
+
+**File:** `shared/hooks/enforce-plan-scoping.ts`
+
+**Event:** PostToolUse (Write, Edit, or Read operations)
+
+**What it does:**
+Enforces file operation boundaries based on plan frontmatter. Separates main agent and subagent scopes to manage context and prevent accidental bloat.
+
+**Plan frontmatter schema:**
+```yaml
+---
+paths:
+  main-agent:
+    allowedPaths: ["plugins/**", "shared/**", "*.md", ".claude/**"]
+    forbiddenPaths: ["node_modules/**", "dist/**"]
+  subagents:
+    allowedPaths: ["**/*.ts", "**/*.md", "tests/**"]
+    forbiddenPaths: ["src/components/**", "src/lib/**"]
+---
+```
+
+**Behavior:**
+1. Reads `PLAN.md` symlink to access active plan
+2. Parses `paths` frontmatter for main-agent and subagents scopes
+3. Determines agent context using `wasToolEventMainAgent()`
+4. Validates file path against appropriate scope:
+   - **Forbidden patterns** - Block if path matches any forbidden pattern
+   - **Allowed patterns** - If specified, path must match at least one
+5. For **Write/Edit**: Denies operations outside allowed scope (blocking)
+6. For **Read**: Returns non-blocking warning if outside scope
+
+**Pattern matching:**
+- Supports `*` (glob - matches any characters)
+- Supports `?` (single character)
+- Forbidden patterns take precedence over allowed
+
+**Agent-specific messages:**
+- **Main agent denied**: "Write denied. Main agent scope is restricted by plan. Use Plan agent to update scope or delegate to subagents."
+- **Subagent denied**: "Write denied. Subagent scope is restricted by plan. Have main agent handle this area or update plan."
+- **Read warning**: Non-blocking guidance to stay within plan boundaries
+
+**Blocking:** Yes for Write/Edit, No for Read
+
+---
+
 ## Installation
 
 This plugin is part of the claude-code-plugins marketplace:
@@ -158,17 +223,25 @@ No configuration required. The plugin works automatically when installed.
 
 ## Debug Logging
 
-Enable debug output for context discovery:
+Enable debug output for specific hooks:
 
 ```bash
+# Context discovery
 DEBUG=add-folder-context claude
+
+# Plan scoping
+DEBUG=enforce-plan-scoping,create-plan-symlink claude
+
+# All hooks
+DEBUG=* claude
 ```
 
-This will log:
-- Files being read
+Debug output logs:
+- Files being read/written
 - CLAUDE.md files discovered
-- Search paths checked
-- Context provided to Claude
+- Plan symlink creation
+- Path validation results
+- Agent context detection
 
 ## Use Cases
 
@@ -184,17 +257,31 @@ This will log:
 - Validate rule file structure and metadata
 - Maintain documentation standards
 
+**Plan-Based Path Scoping:**
+- Manage context by restricting main agent and subagent file operations
+- Give Plan agent control over workspace boundaries
+- Isolate context-expensive areas to focused subagents
+- Prevent accidental context bloat from broad file access
+- Guide agents to stay within their designated scope
+
 ## Plugin Structure
 
 ```
-plugins/code-context/
+plugins/enhanced-context/
 ├── .claude-plugin/
-│   └── plugin.json          # Plugin metadata
+│   └── plugin.json                     # Plugin metadata
 ├── hooks/
-│   ├── hooks.json           # Hook configuration
-│   └── add-folder-context.ts # Context discovery hook
-├── shared/                  # Bundled shared utilities (for distribution)
-└── README.md               # This file
+│   ├── hooks.json                      # Hook configuration
+│   ├── add-folder-context.ts          # Context discovery hook
+│   ├── create-plan-symlink.ts         # Plan symlink creation hook
+│   └── encourage-context-review.ts    # Context review guidance hook
+├── shared/                             # Bundled shared utilities (for distribution)
+│   └── hooks/
+│       ├── enforce-plan-scoping.ts    # Plan path scoping hook
+│       ├── validate-folder-structure-write.ts
+│       ├── validate-rules-file.ts
+│       └── ... (other shared hooks)
+└── README.md                           # This file
 ```
 
 ## Related Documentation
