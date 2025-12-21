@@ -1,43 +1,30 @@
 {
   "_comment": "GitHub Context Sync Plugin - GitHub state synchronization",
   "_notes": [
-    "Provides plan-to-issue synchronization",
-    "Auto-commit for subagent work",
-    "Repository context at session start",
-    "Branch readiness validation on session end"
+    "Displays branch issue context and sync status",
+    "Encourages UI review after ui-developer agent"
   ],
   "description": "GitHub context and state synchronization",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/fetch-branch-context.ts",
+            "description": "Displays branch issue context, sync status, and outstanding issues"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
-        "matcher": "Write|Edit",
+        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/sync-plan-to-issue.ts",
-            "description": "Automatically creates/updates GitHub issues from plan files"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-pr-readiness.ts",
-            "description": "Validates branch status, blocks on conflicts/sync issues, and encourages PR creation when ready"
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task.ts",
-            "description": "Auto-commits agent work with task context and git trailers"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/encourage-ui-review.ts",
+            "description": "Encourages ui-reviewer after ui-developer agent completes"
           }
         ]
       }

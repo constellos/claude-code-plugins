@@ -100,7 +100,39 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
-### 4. PostToolUse[Bash] - Await PR CI Checks
+### 4. SubagentStop - Check UI Review Status
+
+**File**: `hooks/check-ui-review-status.ts`
+**Event**: `SubagentStop`
+**Matcher**: None (runs when any subagent completes)
+
+**What it does**:
+- Checks if the subagent created a git commit (via Agent-ID trailer)
+- Looks up the UI Review GitHub Actions workflow status for that commit
+- Blocks subagent completion if critical UI issues are found
+- Prevents merging code with failing UI reviews
+
+**Behavior**:
+- Searches recent git log for commits with the agent's ID
+- Queries GitHub workflow runs for the UI Review workflow
+- If workflow hasn't run yet: Non-blocking warning
+- If workflow is pending: Non-blocking warning with status check command
+- If workflow passed: Success message
+- If workflow failed: **BLOCKING** with error details and artifact download commands
+
+**Output**:
+- No commit: Empty (agent didn't create a commit)
+- Pending: Additional context with workflow status
+- Success: Additional context with success message
+- Failure: **Blocking decision** with critical issues message and fix instructions
+
+**Workflow Integration**:
+- Works with `.github-workflows/ui-review.yml` GitHub Actions workflow
+- Ensures UI quality is maintained across all agent-generated changes
+
+---
+
+### 5. PostToolUse[Bash] - Await PR CI Checks
 
 **File**: `hooks/await-pr-checks.ts`
 **Event**: `PostToolUse`
@@ -125,6 +157,82 @@ This plugin provides automated CI/CD workflow hooks for projects using GitHub, V
 
 ---
 
+## UI Review Workflow
+
+### Overview
+
+The UI Review workflow (`ui-review.yml`) provides automated UI quality checks using Playwright and Claude's vision capabilities.
+
+**Location**: `.github-workflows/ui-review.yml`
+
+**Triggers**:
+- All commit pushes (with Agent-ID in commit message)
+- All pull requests
+
+### Workflow Steps
+
+1. **Wait for Vercel Preview Deployments**
+   - Polls GitHub PR comments for Vercel bot URLs (10 minute timeout)
+   - Detects preview URLs for all deployed Turborepo apps
+   - Supports multiple apps: web, admin, docs
+
+2. **Run Playwright E2E Tests**
+   - Installs Playwright browsers in CI
+   - Runs tests tagged with `@app` or `@web` only (isolated tests)
+   - Screenshots are automatically captured during test execution at key moments
+   - Screenshots saved to `.claude/screenshots/` with naming: `{app}-{test}-{screenshot}.png`
+
+3. **Review UI with Claude**
+   - Groups screenshots by app and test
+   - For each test, calls Claude API with vision (claude-sonnet-4-5)
+   - Loads ui-reviewer agent instructions from `shared/agents/ui-reviewer.md`
+   - Reviews all screenshots for that test in a single API call
+   - Returns structured JSON: `{critical, major, minor, summary}`
+   - Aggregates results across all tests
+
+4. **Post Review to PR**
+   - Generates markdown review report
+   - Posts as PR comment with issue counts and summaries
+   - Uploads screenshots as artifacts (7-day retention)
+   - Uploads review report as artifact
+
+5. **Block on Critical Issues**
+   - If any critical issues found: **Workflow fails** (exit 1)
+   - SubagentStop hook detects failure and blocks agent completion
+   - Developer must fix issues before proceeding
+
+### Screenshot Storage
+
+Screenshots are organized by app and test:
+```
+.claude/screenshots/
+├── app-auth-login-mobile.png
+├── app-auth-login-desktop.png
+├── web-dashboard-home-mobile.png
+└── web-dashboard-home-desktop.png
+```
+
+Naming format: `{app}-{test}-{screenshot}.png`
+
+### Review Criteria
+
+Claude reviews screenshots for:
+- **Critical**: Visual bugs, broken layouts, accessibility violations
+- **Major**: Inconsistent design, poor responsive behavior
+- **Minor**: Styling improvements, polish opportunities
+
+### Integration with SubagentStop Hook
+
+The `check-ui-review-status.ts` hook:
+1. Detects agent commits via Agent-ID trailer
+2. Queries GitHub workflow status for UI Review
+3. **Blocks agent completion** if critical issues found
+4. Provides error context and artifact download commands
+
+This ensures agents cannot complete work with critical UI issues.
+
+---
+
 ## Debug Logging
 
 Enable debug output for hooks:
@@ -134,6 +242,7 @@ DEBUG=* claude                          # All debug output
 DEBUG=setup-environment claude          # Environment setup hook
 DEBUG=install-workflows claude          # GitHub Actions workflows hook
 DEBUG=vercel-env-setup claude           # Vercel environment sync hook
+DEBUG=check-ui-review-status claude     # UI review status check hook
 DEBUG=await-pr-checks claude            # PR checks hook
 ```
 
