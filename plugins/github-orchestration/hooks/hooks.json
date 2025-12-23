@@ -5,7 +5,7 @@
     "Commit enhancement with CI review integration",
     "Auto-commit for subagent work",
     "Plan-to-issue synchronization",
-    "PR readiness validation on session end"
+    "Unified auto-commit and PR status check on session end"
   ],
   "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
   "hooks": {
@@ -63,13 +63,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session.ts",
-            "description": "Auto-commits uncommitted changes at session end"
-          },
-          {
-            "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-pr-readiness.ts",
-            "description": "Validates branch status and encourages PR creation if ready"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session-check-for-pr.ts",
+            "description": "Auto-commits changes and reports PR status with CI/preview URLs"
           }
         ]
       }
