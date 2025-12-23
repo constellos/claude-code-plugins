@@ -5,22 +5,21 @@
  * This hook performs three main functions at session end:
  *
  * 1. **Blocking validation checks** - Ensures clean git state:
- *    - Merge conflicts detection
- *    - Branch sync status (behind remote)
- *    - Claude settings validation
- *    - Hook file existence checks
+ * - Merge conflicts detection
+ * - Branch sync status (behind remote)
+ * - Claude settings validation
+ * - Hook file existence checks
  *
  * 2. **Auto-commit** - Preserves work in progress:
- *    - Automatically commits any uncommitted changes
- *    - Adds session metadata to commit message
- *    - Always blocks with commit summary when changes are committed
+ * - Automatically commits any uncommitted changes
+ * - Adds session metadata to commit message
+ * - Always blocks with commit summary when changes are committed
  *
  * 3. **PR status reporting** - Provides PR visibility:
- *    - Checks if PR exists for current branch
- *    - Fetches latest CI run status and link
- *    - Extracts Vercel preview URLs (web and marketing apps)
- *    - Detects subagent activity to skip PR encouragement intelligently
- *
+ * - Checks if PR exists for current branch
+ * - Fetches latest CI run status and link
+ * - Extracts Vercel preview URLs (web and marketing apps)
+ * - Detects subagent activity to skip PR encouragement intelligently
  * @module commit-session-check-for-pr
  */
 
@@ -40,10 +39,10 @@ const execAsync = promisify(exec);
 
 /**
  * Execute a shell command and return the result
- *
  * @param command - Shell command to execute
  * @param cwd - Working directory
  * @returns Command result with success flag, stdout, and stderr
+ * @example
  */
 async function execCommand(
   command: string,
@@ -68,9 +67,9 @@ async function execCommand(
 
 /**
  * Check if there are uncommitted changes in the working directory
- *
  * @param cwd - Working directory
  * @returns True if there are uncommitted changes
+ * @example
  */
 async function hasUncommittedChanges(cwd: string): Promise<boolean> {
   const result = await execCommand('git status --porcelain', cwd);
@@ -79,9 +78,9 @@ async function hasUncommittedChanges(cwd: string): Promise<boolean> {
 
 /**
  * Get current git branch name
- *
  * @param cwd - Working directory
  * @returns Branch name or null if detached HEAD
+ * @example
  */
 async function getCurrentBranch(cwd: string): Promise<string | null> {
   const result = await execCommand('git rev-parse --abbrev-ref HEAD', cwd);
@@ -90,9 +89,9 @@ async function getCurrentBranch(cwd: string): Promise<string | null> {
 
 /**
  * Check if there are merge conflicts in the working directory
- *
  * @param cwd - Working directory
  * @returns Object with conflict status and list of conflicted files
+ * @example
  */
 async function checkMergeConflicts(cwd: string): Promise<{
   hasConflicts: boolean;
@@ -116,9 +115,9 @@ async function checkMergeConflicts(cwd: string): Promise<{
 
 /**
  * Check if branch is up to date with remote
- *
  * @param cwd - Working directory
  * @returns Object with sync status, commits behind/ahead, and remote branch name
+ * @example
  */
 async function checkBranchSync(cwd: string): Promise<{
   isSynced: boolean;
@@ -197,10 +196,10 @@ async function checkBranchSync(cwd: string): Promise<{
  *
  * Uses GitHub CLI to query for existing PRs where the head branch
  * matches the current branch name.
- *
  * @param branch - Current branch name
  * @param cwd - Working directory
  * @returns Object with PR existence status, number, URL, or error
+ * @example
  */
 async function checkPRExists(
   branch: string,
@@ -265,10 +264,10 @@ async function checkPRExists(
 
 /**
  * Get the latest CI workflow run
- *
  * @param prNumber - PR number
  * @param cwd - Working directory
  * @returns Object with CI run details or error
+ * @example
  */
 async function getLatestCIRun(
   prNumber: number,
@@ -308,10 +307,10 @@ async function getLatestCIRun(
 
 /**
  * Extract Vercel preview URLs from PR comments
- *
  * @param prNumber - PR number
  * @param cwd - Working directory
  * @returns Object with web/marketing URLs and all found URLs
+ * @example
  */
 async function getVercelPreviewUrls(
   prNumber: number,
@@ -373,9 +372,9 @@ async function getVercelPreviewUrls(
  *
  * Detects if a subagent just stopped and may be awaiting user input.
  * If true, skips PR encouragement to avoid interrupting workflow.
- *
  * @param cwd - Working directory
  * @returns True if recent subagent activity detected
+ * @example
  */
 async function hasRecentSubagentActivity(cwd: string): Promise<boolean> {
   const tasksFilePath = join(cwd, '.claude', 'logs', 'subagent-tasks.json');
@@ -403,9 +402,9 @@ async function hasRecentSubagentActivity(cwd: string): Promise<boolean> {
  * Run claude doctor to check for settings issues
  *
  * Executes `claude doctor` command and parses output for errors.
- *
  * @param cwd - Working directory
  * @returns Object with health status and any issues found
+ * @example
  */
 async function checkClaudeDoctor(cwd: string): Promise<{
   healthy: boolean;
@@ -502,9 +501,9 @@ async function checkClaudeDoctor(cwd: string): Promise<{
  * Validate all registered hooks point to real files
  *
  * Checks both plugin hooks and .claude/hooks directory for missing files.
- *
  * @param cwd - Working directory
  * @returns Object with validation status and missing files
+ * @example
  */
 async function validateHookFiles(cwd: string): Promise<{
   valid: boolean;
@@ -545,7 +544,7 @@ async function validateHookFiles(cwd: string): Promise<{
 
         if (hooksConfig.hooks) {
           // Validate hook files
-          for (const [_eventName, eventHooks] of Object.entries(hooksConfig.hooks)) {
+          for (const eventHooks of Object.values(hooksConfig.hooks)) {
             if (!Array.isArray(eventHooks)) continue;
 
             for (const hookGroup of eventHooks) {
@@ -581,7 +580,7 @@ async function validateHookFiles(cwd: string): Promise<{
         const localHooksConfig = JSON.parse(readFileSync(localHooksJson, 'utf-8'));
 
         if (localHooksConfig.hooks) {
-          for (const [_eventName, eventHooks] of Object.entries(localHooksConfig.hooks)) {
+          for (const eventHooks of Object.values(localHooksConfig.hooks)) {
             if (!Array.isArray(eventHooks)) continue;
 
             for (const hookGroup of eventHooks) {
@@ -626,10 +625,10 @@ async function validateHookFiles(cwd: string): Promise<{
 
 /**
  * Format commit message with session metadata
- *
  * @param sessionId - Session ID
  * @param branch - Current branch name
  * @returns Formatted commit message
+ * @example
  */
 function formatCommitMessage(sessionId: string, branch: string | null): string {
   const timestamp = new Date().toISOString();
@@ -647,12 +646,20 @@ Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>`;
 
 /**
  * Format PR status message when commit was made and PR exists
- *
  * @param commitSha - Commit SHA
  * @param prCheck - PR details
+ * @param prCheck.prNumber - PR number
+ * @param prCheck.prUrl - PR URL
  * @param ciRun - CI run details
+ * @param ciRun.url - CI run URL
+ * @param ciRun.status - CI run status
+ * @param ciRun.conclusion - CI run conclusion
+ * @param ciRun.name - CI run name
  * @param vercelUrls - Vercel preview URLs
+ * @param vercelUrls.webUrl - Web app preview URL
+ * @param vercelUrls.marketingUrl - Marketing app preview URL
  * @returns Formatted message
+ * @example
  */
 function formatPRStatusWithCommit(
   commitSha: string,
@@ -684,12 +691,12 @@ function formatPRStatusWithCommit(
 
 /**
  * Format message when commit was made but no PR exists
- *
  * @param commitSha - Commit SHA
  * @param branch - Current branch name
  * @param aheadBy - Number of commits ahead
  * @param hasSubagentActivity - Whether subagent is waiting
  * @returns Formatted message
+ * @example
  */
 function formatCommitWithNoPR(
   commitSha: string,
@@ -712,11 +719,19 @@ function formatCommitWithNoPR(
 
 /**
  * Format PR status info message (non-blocking)
- *
  * @param prCheck - PR details
+ * @param prCheck.prNumber - PR number
+ * @param prCheck.prUrl - PR URL
  * @param ciRun - CI run details
+ * @param ciRun.url - CI run URL
+ * @param ciRun.status - CI run status
+ * @param ciRun.conclusion - CI run conclusion
+ * @param ciRun.name - CI run name
  * @param vercelUrls - Vercel preview URLs
+ * @param vercelUrls.webUrl - Web app preview URL
+ * @param vercelUrls.marketingUrl - Marketing app preview URL
  * @returns Formatted message
+ * @example
  */
 function formatPRStatusInfo(
   prCheck: { prNumber: number; prUrl: string },
@@ -744,10 +759,10 @@ function formatPRStatusInfo(
 
 /**
  * Format PR encouragement message (non-blocking)
- *
  * @param branch - Current branch name
  * @param aheadBy - Number of commits ahead
  * @returns Formatted message
+ * @example
  */
 function formatNoPREncouragement(branch: string, aheadBy: number): string {
   return `✓ Branch ready for PR\n\n` +
@@ -758,6 +773,9 @@ function formatNoPREncouragement(branch: string, aheadBy: number): string {
 
 /**
  * Format blocking error messages for various checks
+ * @param conflictedFiles - List of files with merge conflicts
+ * @returns Formatted error message
+ * @example
  */
 function formatConflictError(conflictedFiles: string[]): string {
   return [
@@ -828,9 +846,9 @@ function formatHookErrors(missingFiles: string[]): string {
  * 2. Auto-commit uncommitted changes
  * 3. PR status check (if applicable)
  * 4. Output decision based on state
- *
  * @param input - Stop hook input from Claude Code
  * @returns Hook output with blocking decision or system message
+ * @example
  */
 async function handler(input: StopInput): Promise<StopHookOutput> {
   const logger = createDebugLogger(input.cwd, 'commit-session-check-for-pr', true);

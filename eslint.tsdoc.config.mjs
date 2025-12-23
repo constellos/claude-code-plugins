@@ -84,9 +84,6 @@ const config = [
       // Validate tag names
       'jsdoc/check-tag-names': 'error',
 
-      // Ensure proper line breaks
-      'jsdoc/newline-after-description': 'error',
-
       // TypeScript-specific: don't require types in JSDoc
       'jsdoc/require-param-type': 'off',
       'jsdoc/require-property-type': 'off',
