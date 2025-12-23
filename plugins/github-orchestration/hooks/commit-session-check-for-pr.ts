@@ -1,8 +1,7 @@
 /**
- * Unified Stop hook: Auto-commit and PR status check
+ * Unified Stop hook: Auto-commit, PR status check, and agent communication
  *
- * Combines functionality from commit-session.ts and check-pr-readiness.ts.
- * This hook performs three main functions at session end:
+ * This hook performs four main functions at session end:
  *
  * 1. **Blocking validation checks** - Ensures clean git state:
  * - Merge conflicts detection
@@ -13,19 +12,37 @@
  * 2. **Auto-commit** - Preserves work in progress:
  * - Automatically commits any uncommitted changes
  * - Adds session metadata to commit message
- * - Always blocks with commit summary when changes are committed
+ * - Increments block count for progressive blocking
  *
- * 3. **PR status reporting** - Provides PR visibility:
+ * 3. **Agent communication** - Progressive blocking behavior:
+ * - Block 1: Instructions to create PR or post GitHub comment
+ * - Block 2: Second reminder with attempt counter
+ * - Block 3: Warning that limit has been reached
+ * - Resets when PR created or progress documented via comment
+ *
+ * 4. **PR status reporting** - Provides PR visibility:
  * - Checks if PR exists for current branch
  * - Fetches latest CI run status and link
  * - Extracts Vercel preview URLs (web and marketing apps)
- * - Detects subagent activity to skip PR encouragement intelligently
+ * - Detects subagent activity to skip instructions intelligently
+ *
+ * **Session state tracking:**
+ * - State stored in `.claude/logs/session-stops.json`
+ * - Tracks block count per session
+ * - Tracks whether progress has been documented
+ *
+ * **GitHub comment integration:**
+ * - Detects comments with session ID markers
+ * - Discovers linked issues from branch context
+ * - Accepts progress documentation as alternative to PR
  * @module commit-session-check-for-pr
  */
 
 import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import { getSessionStopState, updateSessionStopState, resetSessionStopState } from '../../../shared/hooks/utils/session-state.js';
+import { hasCommentForSession, getLinkedIssueNumber } from '../../../shared/hooks/utils/github-comments.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';
@@ -690,34 +707,6 @@ function formatPRStatusWithCommit(
 }
 
 /**
- * Format message when commit was made but no PR exists
- * @param commitSha - Commit SHA
- * @param branch - Current branch name
- * @param aheadBy - Number of commits ahead
- * @param hasSubagentActivity - Whether subagent is waiting
- * @returns Formatted message
- * @example
- */
-function formatCommitWithNoPR(
-  commitSha: string,
-  branch: string,
-  aheadBy: number,
-  hasSubagentActivity: boolean
-): string {
-  let message = `✅ Auto-committed session work: ${commitSha}\n\n`;
-  message += `📋 **Branch:** \`${branch}\`\n`;
-  message += `📊 **Status:** ${aheadBy} commit${aheadBy === 1 ? '' : 's'} ahead\n\n`;
-
-  if (!hasSubagentActivity) {
-    message += `🚀 **Ready to create PR:**\n`;
-    message += `   gh pr create --fill\n\n`;
-  }
-
-  message += 'Press enter to continue.';
-  return message;
-}
-
-/**
  * Format PR status info message (non-blocking)
  * @param prCheck - PR details
  * @param prCheck.prNumber - PR number
@@ -755,20 +744,6 @@ function formatPRStatusInfo(
   }
 
   return message;
-}
-
-/**
- * Format PR encouragement message (non-blocking)
- * @param branch - Current branch name
- * @param aheadBy - Number of commits ahead
- * @returns Formatted message
- * @example
- */
-function formatNoPREncouragement(branch: string, aheadBy: number): string {
-  return `✓ Branch ready for PR\n\n` +
-         `📋 **Branch:** \`${branch}\`\n` +
-         `📊 ${aheadBy} commit${aheadBy === 1 ? '' : 's'} ahead\n\n` +
-         `🚀 Create PR: gh pr create --fill`;
 }
 
 /**
@@ -833,6 +808,88 @@ function formatHookErrors(missingFiles: string[]): string {
   ].join('\n');
 }
 
+/**
+ * Format agent instructions for progressive blocking
+ * @param sessionId - Session ID
+ * @param branch - Current branch name
+ * @param issueNumber - Linked issue number (or null)
+ * @param blockCount - Number of times blocked
+ * @param skipInstructions - Skip instructions if subagent active
+ * @returns Formatted agent instruction message
+ * @example
+ */
+function formatAgentInstructions(
+  sessionId: string,
+  branch: string,
+  issueNumber: number | null,
+  blockCount: number,
+  skipInstructions: boolean
+): string {
+  if (skipInstructions) {
+    return `⏸️  Subagent just stopped - awaiting your input (Session: ${sessionId})`;
+  }
+
+  const header = blockCount === 1
+    ? '🤖 SESSION COMMIT CHECKPOINT'
+    : `🤖 SESSION COMMIT CHECKPOINT (Attempt ${blockCount}/3)`;
+
+  const issueInstruction = issueNumber
+    ? `gh issue comment ${issueNumber} --body "..."`
+    : `Find issue number from branch ${branch} or create new issue`;
+
+  return `${header}
+
+Session ID: ${sessionId}
+Branch: ${branch}
+
+You've made commits but haven't created a PR yet.
+
+Please choose ONE of the following:
+
+1. CREATE A PR
+   gh pr create --title "..." --body "..."
+
+2. DOCUMENT PROGRESS
+   Post a comment to the linked issue with:
+   - What work you checked/reviewed
+   - What you accomplished
+   - Any issues or confusion noted
+
+   Command: ${issueInstruction}
+
+The comment will auto-include your session ID for tracking.`;
+}
+
+/**
+ * Format 3-block limit warning message
+ * @param sessionId - Session ID
+ * @param branch - Current branch name
+ * @param issueNumber - Linked issue number (or null)
+ * @returns Formatted warning message
+ * @example
+ */
+function formatBlockLimitReached(
+  sessionId: string,
+  branch: string,
+  issueNumber: number | null
+): string {
+  return `⚠️  SESSION CHECKPOINT LIMIT REACHED
+
+Session ID: ${sessionId}
+Branch: ${branch}
+
+This is the 3rd time you've been asked to create a PR or document progress.
+
+There may be an issue preventing you from completing this task.
+
+Consider:
+- Creating a PR manually: gh pr create
+- Posting a comment to issue #${issueNumber || 'N/A'}
+- Reviewing if there's a blocker preventing PR creation
+
+Please resolve this before ending the session.`;
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -855,6 +912,9 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
   try {
     await logger.logInput({ session_id: input.session_id });
+
+    // Load session state for progressive blocking
+    const sessionState = await getSessionStopState(input.session_id, input.cwd);
 
     // === PHASE 1: BLOCKING CHECKS ===
     // These must pass before we proceed
@@ -925,6 +985,12 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
         await logger.logOutput({ commit_made: true, commit_sha: commitSha });
 
+        // Increment block count for progressive blocking
+        await updateSessionStopState(input.session_id, {
+          blockCount: sessionState.blockCount + 1,
+          lastBlockTimestamp: new Date().toISOString()
+        }, input.cwd);
+
         // Re-check branch sync after commit
         const postCommitSync = await checkBranchSync(input.cwd);
         syncCheck.aheadBy = postCommitSync.aheadBy;
@@ -954,41 +1020,60 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     // Check if PR exists
     const prCheck = await checkPRExists(currentBranch, input.cwd);
 
-    // === PHASE 4: OUTPUT DECISION ===
+    // === PHASE 4: OUTPUT DECISION WITH AGENT COMMUNICATION ===
 
-    if (commitMade) {
-      // New changes were committed - always block with status
-      if (prCheck.exists && prCheck.prNumber && prCheck.prUrl) {
-        // Fetch PR details
-        const ciRun = await getLatestCIRun(prCheck.prNumber, input.cwd);
-        const vercelUrls = await getVercelPreviewUrls(prCheck.prNumber, input.cwd);
+    // Check if PR created since last block
+    if (prCheck.exists && prCheck.prNumber && prCheck.prUrl) {
+      // PR exists - reset state and show success
+      await resetSessionStopState(input.session_id, input.cwd);
 
+      // Fetch PR details
+      const ciRun = await getLatestCIRun(prCheck.prNumber, input.cwd);
+      const vercelUrls = await getVercelPreviewUrls(prCheck.prNumber, input.cwd);
+
+      if (commitMade) {
+        // Block with PR status after commit
         return {
           decision: 'block',
           reason: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls)
         };
-      } else {
-        // No PR exists - encourage creation
-        return {
-          decision: 'block',
-          reason: formatCommitWithNoPR(commitSha, currentBranch, syncCheck.aheadBy, hasSubagentActivity)
-        };
-      }
-    } else {
-      // No new commits - show PR info if available
-      if (prCheck.exists && prCheck.prNumber && prCheck.prUrl && syncCheck.aheadBy > 0) {
-        const ciRun = await getLatestCIRun(prCheck.prNumber, input.cwd);
-        const vercelUrls = await getVercelPreviewUrls(prCheck.prNumber, input.cwd);
-
+      } else if (syncCheck.aheadBy > 0) {
+        // Show PR status (non-blocking)
         return {
           systemMessage: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls)
         };
-      } else if (syncCheck.aheadBy > 0 && !hasSubagentActivity) {
-        // Has commits but no PR and no subagent waiting
+      }
+    }
+
+    // No PR - check if comment posted for this session
+    const issueNumber = await getLinkedIssueNumber(currentBranch, input.cwd);
+    if (issueNumber && await hasCommentForSession(issueNumber, input.session_id, input.cwd)) {
+      // Comment posted - reset state and allow session to end
+      await resetSessionStopState(input.session_id, input.cwd);
+
+      return {
+        systemMessage: `✅ Session progress documented in issue #${issueNumber}`
+      };
+    }
+
+    // No PR and no comment - determine blocking behavior
+    if (commitMade || syncCheck.aheadBy > 0) {
+      // Get updated state (includes incremented block count)
+      const updatedState = await getSessionStopState(input.session_id, input.cwd);
+
+      // Check 3-block limit
+      if (updatedState.blockCount >= 3) {
         return {
-          systemMessage: formatNoPREncouragement(currentBranch, syncCheck.aheadBy)
+          decision: 'block',
+          reason: formatBlockLimitReached(input.session_id, currentBranch, issueNumber)
         };
       }
+
+      // Block with agent instructions (first or second block)
+      return {
+        decision: 'block',
+        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, updatedState.blockCount, hasSubagentActivity)
+      };
     }
 
     return {};
