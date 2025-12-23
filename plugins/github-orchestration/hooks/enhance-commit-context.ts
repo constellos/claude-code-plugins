@@ -1,13 +1,14 @@
 /**
- * Enhance commit messages with task context and trigger CI review
+ * Enhance commit context with task and issue metadata
  *
- * PostToolUse[Bash] hook that detects git commits and:
- * - Adds task prompt to subagent commits
- * - Triggers CI review workflow
- * - Awaits and parses review decision
- * - Returns blocking/non-blocking decision to main agent
+ * PostToolUse[Bash] hook that detects git commits and enhances them with context:
+ * - **Subagent commits**: Amends commit message with task prompt
+ * - **Main agent commits**: Links commit to GitHub issue context
+ * - **Future**: Triggers CI review workflow and returns blocking/non-blocking decision
  *
- * @module enhance-commit-message
+ * Handles both main agent and subagent tool call cases automatically.
+ *
+ * @module enhance-commit-context
  */
 
 import type {
@@ -204,7 +205,7 @@ function _parseReviewDecision(_comment: string): ReviewDecision {
  * ```
  */
 async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'enhance-commit-message', true);
+  const logger = createDebugLogger(input.cwd, 'enhance-commit-context', true);
 
   try {
     // Only process if this is a Bash tool use

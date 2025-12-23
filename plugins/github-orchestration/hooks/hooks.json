@@ -14,24 +14,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-branch-context.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/add-github-context.ts",
             "description": "Displays branch issue context, sync status, and outstanding issues"
           },
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-review-workflows.ts",
             "description": "Installs GitHub Actions review workflows"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/guide-requirements-check.ts",
-            "description": "Adds systematic requirement analysis guidance to user prompts"
           }
         ]
       }
@@ -52,8 +41,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enhance-commit-message.ts",
-            "description": "Enhances commits with task context and triggers CI review"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enhance-commit-context.ts",
+            "description": "Enhances commits with task and issue context (both main and subagent)"
           }
         ]
       }
@@ -74,8 +63,13 @@
         "hooks": [
           {
             "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session.ts",
+            "description": "Auto-commits uncommitted changes at session end"
+          },
+          {
+            "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-pr-readiness.ts",
-            "description": "Validates branch status for conflicts and sync issues before session end"
+            "description": "Validates branch status and encourages PR creation if ready"
           }
         ]
       }

@@ -16,7 +16,7 @@
  * 2. GitHub search by branch name (fallback)
  * 3. Issue body `**Branch:** \`name\`` markers (last resort)
  *
- * @module add-branch-context
+ * @module add-github-context
  */
 
 import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
