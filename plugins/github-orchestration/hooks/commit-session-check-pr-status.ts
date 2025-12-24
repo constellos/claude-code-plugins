@@ -908,7 +908,7 @@ Please resolve this before ending the session.`;
  * @example
  */
 async function handler(input: StopInput): Promise<StopHookOutput> {
-  const logger = createDebugLogger(input.cwd, 'commit-session-check-for-pr', true);
+  const logger = createDebugLogger(input.cwd, 'commit-session-check-pr-status', true);
 
   try {
     await logger.logInput({ session_id: input.session_id });
