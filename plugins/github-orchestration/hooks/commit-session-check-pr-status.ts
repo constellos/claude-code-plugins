@@ -35,7 +35,7 @@
  * - Detects comments with session ID markers
  * - Discovers linked issues from branch context
  * - Accepts progress documentation as alternative to PR
- * @module commit-session-check-for-pr
+ * @module commit-session-check-pr-status
  */
 
 import type { StopInput, StopHookOutput } from '../shared/types/types.js';
