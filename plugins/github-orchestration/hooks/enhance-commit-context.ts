@@ -342,12 +342,9 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
     await logger.logError(error as Error);
 
     // Non-blocking - allow commit on error
-    return {
-      hookSpecificOutput: {
-        hookEventName: 'PostToolUse',
-        additionalContext: `⚠️ Commit enhancement error: ${error instanceof Error ? error.message : String(error)}`,
-      },
-    };
+    // Return empty object to avoid showing errors to user
+    // Errors are already logged to hook-events.json for debugging
+    return {};
   }
 }
 
