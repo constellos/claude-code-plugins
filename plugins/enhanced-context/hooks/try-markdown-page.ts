@@ -160,7 +160,12 @@ async function handler(
 ): Promise<PreToolUseHookOutput> {
   // Only run for WebFetch operations
   if (input.tool_name !== 'WebFetch') {
-    return {};
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'allow',
+      },
+    };
   }
 
   const logger = createDebugLogger(input.cwd, 'try-markdown-page', true);
@@ -177,7 +182,12 @@ async function handler(
 
     if (!originalUrl) {
       await logger.logOutput({ success: false, reason: 'No URL in tool input' });
-      return {};
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+        },
+      };
     }
 
     // Get markdown URL candidates
@@ -189,7 +199,12 @@ async function handler(
         reason: 'No markdown candidates generated',
         originalUrl,
       });
-      return {};
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+        },
+      };
     }
 
     // Try each candidate until we find one that exists
@@ -208,12 +223,13 @@ async function handler(
         return {
           hookSpecificOutput: {
             hookEventName: 'PreToolUse',
-            modifiedToolInput: {
+            permissionDecision: 'allow',
+            updatedInput: {
               ...toolInput,
               url: candidateUrl,
             },
-            additionalContext: `📝 Found markdown version: redirecting from ${originalUrl} to ${candidateUrl}`,
           },
+          systemMessage: `📝 Found markdown version: redirecting from ${originalUrl} to ${candidateUrl}`,
         };
       }
     }
@@ -227,11 +243,21 @@ async function handler(
       reason: 'No accessible markdown versions found',
     });
 
-    return {};
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'allow',
+      },
+    };
   } catch (error: unknown) {
     // Non-blocking on errors - let original WebFetch proceed
     await logger.logError(error as Error);
-    return {};
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'allow',
+      },
+    };
   }
 }
 
