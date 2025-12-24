@@ -16,13 +16,14 @@ Automatic context discovery and project structure validation for Claude Code pro
 
 ## Overview
 
-The Code Context plugin provides three main capabilities:
+The Code Context plugin provides four main capabilities:
 
 1. **Context Discovery** - Automatically finds and links related CLAUDE.md documentation when reading files
-2. **Structure Validation** - Validates .claude directory structure and ensures proper project organization
-3. **Plan-Based Path Scoping** - Enforces file operation boundaries based on plan frontmatter to manage context and separate concerns
+2. **Markdown Preference** - Redirects WebFetch to markdown versions of documentation when available for better AI parsing
+3. **Structure Validation** - Validates .claude directory structure and ensures proper project organization
+4. **Plan-Based Path Scoping** - Enforces file operation boundaries based on plan frontmatter to manage context and separate concerns
 
-This plugin helps Claude understand project structure, maintain consistent documentation organization, and work within defined scope boundaries.
+This plugin helps Claude access markdown-friendly documentation, understand project structure, maintain consistent organization, and work within defined scope boundaries.
 
 ## Hooks
 
@@ -131,6 +132,37 @@ Validates `mkdir` commands that create directories in `.claude/`. Prevents creat
 
 ---
 
+### PreToolUse[WebFetch] - Markdown URL Preference
+
+**File:** `hooks/try-markdown-page.ts`
+
+**Event:** PreToolUse (WebFetch operations)
+
+**What it does:**
+Automatically redirects WebFetch requests to markdown versions of documentation pages when available. This provides better AI-friendly content by preferring raw markdown over HTML pages.
+
+**URL transformation strategies:**
+1. **GitHub documentation** - Converts `github.com/owner/repo/blob/branch/path` to `raw.githubusercontent.com/owner/repo/branch/path.md`
+2. **HTML pages** - Tries changing `.html` extension to `.md`
+3. **Documentation sites** - Attempts appending `.md` to paths without extensions
+
+**How it works:**
+1. Intercepts WebFetch tool calls before execution
+2. Generates candidate markdown URLs based on the original URL
+3. Uses `curl` with HEAD requests to check if markdown versions exist (5 second timeout)
+4. If found, modifies the WebFetch URL to fetch the markdown version
+5. Provides additional context showing the redirect: `📝 Found markdown version: redirecting from [original] to [markdown]`
+
+**Example:**
+```
+Original URL: https://github.com/vercel/next.js/blob/canary/docs/app/guide.html
+Redirected to: https://raw.githubusercontent.com/vercel/next.js/canary/docs/app/guide.md
+```
+
+**Non-blocking:** Yes - failures gracefully fall back to original URL
+
+---
+
 ### PostToolUse[Write|Edit] - Plan Symlink Creation
 
 **File:** `hooks/create-plan-symlink.ts`
@@ -229,6 +261,9 @@ Enable debug output for specific hooks:
 # Context discovery
 DEBUG=add-folder-context claude
 
+# Markdown URL redirection
+DEBUG=try-markdown-page claude
+
 # Plan scoping
 DEBUG=enforce-plan-scoping,create-plan-symlink claude
 
@@ -239,6 +274,8 @@ DEBUG=* claude
 Debug output logs:
 - Files being read/written
 - CLAUDE.md files discovered
+- WebFetch URL transformations and redirects
+- Markdown URL availability checks
 - Plan symlink creation
 - Path validation results
 - Agent context detection
@@ -250,6 +287,13 @@ Debug output logs:
 - Navigate project structure via CLAUDE.md breadcrumbs
 - Understand folder purpose and organization
 - Find related documentation without explicit searching
+
+**Markdown Preference:**
+- Get AI-friendly markdown content instead of HTML pages
+- Access GitHub documentation in raw markdown format
+- Better parsing and understanding of technical documentation
+- Reduced processing overhead for documentation fetching
+- Seamless fallback to original URLs when markdown unavailable
 
 **Structure Validation:**
 - Prevent creation of invalid .claude directory structures
@@ -273,6 +317,7 @@ plugins/enhanced-context/
 ├── hooks/
 │   ├── hooks.json                      # Hook configuration
 │   ├── add-folder-context.ts          # Context discovery hook
+│   ├── try-markdown-page.ts           # Markdown URL preference hook
 │   ├── create-plan-symlink.ts         # Plan symlink creation hook
 │   └── encourage-context-review.ts    # Context review guidance hook
 ├── shared/                             # Bundled shared utilities (for distribution)
