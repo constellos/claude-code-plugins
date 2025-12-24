@@ -5,7 +5,8 @@
     "Tracks task/agent calls for context management",
     "Validates folder structure for .claude directories",
     "Discovers CLAUDE.md files for context enrichment",
-    "Encourages context updates on user prompts"
+    "Encourages context updates on user prompts",
+    "Redirects WebFetch to markdown versions when available"
   ],
   "description": "Enhanced context discovery and maintenance for Claude Code",
   "hooks": {
@@ -55,6 +56,16 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/shared/hooks/validate-folder-structure-mkdir.ts",
           "description": "Validates mkdir commands for .claude directories. Prevents creation of invalid or non-standard directory structures."
+        }
+      ]
+    },
+    {
+      "matcher": "WebFetch",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/try-markdown-page.ts",
+          "description": "Attempts to redirect WebFetch to markdown versions of documentation pages. Checks for .md versions of URLs and modifies fetch target if available."
         }
       ]
     }

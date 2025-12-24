@@ -1,7 +1,7 @@
 {
   "name": "enhanced-context",
-  "version": "0.2.0",
-  "description": "Enhanced context discovery and maintenance for Claude Code",
+  "version": "0.3.0",
+  "description": "Enhanced context discovery, markdown-friendly documentation, and maintenance for Claude Code",
   "author": {
     "name": "Constellos"
   },
@@ -12,6 +12,8 @@
     "navigation",
     "structure",
     "documentation",
+    "markdown",
+    "webfetch",
     "claude-code"
   ]
 }

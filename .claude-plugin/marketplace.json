@@ -42,22 +42,12 @@
     },
     {
       "name": "enhanced-context",
-      "description": "Enhanced context discovery and maintenance for Claude Code",
-      "version": "0.2.0",
+      "description": "Enhanced context discovery, markdown-friendly documentation, and maintenance for Claude Code",
+      "version": "0.3.0",
       "author": {
         "name": "Constellos"
       },
       "source": "./plugins/enhanced-context",
-      "strict": false
-    },
-    {
-      "name": "markdown-structure-rules",
-      "description": "Markdown structure validation for rules files in .claude/rules/",
-      "version": "0.1.0",
-      "author": {
-        "name": "Constellos"
-      },
-      "source": "./plugins/markdown-structure-rules",
       "strict": false
     }
   ]
