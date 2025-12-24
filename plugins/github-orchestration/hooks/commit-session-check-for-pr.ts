@@ -41,8 +41,8 @@
 import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
-import { getSessionStopState, updateSessionStopState, resetSessionStopState } from '../../../shared/hooks/utils/session-state.js';
-import { hasCommentForSession, getLinkedIssueNumber } from '../../../shared/hooks/utils/github-comments.js';
+import { getSessionStopState, updateSessionStopState, resetSessionStopState } from '../shared/hooks/utils/session-state.js';
+import { hasCommentForSession, getLinkedIssueNumber } from '../shared/hooks/utils/github-comments.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';

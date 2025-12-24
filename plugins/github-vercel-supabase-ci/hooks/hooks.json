@@ -1,13 +1,12 @@
 {
   "_comment": "GitHub Vercel Supabase CI Plugin - CI/CD automation for development workflows",
   "_notes": [
-    "Installs and configures CI tools on session start",
+    "Installs GitHub CLI and configures repository access",
+    "Installs Vercel CLI and syncs environment variables",
+    "Installs Docker, Supabase CLI, and starts local stack",
     "Installs GitHub Actions workflows",
-    "Syncs Vercel environment variables to .env.local",
-    "Installs Playwright browsers (CI only)",
     "Waits for CI checks after PR creation",
-    "Checks UI review status and blocks on critical issues",
-    "Tracks task/agent calls for context"
+    "All SessionStart hooks run independently and in parallel"
   ],
   "description": "CI/CD automation hooks for GitHub, Vercel, and Supabase projects",
   "hooks": {
@@ -16,18 +15,23 @@
       "hooks": [
         {
           "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-environment.ts",
-          "description": "Installs and configures CI/CD tools (Vercel, Supabase, Docker) on session start. Ensures development environment is ready for deployment and testing."
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-github.ts",
+          "description": "Installs GitHub CLI and configures repository access for gh commands."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-vercel.ts",
+          "description": "Installs Vercel CLI and syncs environment variables from project to .env.local."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-supabase-local-docker.ts",
+          "description": "Installs Docker, Supabase CLI, and starts local Supabase development stack."
         },
         {
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-workflows.ts",
-          "description": "Installs GitHub Actions workflow files for CI/CD automation. Sets up automated testing, deployment, and quality checks."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/vercel-env-setup.ts",
-          "description": "Syncs Vercel environment variables from project to .env.local on session start. Ensures worktrees have the same environment configuration."
+          "description": "Installs GitHub Actions workflow files for CI/CD automation."
         }
       ]
     }

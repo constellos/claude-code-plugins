@@ -730,7 +730,7 @@ Full TypeScript typing for all hook events in `shared/types/types.ts`:
 - Output types with proper constraints
 - Handler function type helpers
 
-### Automatic Hook Logging
+### Automatic Hook Logging and Error Handling
 
 **All hooks automatically log to `.claude/logs/hook-events.json`** via the `runHook` wrapper in `shared/hooks/utils/io.ts`. Hook developers don't need to write ANY logging code.
 
@@ -741,12 +741,20 @@ Full TypeScript typing for all hook events in `shared/types/types.ts`:
 4. Executes your handler function
 5. **Automatically logs output** after handler completes (if debug enabled)
 6. **Automatically logs errors** if handler throws (if debug enabled)
-7. Writes output to stdout for Claude Code
+7. **ALWAYS returns blocking error response** if handler throws (regardless of debug mode)
+8. Writes output to stdout for Claude Code
 
 **What gets logged:**
 - **Input logs**: Complete hook input including tool names, parameters, session context
 - **Output logs**: Hook return values, additional context, permission decisions
 - **Error logs**: Exception details, stack traces, error messages
+
+**Error Handling Behavior:**
+- **ALL hook errors block execution** - No silent failures
+- **Module resolution errors** (missing imports) block immediately
+- **Runtime errors** (uncaught exceptions) block immediately
+- **Type errors** and other exceptions block immediately
+- Debug flag controls **logging verbosity only**, NOT blocking behavior
 
 **When logging is enabled:**
 - Debug mode is controlled by `input.debug === true` passed from Claude Code
@@ -776,11 +784,11 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 // Export for testing
 export { handler };
 
-// This provides automatic logging!
+// This provides automatic logging AND error handling!
 runHook(handler);
 ```
 
-**Key principle:** Hook handlers should contain ONLY business logic. The `runHook` wrapper handles all logging, error handling, and stdin/stdout communication automatically.
+**Key principle:** Hook handlers should contain ONLY business logic. The `runHook` wrapper handles all logging, error handling, and stdin/stdout communication automatically. All errors are converted to blocking responses to ensure broken hooks cannot fail silently.
 
 ### TSDoc Documentation Standards
 
