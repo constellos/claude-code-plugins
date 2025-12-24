@@ -76,12 +76,24 @@
     "supabase",
     "vercel"
   ],
+  "hooks": {
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PROJECT_DIR}/.claude/hooks/refresh-plugins.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
-    "github-orchestration@constellos": true,
     "plugin-dev@claude-code-plugins": true,
-    "github-vercel-supabase-ci@constellos": true,
+    "enhanced-context@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "enhanced-context@constellos": true
+    "github-orchestration@constellos": true,
+    "github-vercel-supabase-ci@constellos": true
   },
   "extraKnownMarketplaces": {
     "constellos": {

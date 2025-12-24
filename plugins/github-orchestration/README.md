@@ -127,18 +127,58 @@ Only stages files modified by the specific agent.
 
 ### Stop
 
-#### check-pr-readiness.ts
-**Event**: SessionEnd/Stop
-**Blocking**: Yes (for critical issues)
-**What it does**: Validates branch status before session end
+#### commit-session-check-for-pr.ts
+**Event**: Stop
+**Blocking**: Yes (for validation errors and agent communication)
+**What it does**: Auto-commits changes, validates branch status, and implements progressive blocking for PR creation
 
-**Blocking checks:**
-- Merge conflicts exist
-- Branch is behind remote (unpushed changes could be lost)
+**Phase 1: Blocking validation checks**
+- Merge conflicts detection
+- Branch sync status (behind remote)
+- Claude settings validation (via `claude doctor`)
+- Hook file existence checks
 
-**Non-blocking suggestions:**
-- Create PR when unpushed commits exist
-- Silent when no changes or PR already exists
+**Phase 2: Auto-commit**
+- Automatically commits uncommitted changes
+- Adds session metadata to commit message
+- Increments block count for progressive blocking
+
+**Phase 3: Agent communication (NEW)**
+
+Progressive blocking behavior to encourage PR creation or progress documentation:
+
+1. **First block**: After auto-commit, shows agent instructions:
+   ```
+   🤖 SESSION COMMIT CHECKPOINT
+
+   You've made commits but haven't created a PR yet.
+
+   Please choose ONE of the following:
+   1. CREATE A PR: gh pr create --title "..." --body "..."
+   2. DOCUMENT PROGRESS: Post comment to linked issue
+   ```
+
+2. **Second block**: Shows attempt counter (2/3)
+
+3. **Third block**: Warning that limit has been reached
+
+**Reset conditions:**
+- PR is created → state resets, shows PR status
+- GitHub comment posted with session ID marker → state resets, allows session end
+
+**Phase 4: PR status reporting**
+- Shows PR details, CI status, and Vercel preview URLs
+- Detects subagent activity to skip instructions when appropriate
+
+**Session state tracking:**
+- State stored in `.claude/logs/session-stops.json`
+- Tracks block count per session (0-3)
+- Tracks whether progress has been documented
+
+**GitHub comment integration:**
+- Detects comments with `<!-- claude-session: {id} -->` markers
+- Discovers linked issues from `.claude/logs/plan-issues.json` or branch name
+- Accepts progress documentation as alternative to PR creation
 
 ## Installation
 
@@ -159,6 +199,36 @@ Add to `.claude/settings.json`:
 ```
 
 ## State Files
+
+### .claude/logs/session-stops.json
+
+Tracks Stop hook state for progressive blocking:
+
+```json
+{
+  "session-id-1": {
+    "sessionId": "session-id-1",
+    "blockCount": 1,
+    "commentPosted": false,
+    "lastBlockTimestamp": "2025-01-01T00:00:00Z",
+    "issueNumber": 42,
+    "prCreated": false
+  }
+}
+```
+
+**Fields:**
+- `sessionId` - Unique session identifier
+- `blockCount` - Number of times Stop hook has blocked (0-3)
+- `commentPosted` - Whether GitHub comment has been posted
+- `lastBlockTimestamp` - ISO timestamp of last block
+- `issueNumber` - Linked GitHub issue number (optional)
+- `prCreated` - Whether PR has been created (optional)
+
+**Lifecycle:**
+- Increments `blockCount` on each auto-commit
+- Resets when PR is created or comment is posted
+- Persists across session restarts
 
 ### .claude/logs/plan-issues.json
 
