@@ -99,7 +99,7 @@
     "constellos": {
       "source": {
         "source": "directory",
-        "path": "./.claude-plugin"
+        "path": "."
       }
     }
   },
