@@ -83,12 +83,12 @@ async function appendHookEvent(cwd: string, entry: HookEventEntry): Promise<void
  * Create a debug logger for a hook execution
  *
  * Returns a logger object with methods for logging hook inputs, outputs, and errors
- * to .claude/logs/hook-events.json in JSONL format. Logging only occurs when debug
- * mode is enabled.
+ * to .claude/logs/hook-events.json in JSONL format. Logging is unconditional and
+ * always occurs for audit and debugging purposes.
  *
  * @param cwd - The working directory where logs should be written
  * @param hookEventName - The name of the hook event (e.g., 'SessionStart', 'PostToolUse')
- * @param debug - Whether debug logging is enabled
+ * @param debug - Legacy parameter, kept for backward compatibility but no longer used
  * @returns A DebugLogger with logInput, logOutput, and logError methods
  *
  * @example
@@ -108,7 +108,6 @@ export function createDebugLogger(
 ): DebugLogger {
   return {
     logInput: async (input: unknown) => {
-      if (!debug) return;
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -118,7 +117,6 @@ export function createDebugLogger(
     },
 
     logOutput: async (output: unknown) => {
-      if (!debug) return;
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -128,7 +126,6 @@ export function createDebugLogger(
     },
 
     logError: async (error: Error) => {
-      if (!debug) return;
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
