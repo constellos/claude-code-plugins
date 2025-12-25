@@ -1,5 +1,5 @@
 /**
- * Unified Stop hook: Auto-commit, PR status check, and agent communication
+ * Unified Stop hook: Auto-commit, PR status check, CI waiting, and agent communication
  *
  * This hook performs four main functions at session end:
  *
@@ -20,8 +20,10 @@
  * - Block 3: Warning that limit has been reached
  * - Resets when PR created or progress documented via comment
  *
- * 4. **PR status reporting** - Provides PR visibility:
+ * 4. **PR status reporting and CI waiting** - Provides PR visibility and ensures quality:
  * - Checks if PR exists for current branch
+ * - **Waits for all CI checks to complete** (including Vercel, Supabase integrations)
+ * - **Blocks if any CI check fails** (10-minute timeout)
  * - Fetches latest CI run status and link
  * - Extracts Vercel preview URLs (web and marketing apps)
  * - Detects subagent activity to skip instructions intelligently
@@ -377,6 +379,68 @@ async function getVercelPreviewUrls(
     };
   } catch {
     return { allUrls: [] };
+  }
+}
+
+/**
+ * Wait for CI checks to complete on a PR
+ *
+ * Uses `gh pr checks --watch` to wait for all CI checks to finish.
+ * Returns success/failure status and combined output.
+ *
+ * @param prNumber - PR number
+ * @param cwd - Working directory
+ * @returns Object with success status, combined output, and optional error
+ * @example
+ */
+async function waitForCIChecks(
+  prNumber: number,
+  cwd: string
+): Promise<{
+  success: boolean;
+  output: string;
+  error?: string;
+}> {
+  try {
+    // Wait for CI checks to complete using gh pr checks --watch
+    // Use a 10-minute timeout (600000ms) for CI to complete
+    const { stdout: watchOutput, stderr: watchStderr } = await execAsync(
+      `gh pr checks ${prNumber} --watch`,
+      {
+        cwd,
+        timeout: 600000, // 10 minute timeout
+      }
+    );
+
+    const combinedOutput = `${watchOutput}\n${watchStderr}`.trim();
+
+    // Check if all checks passed
+    const hasFailures = combinedOutput.includes('fail') ||
+                        combinedOutput.includes('X ') ||
+                        combinedOutput.includes('cancelled');
+
+    return {
+      success: !hasFailures,
+      output: combinedOutput,
+    };
+  } catch (watchError: unknown) {
+    const err = watchError as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
+    const errorOutput = err.stdout || err.stderr || err.message || 'Unknown error';
+
+    // Check if timeout
+    if (err.killed) {
+      return {
+        success: false,
+        output: errorOutput,
+        error: 'CI check timeout (10 minutes)',
+      };
+    }
+
+    return {
+      success: false,
+      output: errorOutput,
+      error: 'Failed to watch CI checks',
+    };
   }
 }
 
@@ -1024,8 +1088,43 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
     // Check if PR created since last block
     if (prCheck.exists && prCheck.prNumber && prCheck.prUrl) {
-      // PR exists - reset state and show success
+      // PR exists - wait for CI checks to complete
+      await logger.logOutput({
+        pr_exists: true,
+        pr_number: prCheck.prNumber,
+        waiting_for_ci: true
+      });
+
+      const ciCheckResult = await waitForCIChecks(prCheck.prNumber, input.cwd);
+
+      // If CI failed, block with error message
+      if (!ciCheckResult.success) {
+        await logger.logOutput({
+          ci_status: 'failed',
+          ci_output: ciCheckResult.output,
+          ci_error: ciCheckResult.error
+        });
+
+        return {
+          decision: 'block',
+          reason: `❌ CI checks failed for PR #${prCheck.prNumber}
+
+${ciCheckResult.error ? `Error: ${ciCheckResult.error}\n\n` : ''}To view details:
+  • gh pr checks ${prCheck.prNumber}
+  • gh run view
+  • ${prCheck.prUrl}
+
+Check output:
+${ciCheckResult.output}`
+        };
+      }
+
+      // CI passed - reset state and show success
       await resetSessionStopState(input.session_id, input.cwd);
+      await logger.logOutput({
+        ci_status: 'passed',
+        ci_output: ciCheckResult.output
+      });
 
       // Fetch PR details
       const ciRun = await getLatestCIRun(prCheck.prNumber, input.cwd);
