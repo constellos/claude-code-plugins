@@ -93,7 +93,8 @@
     "enhanced-context@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
     "github-orchestration@constellos": true,
-    "github-vercel-supabase-ci@constellos": true
+    "github-vercel-supabase-ci@constellos": true,
+    "plugin-dev@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "constellos": {
