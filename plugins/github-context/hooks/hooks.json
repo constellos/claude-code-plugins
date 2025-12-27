@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-github.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-github.ts",
             "description": "Installs GitHub CLI on remote, warns if missing on local"
           },
           {

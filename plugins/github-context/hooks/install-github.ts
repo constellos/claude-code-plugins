@@ -2,7 +2,7 @@
  * GitHub CLI Setup Hook
  * SessionStart hook that installs and configures GitHub CLI for the project.
  * On remote: always installs if missing. On local: warns if missing or outdated.
- * @module setup-github
+ * @module install-github
  */
 
 import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';

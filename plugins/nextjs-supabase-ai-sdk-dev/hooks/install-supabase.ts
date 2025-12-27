@@ -2,7 +2,7 @@
  * Supabase CLI Setup Hook
  * SessionStart hook that installs Supabase CLI.
  * On remote: always installs if missing. On local: warns if missing or outdated.
- * @module setup-supabase
+ * @module install-supabase
  */
 
 import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';

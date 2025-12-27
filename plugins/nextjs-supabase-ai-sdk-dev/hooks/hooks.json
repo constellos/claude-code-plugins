@@ -14,12 +14,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-vercel.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-vercel.ts",
             "description": "Installs Vercel CLI on remote, warns if missing on local"
           },
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/setup-supabase.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-supabase.ts",
             "description": "Installs Supabase CLI on remote, warns if missing on local"
           }
         ]

@@ -2,7 +2,7 @@
  * Vercel CLI Setup Hook
  * SessionStart hook that installs Vercel CLI and syncs environment variables.
  * On remote: always installs if missing. On local: warns if missing or outdated.
- * @module setup-vercel
+ * @module install-vercel
  */
 
 import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
