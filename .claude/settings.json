@@ -77,6 +77,17 @@
     "vercel"
   ],
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PROJECT_DIR}/.claude/hooks/setup-tsx.ts",
+            "description": "Ensures tsx is available and verifies/installs Claude CLI in remote environments."
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
