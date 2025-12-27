@@ -1,6 +1,7 @@
 {
-  "_comment": "Next.js Supabase AI SDK Dev Plugin - Development quality checks and testing",
+  "_comment": "Next.js Supabase AI SDK Dev Plugin - Development quality checks and CLI setup",
   "_notes": [
+    "Installs Vercel and Supabase CLIs on remote, warns on local",
     "Runs linting, type checking, and testing for Next.js projects",
     "Per-file checks on Write/Edit operations",
     "Full project checks on Stop (session end)",
@@ -8,85 +9,101 @@
   ],
   "description": "Development quality checks for Next.js, Supabase, and AI SDK projects",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-vercel.ts",
+            "description": "Installs Vercel CLI on remote, warns if missing on local"
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-supabase.ts",
+            "description": "Installs Supabase CLI on remote, warns if missing on local"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
-    {
-      "matcher": "Task",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts",
-          "description": "Logs Task tool calls before agent execution. Saves context for later retrieval in SubagentStop hooks."
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "matcher": "Task",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts",
-          "description": "Logs Task tool results after agent completion. Captures agent output and context for analysis."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/encourage-ui-review.ts",
-          "description": "Encourages ui-reviewer after ui-developer agent completes"
-        }
-      ]
-    },
-    {
-      "matcher": "Write|Edit",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-eslint.ts",
-          "description": "Runs ESLint on individual files after Write/Edit operations. Ensures code style and quality standards are met before proceeding."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-types.ts",
-          "description": "Runs TypeScript type checking on individual files after Write/Edit operations. Catches type errors early in development."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-tsdoc.ts",
-          "description": "Validates TSDoc documentation on TypeScript files after Write/Edit operations. Ensures exported members have comprehensive documentation following TSDoc 2025 best practices."
-        }
-      ]
-    },
-    {
-      "matcher": "Write(**.test.ts)|Write(**.test.tsx)|Edit(**.test.ts)|Edit(**.test.tsx)",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-vitest-results.ts",
-          "description": "Runs Vitest on test files after Write/Edit operations. Ensures tests pass before committing changes."
-        }
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-eslint.ts",
-          "description": "Runs ESLint on entire project at session end. Blocking hook that ensures all code meets linting standards before finishing."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-types.ts",
-          "description": "Runs TypeScript type checking on entire project at session end. Blocking hook that ensures no type errors exist before finishing."
-        },
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-vitest-results.ts",
-          "description": "Runs full Vitest test suite at session end. Blocking hook that ensures all tests pass before finishing."
-        }
-      ]
-    }
-  ]
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-call.ts",
+            "description": "Logs Task tool calls before agent execution. Saves context for later retrieval in SubagentStop hooks."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PROJECT_DIR}/shared/hooks/log-task-result.ts",
+            "description": "Logs Task tool results after agent completion. Captures agent output and context for analysis."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/encourage-ui-review.ts",
+            "description": "Encourages ui-reviewer after ui-developer agent completes"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-eslint.ts",
+            "description": "Runs ESLint on individual files after Write/Edit operations. Ensures code style and quality standards are met before proceeding."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-types.ts",
+            "description": "Runs TypeScript type checking on individual files after Write/Edit operations. Catches type errors early in development."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-tsdoc.ts",
+            "description": "Validates TSDoc documentation on TypeScript files after Write/Edit operations. Ensures exported members have comprehensive documentation following TSDoc 2025 best practices."
+          }
+        ]
+      },
+      {
+        "matcher": "Write(**.test.ts)|Write(**.test.tsx)|Edit(**.test.ts)|Edit(**.test.tsx)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-file-vitest-results.ts",
+            "description": "Runs Vitest on test files after Write/Edit operations. Ensures tests pass before committing changes."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-eslint.ts",
+            "description": "Runs ESLint on entire project at session end. Blocking hook that ensures all code meets linting standards before finishing."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-types.ts",
+            "description": "Runs TypeScript type checking on entire project at session end. Blocking hook that ensures no type errors exist before finishing."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/check-global-vitest-results.ts",
+            "description": "Runs full Vitest test suite at session end. Blocking hook that ensures all tests pass before finishing."
+          }
+        ]
+      }
+    ]
   }
 }

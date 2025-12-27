@@ -11,43 +11,33 @@
   },
   "plugins": [
     {
-      "name": "github-vercel-supabase-ci",
-      "description": "CI/CD hooks and utilities for GitHub, Vercel, and Supabase",
-      "version": "0.1.0",
-      "author": {
-        "name": "Sylvan Systems + Claude"
-      },
-      "source": "./plugins/github-vercel-supabase-ci",
-      "strict": false
-    },
-    {
-      "name": "github-orchestration",
-      "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
-      "version": "1.0.0",
+      "name": "github-context",
+      "description": "GitHub integration with branch context, commit review, and issue orchestration",
+      "version": "0.1.1",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-orchestration",
+      "source": "./plugins/github-context",
       "strict": false
     },
     {
       "name": "nextjs-supabase-ai-sdk-dev",
       "description": "Next.js, Supabase, and AI SDK development utilities",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
-        "name": "Sylvan Systems + Claude"
+        "name": "constellos"
       },
       "source": "./plugins/nextjs-supabase-ai-sdk-dev",
       "strict": false
     },
     {
-      "name": "enhanced-context",
-      "description": "Enhanced context discovery, markdown-friendly documentation, and maintenance for Claude Code",
-      "version": "0.3.0",
+      "name": "project-context",
+      "description": "Project context discovery, markdown-friendly documentation, and maintenance for Claude Code",
+      "version": "0.1.1",
       "author": {
-        "name": "Constellos"
+        "name": "constellos"
       },
-      "source": "./plugins/enhanced-context",
+      "source": "./plugins/project-context",
       "strict": false
     }
   ]

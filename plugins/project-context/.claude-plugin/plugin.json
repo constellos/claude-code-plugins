@@ -1,14 +1,14 @@
 {
-  "name": "enhanced-context",
-  "version": "0.3.0",
-  "description": "Enhanced context discovery, markdown-friendly documentation, and maintenance for Claude Code",
+  "name": "project-context",
+  "version": "0.1.1",
+  "description": "Project context discovery, markdown-friendly documentation, and maintenance for Claude Code",
   "author": {
-    "name": "Constellos"
+    "name": "constellos"
   },
   "repository": "https://github.com/constellos/claude-code-plugins",
   "license": "MIT",
   "keywords": [
-    "enhanced-context",
+    "project-context",
     "navigation",
     "structure",
     "documentation",
