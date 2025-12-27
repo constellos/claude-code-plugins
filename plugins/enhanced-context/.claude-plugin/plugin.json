@@ -1,6 +1,6 @@
 {
   "name": "enhanced-context",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Enhanced context discovery, markdown-friendly documentation, and maintenance for Claude Code",
   "author": {
     "name": "Constellos"

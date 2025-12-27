@@ -1,6 +1,6 @@
 {
   "name": "github-orchestration",
-  "version": "1.0.0",
+  "version": "0.3.1",
   "description": "Unified GitHub integration with branch context, commit review, and issue orchestration",
   "author": {
     "name": "constellos"

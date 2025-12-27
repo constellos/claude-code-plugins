@@ -1,6 +1,6 @@
 {
   "name": "nextjs-supabase-ai-sdk-dev",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "description": "Next.js, Supabase, and AI SDK development utilities and hooks",
   "author": {
     "name": "constellos"
