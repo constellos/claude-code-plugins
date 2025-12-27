@@ -1,11 +1,11 @@
 {
   "name": "nextjs-supabase-ai-sdk-dev",
-  "version": "0.3.1",
+  "version": "0.1.1",
   "description": "Next.js, Supabase, and AI SDK development utilities and hooks",
   "author": {
     "name": "constellos"
   },
-  "repository": "https://github.com/constellos/claude-code-kit",
+  "repository": "https://github.com/constellos/claude-code-plugins",
   "license": "MIT",
   "keywords": ["nextjs", "supabase", "ai-sdk", "development"],
   "mcpServers": {

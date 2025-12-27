@@ -1,0 +1,12 @@
+{
+  "name": "github-context",
+  "version": "0.1.1",
+  "description": "GitHub integration with branch context, commit review, and issue orchestration",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": ["github", "context", "commits", "issues"],
+  "hooks": "./hooks/hooks.json"
+}
