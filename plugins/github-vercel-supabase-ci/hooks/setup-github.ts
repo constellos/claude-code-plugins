@@ -91,6 +91,50 @@ function isRemoteEnvironment(): boolean {
 }
 
 /**
+ * Get GitHub CLI version
+ * @returns Version string or null if not available
+ */
+async function getGhVersion(): Promise<string | null> {
+  const result = await execCommand('gh --version');
+  if (result.success) {
+    // Parse version from "gh version 2.x.x (yyyy-mm-dd)"
+    const match = result.stdout.match(/gh version ([\d.]+)/);
+    return match ? match[1] : null;
+  }
+  return null;
+}
+
+/**
+ * Get latest GitHub CLI version from GitHub releases
+ * @returns Latest version string or null if unavailable
+ */
+async function getLatestGhVersion(): Promise<string | null> {
+  const result = await execCommand('curl -s https://api.github.com/repos/cli/cli/releases/latest | grep tag_name', { timeout: 15000 });
+  if (result.success) {
+    // Parse from "tag_name": "v2.x.x"
+    const match = result.stdout.match(/"v?([\d.]+)"/);
+    return match ? match[1] : null;
+  }
+  return null;
+}
+
+/**
+ * Compare semver versions
+ * @returns true if v1 < v2
+ */
+function isVersionOlder(v1: string, v2: string): boolean {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 < p2) return true;
+    if (p1 > p2) return false;
+  }
+  return false;
+}
+
+/**
  * Install GitHub CLI (gh) on Ubuntu
  * Installs gh from GitHub's official APT repository if not already installed.
  * @returns Execution result with installation status
@@ -182,7 +226,20 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         messages.push('   Install with: curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && sudo apt install gh');
       }
     } else {
-      messages.push('✓ GitHub CLI installed');
+      const ghVersion = await getGhVersion();
+      messages.push(`✓ GitHub CLI v${ghVersion || 'unknown'}`);
+
+      // Check for updates
+      const latestVersion = await getLatestGhVersion();
+      if (ghVersion && latestVersion && isVersionOlder(ghVersion, latestVersion)) {
+        if (isRemote) {
+          messages.push(`⚠️  UPDATE AVAILABLE: gh v${latestVersion} (current: v${ghVersion})`);
+          messages.push('   Consider updating for latest features and fixes');
+        } else {
+          messages.push(`⚠️  Update available: v${latestVersion}`);
+          messages.push('   Run: gh upgrade');
+        }
+      }
 
       // Check authentication status
       const authed = await isAuthenticated();
