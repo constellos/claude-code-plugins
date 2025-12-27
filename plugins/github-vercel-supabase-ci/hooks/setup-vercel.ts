@@ -93,6 +93,48 @@ function isRemoteEnvironment(): boolean {
 }
 
 /**
+ * Get Vercel CLI version
+ * @returns Version string or null if not available
+ */
+async function getVercelVersion(): Promise<string | null> {
+  const result = await execCommand('vercel --version');
+  if (result.success) {
+    // Parse version from "Vercel CLI x.x.x"
+    const match = result.stdout.match(/(\d+\.\d+\.\d+)/);
+    return match ? match[1] : null;
+  }
+  return null;
+}
+
+/**
+ * Get latest Vercel CLI version from npm
+ * @returns Latest version string or null if unavailable
+ */
+async function getLatestVercelVersion(): Promise<string | null> {
+  const result = await execCommand('npm view vercel version', { timeout: 15000 });
+  if (result.success) {
+    return result.stdout.trim();
+  }
+  return null;
+}
+
+/**
+ * Compare semver versions
+ * @returns true if v1 < v2
+ */
+function isVersionOlder(v1: string, v2: string): boolean {
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0;
+    const p2 = parts2[i] || 0;
+    if (p1 < p2) return true;
+    if (p1 > p2) return false;
+  }
+  return false;
+}
+
+/**
  * Install Vercel CLI globally via npm
  * Installs vercel npm package globally if not already installed.
  * @returns Execution result with installation status
@@ -196,7 +238,20 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         messages.push('   Install with: npm install -g vercel');
       }
     } else {
-      messages.push('✓ Vercel CLI installed');
+      const vercelVersion = await getVercelVersion();
+      messages.push(`✓ Vercel CLI v${vercelVersion || 'unknown'}`);
+
+      // Check for updates
+      const latestVersion = await getLatestVercelVersion();
+      if (vercelVersion && latestVersion && isVersionOlder(vercelVersion, latestVersion)) {
+        if (isRemote) {
+          messages.push(`⚠️  UPDATE AVAILABLE: vercel v${latestVersion} (current: v${vercelVersion})`);
+          messages.push('   Consider updating for latest features and fixes');
+        } else {
+          messages.push(`⚠️  Update available: v${latestVersion}`);
+          messages.push('   Run: npm install -g vercel');
+        }
+      }
 
       // Sync environment variables
       const syncResult = await syncVercelEnv(input.cwd);
