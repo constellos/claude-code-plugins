@@ -41,7 +41,7 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     });
 
     // Run TypeScript type checking on the entire project
-    await execAsync('tsc --noEmit', {
+    await execAsync('npx tsc --noEmit', {
       cwd: input.cwd,
       timeout: 120000, // 2 minute timeout for full project type check
     });
@@ -61,9 +61,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         type_errors: output,
       });
 
-      // Return blocking error - session cannot end with type errors
+      // Return blocking error to AI - session cannot end with type errors
       return {
-        systemMessage: `🚨 TypeScript type errors detected:\n\n${output}\n\nPlease fix these type errors before ending the session.`,
+        decision: 'block',
+        reason: `TypeScript type errors detected:\n\n${output}\n\nPlease fix these type errors before ending the session.`,
       };
     }
 
@@ -71,7 +72,8 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Type checking failed: ${err.message || 'Unknown error'}`,
+      decision: 'block',
+      reason: `Type checking failed: ${err.message || 'Unknown error'}`,
     };
   }
 }

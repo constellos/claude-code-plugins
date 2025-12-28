@@ -63,9 +63,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         lint_errors: output,
       });
 
-      // Return blocking error - session cannot end with lint errors
+      // Return blocking error to AI - session cannot end with lint errors
       return {
-        systemMessage: `🚨 ESLint errors detected:\n\n${output}\n\nPlease fix these linting issues before ending the session.`,
+        decision: 'block',
+        reason: `ESLint errors detected:\n\n${output}\n\nPlease fix these linting issues before ending the session.`,
       };
     }
 
@@ -73,7 +74,8 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Linting failed: ${err.message || 'Unknown error'}`,
+      decision: 'block',
+      reason: `Linting failed: ${err.message || 'Unknown error'}`,
     };
   }
 }

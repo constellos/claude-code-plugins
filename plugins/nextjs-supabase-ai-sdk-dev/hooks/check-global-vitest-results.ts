@@ -63,9 +63,10 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         test_failures: output,
       });
 
-      // Return blocking error - session cannot end with test failures
+      // Return blocking error to AI - session cannot end with test failures
       return {
-        systemMessage: `🚨 Test failures detected:\n\n${output}\n\nPlease fix these test failures before ending the session.`,
+        decision: 'block',
+        reason: `Test failures detected:\n\n${output}\n\nPlease fix these test failures before ending the session.`,
       };
     }
 
@@ -73,7 +74,8 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Test execution failed: ${err.message || 'Unknown error'}`,
+      decision: 'block',
+      reason: `Test execution failed: ${err.message || 'Unknown error'}`,
     };
   }
 }

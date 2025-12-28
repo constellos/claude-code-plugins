@@ -181,7 +181,10 @@ Please add comprehensive TSDoc documentation to address these issues.`;
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `TSDoc validation failed: ${err.message || 'Unknown error'}`,
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `TSDoc validation failed: ${err.message || 'Unknown error'}`,
+      },
     };
   }
 }

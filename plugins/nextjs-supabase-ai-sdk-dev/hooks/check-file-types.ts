@@ -51,7 +51,7 @@ async function handler(
     });
 
     // Run TypeScript type checking
-    await execAsync('tsc --noEmit', {
+    await execAsync('npx tsc --noEmit', {
       cwd: input.cwd,
       timeout: 30000, // 30 second timeout
     });
@@ -84,7 +84,10 @@ async function handler(
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Type checking failed: ${err.message || 'Unknown error'}`,
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `Type checking failed: ${err.message || 'Unknown error'}`,
+      },
     };
   }
 }

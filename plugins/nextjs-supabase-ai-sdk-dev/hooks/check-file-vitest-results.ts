@@ -89,7 +89,10 @@ async function handler(
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Test execution failed: ${err.message || 'Unknown error'}`,
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `Test execution failed: ${err.message || 'Unknown error'}`,
+      },
     };
   }
 }
