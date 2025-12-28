@@ -89,8 +89,8 @@
     ]
   },
   "enabledPlugins": {
-    "github-context@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
+    "github-context@constellos": true,
     "project-context@constellos": true
   },
   "extraKnownMarketplaces": {
