@@ -232,18 +232,18 @@ async function handler(
       tool_use_id: input.tool_use_id,
     });
 
-    // Get the bash command from tool parameters
-    const toolParams = input.tool_parameters as { command?: string };
-    const command = toolParams?.command || '';
+    // Get the bash command from tool input
+    const toolInput = input.tool_input as { command?: string };
+    const command = toolInput?.command || '';
 
     // Only run for gh pr create commands
     if (!command.includes('gh pr create') && !command.includes('gh pr')) {
       return {};
     }
 
-    // Get the tool result to extract PR number
-    const toolResult = input.tool_result as { content?: Array<{ text?: string }> };
-    const resultText = toolResult?.content?.[0]?.text || '';
+    // Get the tool response to extract PR number
+    const toolResponse = input.tool_response as { content?: Array<{ text?: string }> };
+    const resultText = toolResponse?.content?.[0]?.text || '';
 
     // Extract PR number from output
     const prNumber = extractPRNumber(resultText);
