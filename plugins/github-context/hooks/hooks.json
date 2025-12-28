@@ -6,6 +6,7 @@
     "Commit enhancement with issue context",
     "Auto-commit for subagent work",
     "Plan-to-issue synchronization",
+    "Auto-waits for CI checks after PR creation (gh pr create)",
     "Auto-commit and PR status check on session end"
   ],
   "description": "GitHub integration with branch context, commit review, and issue orchestration",
@@ -44,6 +45,11 @@
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enhance-commit-context.ts",
             "description": "Enhances commits with task and issue context (both main and subagent)"
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-checks.ts",
+            "description": "Waits for CI checks to complete after PR creation (gh pr create)"
           }
         ]
       }
