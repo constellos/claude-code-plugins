@@ -55,7 +55,7 @@ async function isCommandAvailable(command: string): Promise<boolean> {
  * Detect if running in remote (cloud) environment
  */
 function isRemoteEnvironment(): boolean {
-  return process.env.CLAUDE_CODE_REMOTE === 'true';
+  return process.env.CLAUDE_CODE_ENTRYPOINT === 'remote';
 }
 
 /**
@@ -97,14 +97,18 @@ function isVersionOlder(v1: string, v2: string): boolean {
 }
 
 /**
- * Install Supabase CLI via npm
+ * Install Supabase CLI via official binary installer
  */
 async function installSupabaseCLI(): Promise<ExecResult> {
   if (await isCommandAvailable('supabase')) {
     return { success: true, stdout: 'supabase already installed', stderr: '' };
   }
 
-  const result = await execCommand('npm install -g supabase');
+  // Use official Supabase binary installer (works on Linux/macOS)
+  const result = await execCommand(
+    'curl -fsSL https://raw.githubusercontent.com/supabase/cli/main/install.sh | sh',
+    { timeout: 120000 }
+  );
   if (!result.success) {
     return { success: false, stdout: '', stderr: `Failed to install supabase: ${result.stderr}` };
   }

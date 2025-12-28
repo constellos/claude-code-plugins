@@ -57,7 +57,7 @@ async function isCommandAvailable(command: string): Promise<boolean> {
  * Detect if running in remote (cloud) environment
  */
 function isRemoteEnvironment(): boolean {
-  return process.env.CLAUDE_CODE_REMOTE === 'true';
+  return process.env.CLAUDE_CODE_ENTRYPOINT === 'remote';
 }
 
 /**
