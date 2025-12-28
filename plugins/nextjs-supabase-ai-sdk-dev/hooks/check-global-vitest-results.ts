@@ -15,7 +15,7 @@
  * @module vitest-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
@@ -33,7 +33,12 @@ const execAsync = promisify(exec);
  * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with test failures as blocking error if found
  */
-async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
+async function handler(input: StopInput): Promise<StopHookOutput> {
+  // Prevent infinite loops - if hook is already active, allow stop
+  if (input.stop_hook_active) {
+    return {};
+  }
+
   const logger = createDebugLogger(input.cwd, 'vitest-all', true);
 
   try {
