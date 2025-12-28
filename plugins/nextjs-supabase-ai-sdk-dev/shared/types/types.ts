@@ -736,6 +736,10 @@ export interface StopHookOutput extends BaseHookOutput {
   decision?: "block" | "approve";
   /** Reason for blocking (shown to Claude so it knows what to fix) */
   reason?: string;
+  /** Alternative blocking flag - testing if this is what Claude Code actually uses */
+  ok?: boolean;
+  /** Alternative blocking flag - testing if this is what Claude Code actually uses */
+  blocking?: boolean;
 }
 
 /** Stop hook function signature */

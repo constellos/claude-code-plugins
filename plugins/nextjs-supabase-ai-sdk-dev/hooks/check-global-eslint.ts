@@ -69,7 +69,10 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
       });
 
       // Return blocking error to AI - session cannot end with lint errors
+      // Testing ok: false and blocking: true per user request
       return {
+        ok: false,
+        blocking: true,
         decision: 'block',
         reason: `ESLint errors detected. You MUST fix these before stopping:\n\n${output}\n\nFix each error listed above, then run the linter again to verify all issues are resolved.`,
         systemMessage: 'Claude is blocked from stopping due to ESLint errors and will work to fix them.',
@@ -80,6 +83,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     await logger.logError(error as Error);
 
     return {
+      ok: false,
+      blocking: true,
       decision: 'block',
       reason: `Linting command failed: ${err.message || 'Unknown error'}. Check if ESLint is installed and the lint script exists in package.json.`,
       systemMessage: 'Claude is blocked from stopping due to linting command failure.',
