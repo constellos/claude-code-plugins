@@ -36,7 +36,7 @@ const execAsync = promisify(exec);
 async function handler(input: StopInput): Promise<StopHookOutput> {
   // Prevent infinite loops - if hook is already active, allow stop
   if (input.stop_hook_active) {
-    return {};
+    return { decision: 'approve' };
   }
 
   const logger = createDebugLogger(input.cwd, 'vitest-all', true);
@@ -56,7 +56,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     // If tests complete successfully with no failures
     await logger.logOutput({ success: true, test_results: stdout });
 
-    return {};
+    return { decision: 'approve' };
   } catch (error: unknown) {
     // Vitest exits with non-zero code when there are test failures
     const err = error as { stdout?: string; stderr?: string; message?: string };
@@ -71,7 +71,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
       // Return blocking error to AI - session cannot end with test failures
       return {
         decision: 'block',
-        reason: `Test failures detected:\n\n${output}\n\nPlease fix these test failures before ending the session.`,
+        reason: `Test failures detected. You MUST fix these before stopping:\n\n${output}\n\nFix each failing test listed above, then run the tests again to verify all pass.`,
+        systemMessage: 'Claude is blocked from stopping due to test failures and will work to fix them.',
       };
     }
 
@@ -80,7 +81,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
     return {
       decision: 'block',
-      reason: `Test execution failed: ${err.message || 'Unknown error'}`,
+      reason: `Test command failed: ${err.message || 'Unknown error'}. Check if Vitest is installed and the test script exists in package.json.`,
+      systemMessage: 'Claude is blocked from stopping due to test command failure.',
     };
   }
 }

@@ -987,7 +987,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);
     if (!gitCheck.success) {
       await logger.logOutput({ skipped: true, reason: 'Not a git repository' });
-      return {};
+      return { decision: 'approve' };
     }
 
     // Check Claude settings health
@@ -995,7 +995,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     if (!doctorCheck.healthy && doctorCheck.issues.length > 0) {
       return {
         decision: 'block',
-        reason: formatDoctorErrors(doctorCheck.issues)
+        reason: formatDoctorErrors(doctorCheck.issues),
+        systemMessage: 'Claude is blocked from stopping due to configuration issues.',
       };
     }
 
@@ -1004,7 +1005,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     if (!hookValidation.valid && hookValidation.missingFiles.length > 0) {
       return {
         decision: 'block',
-        reason: formatHookErrors(hookValidation.missingFiles)
+        reason: formatHookErrors(hookValidation.missingFiles),
+        systemMessage: 'Claude is blocked from stopping due to missing hook files.',
       };
     }
 
@@ -1013,7 +1015,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     if (conflictCheck.hasConflicts) {
       return {
         decision: 'block',
-        reason: formatConflictError(conflictCheck.conflictedFiles)
+        reason: formatConflictError(conflictCheck.conflictedFiles),
+        systemMessage: 'Claude is blocked from stopping due to merge conflicts.',
       };
     }
 
@@ -1022,7 +1025,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     if (!syncCheck.isSynced && syncCheck.remoteBranch) {
       return {
         decision: 'block',
-        reason: formatSyncError(syncCheck)
+        reason: formatSyncError(syncCheck),
+        systemMessage: 'Claude is blocked from stopping due to branch sync issues.',
       };
     }
 
@@ -1072,10 +1076,11 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
       if (commitMade) {
         return {
           decision: 'block',
-          reason: `✅ Auto-committed session work: ${commitSha}\n\nSession end.`
+          reason: `✅ Auto-committed session work: ${commitSha}\n\nSession end.`,
+          systemMessage: 'Session work auto-committed.',
         };
       }
-      return {};
+      return { decision: 'approve' };
     }
 
     // Check if subagent just stopped (awaiting user input)
@@ -1115,7 +1120,8 @@ ${ciCheckResult.error ? `Error: ${ciCheckResult.error}\n\n` : ''}To view details
   • ${prCheck.prUrl}
 
 Check output:
-${ciCheckResult.output}`
+${ciCheckResult.output}`,
+          systemMessage: 'Claude is blocked from stopping due to CI check failures.',
         };
       }
 
@@ -1134,7 +1140,8 @@ ${ciCheckResult.output}`
         // Block with PR status after commit
         return {
           decision: 'block',
-          reason: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls)
+          reason: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
+          systemMessage: 'Session work committed with PR status.',
         };
       } else if (syncCheck.aheadBy > 0) {
         // Show PR status (non-blocking)
@@ -1164,23 +1171,25 @@ ${ciCheckResult.output}`
       if (updatedState.blockCount >= 3) {
         return {
           decision: 'block',
-          reason: formatBlockLimitReached(input.session_id, currentBranch, issueNumber)
+          reason: formatBlockLimitReached(input.session_id, currentBranch, issueNumber),
+          systemMessage: 'Claude is blocked from stopping - block limit reached.',
         };
       }
 
       // Block with agent instructions (first or second block)
       return {
         decision: 'block',
-        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, updatedState.blockCount, hasSubagentActivity)
+        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, updatedState.blockCount, hasSubagentActivity),
+        systemMessage: 'Claude is blocked from stopping - PR or issue comment required.',
       };
     }
 
-    return {};
+    return { decision: 'approve' };
   } catch (error) {
     await logger.logError(error as Error);
 
     // Don't block on errors - just log them
-    return {};
+    return { decision: 'approve' };
   }
 }
 

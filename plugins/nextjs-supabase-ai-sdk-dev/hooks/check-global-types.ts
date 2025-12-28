@@ -35,7 +35,7 @@ const execAsync = promisify(exec);
 async function handler(input: StopInput): Promise<StopHookOutput> {
   // Prevent infinite loops - if hook is already active, allow stop
   if (input.stop_hook_active) {
-    return {};
+    return { decision: 'approve' };
   }
 
   const logger = createDebugLogger(input.cwd, 'typecheck-all', true);
@@ -54,7 +54,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     // If tsc completes successfully with no errors
     await logger.logOutput({ success: true, errors: [] });
 
-    return {};
+    return { decision: 'approve' };
   } catch (error: unknown) {
     // tsc exits with non-zero code when there are type errors
     const err = error as { stdout?: string; stderr?: string; message?: string };
@@ -69,7 +69,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
       // Return blocking error to AI - session cannot end with type errors
       return {
         decision: 'block',
-        reason: `TypeScript type errors detected:\n\n${output}\n\nPlease fix these type errors before ending the session.`,
+        reason: `TypeScript type errors detected. You MUST fix these before stopping:\n\n${output}\n\nFix each error listed above, then run tsc --noEmit again to verify all issues are resolved.`,
+        systemMessage: 'Claude is blocked from stopping due to TypeScript errors and will work to fix them.',
       };
     }
 
@@ -78,7 +79,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
     return {
       decision: 'block',
-      reason: `Type checking failed: ${err.message || 'Unknown error'}`,
+      reason: `TypeScript command failed: ${err.message || 'Unknown error'}. Check if TypeScript is installed and tsconfig.json exists.`,
+      systemMessage: 'Claude is blocked from stopping due to TypeScript command failure.',
     };
   }
 }

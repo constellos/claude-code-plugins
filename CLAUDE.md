@@ -594,6 +594,31 @@ DEBUG=* claude              # All debug output
 DEBUG=plugin-name claude    # Specific plugin
 ```
 
+## Claude Code Documentation Notes
+
+The official Claude Code documentation may be out of date or incomplete. When implementing hooks:
+
+- **Test actual behavior** rather than relying solely on docs
+- **Check GitHub issues** for known bugs (e.g., issue #10412 about Stop hooks via plugins)
+- **The `reason` field in Stop hooks is shown to Claude** (tells it what to fix)
+- **The `systemMessage` field is shown to the user** (status info, not visible to Claude)
+- **Use explicit `decision: "approve"`** when allowing stop (not just empty `{}`)
+- **Use explicit `decision: "block"` with actionable `reason`** when blocking
+
+### Stop Hook Output Best Practices
+
+```typescript
+// When blocking - provide actionable instructions to Claude
+return {
+  decision: 'block',
+  reason: 'ESLint errors detected. You MUST fix these before stopping:\n\n[errors here]\n\nFix each error, then run linter to verify.',
+  systemMessage: 'Claude is blocked from stopping due to ESLint errors.',
+};
+
+// When approving - be explicit
+return { decision: 'approve' };
+```
+
 ## Troubleshooting
 
 ### Hooks Not Firing
