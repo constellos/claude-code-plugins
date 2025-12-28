@@ -15,7 +15,7 @@
  * @module lint-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
@@ -33,7 +33,12 @@ const execAsync = promisify(exec);
  * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with lint errors as blocking error if found
  */
-async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
+async function handler(input: StopInput): Promise<StopHookOutput> {
+  // Prevent infinite loops - if hook is already active, allow stop
+  if (input.stop_hook_active) {
+    return { decision: 'approve' };
+  }
+
   const logger = createDebugLogger(input.cwd, 'lint-all', true);
 
   try {
@@ -51,7 +56,7 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     // If lint completes successfully with no errors
     await logger.logOutput({ success: true, errors: [] });
 
-    return {};
+    return { decision: 'approve' };
   } catch (error: unknown) {
     // Lint command exits with non-zero code when there are lint errors
     const err = error as { stdout?: string; stderr?: string; message?: string };
@@ -63,9 +68,14 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         lint_errors: output,
       });
 
-      // Return blocking error - session cannot end with lint errors
+      // Return blocking error to AI - session cannot end with lint errors
+      // Testing ok: false and blocking: true per user request
       return {
-        systemMessage: `🚨 ESLint errors detected:\n\n${output}\n\nPlease fix these linting issues before ending the session.`,
+        ok: false,
+        blocking: true,
+        decision: 'block',
+        reason: `ESLint errors detected. You MUST fix these before stopping:\n\n${output}\n\nFix each error listed above, then run the linter again to verify all issues are resolved.`,
+        systemMessage: 'Claude is blocked from stopping due to ESLint errors and will work to fix them.',
       };
     }
 
@@ -73,7 +83,11 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Linting failed: ${err.message || 'Unknown error'}`,
+      ok: false,
+      blocking: true,
+      decision: 'block',
+      reason: `Linting command failed: ${err.message || 'Unknown error'}. Check if ESLint is installed and the lint script exists in package.json.`,
+      systemMessage: 'Claude is blocked from stopping due to linting command failure.',
     };
   }
 }

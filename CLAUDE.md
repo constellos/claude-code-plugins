@@ -51,49 +51,47 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
 │       └── CLAUDE.md          # Rules folder documentation
 │
 └── plugins/                    # Individual marketplace plugins
-    ├── github-vercel-supabase-ci/
+    ├── github-context/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
     │       ├── hooks.json
-    │       ├── setup-environment.ts     # SessionStart: install CI tools
-    │       ├── install-workflows.ts     # SessionStart: GitHub workflows
-    │       └── await-pr-checks.ts       # PostToolUse: wait for CI on PR create
-    │
-    ├── github-review-sync/
-    │   ├── .claude-plugin/plugin.json
-    │   └── hooks/
-    │       ├── hooks.json
-    │       ├── check-branch-status.ts       # SessionEnd: check conflicts & sync
-    │       ├── check-documentation.ts       # PreToolUse: ensure docs present
-    │       ├── commit-task.ts               # SubagentStop: auto-commit agent work
-    │       ├── guide-requirements-check.ts  # PreToolUse: guide compliance
-    │       ├── review-commit.ts             # PreToolUse[Bash]: commit review
-    │       └── sync-plan-to-issue.ts        # PostToolUse: sync plan changes
+    │       ├── install-github.ts           # SessionStart: install GitHub CLI
+    │       ├── add-github-context.ts       # SessionStart: branch context & issues
+    │       ├── sync-plan-to-issue.ts       # PostToolUse[Write|Edit]: plan sync
+    │       ├── enhance-commit-context.ts   # PostToolUse[Bash]: commit enhancement
+    │       ├── commit-task.ts              # SubagentStop: auto-commit agent work
+    │       └── commit-session-check-pr-status.ts  # Stop: session commit & PR checks
     │
     ├── nextjs-supabase-ai-sdk-dev/
     │   ├── .claude-plugin/plugin.json
     │   └── hooks/
     │       ├── hooks.json
-    │       ├── lint-file.ts             # PostToolUse: ESLint on file
-    │       ├── lint-all.ts              # SessionStop: ESLint on all
-    │       ├── typecheck-file.ts        # PostToolUse: TypeScript on file
-    │       ├── typecheck-all.ts         # SessionStop: TypeScript on all
-    │       ├── tsdoc-validate.ts        # PostToolUse: TSDoc validation on file
-    │       ├── vitest-file.ts           # PostToolUse: Vitest on file
-    │       └── vitest-all.ts            # SessionStop: Vitest on all
+    │       ├── install-vercel.ts           # SessionStart: install Vercel CLI
+    │       ├── install-supabase.ts         # SessionStart: install Supabase CLI
+    │       ├── check-file-eslint.ts        # PostToolUse[Write|Edit]: ESLint on file
+    │       ├── check-file-types.ts         # PostToolUse[Write|Edit]: TypeScript on file
+    │       ├── check-file-tsdoc.ts         # PostToolUse[Write|Edit]: TSDoc validation
+    │       ├── check-file-vitest-results.ts # PostToolUse[Write|Edit]: Vitest on test files
+    │       ├── encourage-ui-review.ts      # PostToolUse[Task]: encourage ui-reviewer
+    │       ├── check-global-eslint.ts      # Stop: ESLint on all (blocking)
+    │       ├── check-global-types.ts       # Stop: TypeScript on all (blocking)
+    │       └── check-global-vitest-results.ts # Stop: Vitest on all (blocking)
     │
-    ├── code-context/
-    │   ├── .claude-plugin/plugin.json
-    │   └── hooks/
-    │       ├── hooks.json
-    │       ├── add-folder-context.ts    # PostToolUse[Read]: CLAUDE.md discovery
-    │       └── (uses shared hooks for validation and logging)
-    │
-    └── markdown-structure-rules/
+    └── project-context/
         ├── .claude-plugin/plugin.json
         └── hooks/
-            ├── hooks.json               # Rules file validation
-            └── validate-rules-structure.ts  # PreToolUse: validate rules structure
+            ├── hooks.json
+            ├── encourage-context-review.ts  # UserPromptSubmit: context updates
+            ├── add-folder-context.ts        # PostToolUse[Read]: CLAUDE.md discovery
+            ├── create-plan-symlink.ts       # PostToolUse[Write|Edit]: PLAN.md symlink
+            ├── try-markdown-page.ts         # PreToolUse[WebFetch]: prefer .md URLs
+            └── shared/                      # Uses shared validation hooks
+                ├── log-task-call.ts         # PreToolUse[Task]: save task context
+                ├── log-task-result.ts       # PostToolUse[Task]: log task results
+                ├── validate-folder-structure-write.ts   # PreToolUse[Write|Edit]
+                ├── validate-folder-structure-mkdir.ts   # PreToolUse[Bash]
+                ├── validate-rules-file.ts               # PreToolUse[Write|Edit]
+                └── enforce-plan-scoping.ts              # PostToolUse[Write|Edit|Read]
 ```
 
 ## Self-Executable Hooks with tsx
@@ -205,89 +203,111 @@ import type {
 
 ## Available Plugins
 
-### github-vercel-supabase-ci
+### github-context
 
-CI/CD hooks for GitHub, Vercel, and Supabase projects.
+GitHub integration with branch context, commit enhancement, plan synchronization, and CI orchestration.
 
-**Hooks:**
-- **SessionStart** (`setup-environment.ts`) - Install and configure CI tools (Vercel, Supabase, Docker)
-- **SessionStart** (`install-workflows.ts`) - Install GitHub Actions workflows
-- **PostToolUse[Bash]** (`await-pr-checks.ts`) - Wait for CI after PR creation
-
-**GitHub Actions Workflows:**
-- **ui-review.yml** - Automated UI review using Playwright screenshots and Claude
-  - **Trigger**: Pull requests only (not commits)
-  - **Process**: Waits for Vercel preview URLs → Runs Playwright e2e tests → Captures screenshots → Reviews with Claude API → Blocks if critical issues found
-  - **Integration**: Complements local ui-reviewer agent workflow (github-context-sync plugin)
-
-### github-review-sync
-
-GitHub review and sync hooks for branch validation, auto-commit, plan synchronization, and quality enforcement.
+**Purpose:**
+Provides comprehensive GitHub integration including CLI installation, branch/issue context discovery, automatic commit enhancement with task metadata, plan-to-issue synchronization, and PR status monitoring.
 
 **Hooks:**
-- **SessionEnd** (`check-branch-status.ts`) - Check for merge conflicts and branch sync status (blocking)
-- **PreToolUse** (`check-documentation.ts`) - Ensure README and documentation are present
-- **SubagentStop** (`commit-task.ts`) - Auto-commit agent work with task context
-- **PreToolUse** (`guide-requirements-check.ts`) - Enforce guide and documentation requirements
-- **PreToolUse[Bash]** (`review-commit.ts`) - Review git commit messages for quality
-- **PostToolUse** (`sync-plan-to-issue.ts`) - Sync plan file changes to GitHub issues
+- **SessionStart** (`install-github.ts`) - Installs GitHub CLI on remote environments, warns if missing locally (non-blocking)
+- **SessionStart** (`add-github-context.ts`) - Displays linked GitHub issue for current branch, branch sync status, and outstanding issues (non-blocking)
+- **PostToolUse[Write|Edit]** (`sync-plan-to-issue.ts`) - Automatically creates or updates GitHub issues from plan files (non-blocking)
+- **PostToolUse[Bash]** (`enhance-commit-context.ts`) - Enhances git commits with task context and issue references for both main agent and subagents (non-blocking)
+- **SubagentStop** (`commit-task.ts`) - Auto-commits subagent work with task context and git trailers (non-blocking)
+- **Stop** (`commit-session-check-pr-status.ts`) - Auto-commits session changes, checks PR status, and reports CI/preview URLs with progressive blocking
+
+**Key Features:**
+- **Branch Context Discovery:** Shows full GitHub issue content (title, body, comments) linked to current branch
+- **Sync Status:** Displays branch status relative to remote tracking branch and origin/main
+- **Outstanding Issues:** Lists open issues not linked to any branch, available for work
+- **Auto-commit:** Automatically commits subagent work with rich task context
+- **Plan Synchronization:** Creates/updates GitHub issues from plan files automatically
+- **Commit Enhancement:** Enriches commits with task and issue metadata
+- **PR Status Monitoring:** Checks PR status at session end with CI and preview URL reporting
+
+**Use Cases:**
+- GitHub-integrated development workflows
+- Issue-driven development with branch linking
+- Automated task documentation through commits
+- PR readiness checks before ending sessions
+- Multi-agent workflows with automatic commit documentation
 
 ### nextjs-supabase-ai-sdk-dev
 
-Development quality checks for Next.js projects.
+Development quality enforcement for Next.js, Supabase, and AI SDK projects with comprehensive linting, type checking, testing, and CLI installation.
+
+**Purpose:**
+Ensures code quality through automated checks at both file and project levels. Installs Vercel and Supabase CLIs on remote environments, runs per-file quality checks on edits, and performs comprehensive project-wide validation at session end.
 
 **Hooks:**
-- **PostToolUse[Write|Edit]** (`lint-file.ts`) - Run ESLint on edited files
-- **PostToolUse[Write|Edit]** (`typecheck-file.ts`) - Run TypeScript type checking on edited files
-- **PostToolUse[Write|Edit]** (`tsdoc-validate.ts`) - Validate TSDoc documentation on TypeScript files
-- **PostToolUse[*.test.ts|*.test.tsx]** (`vitest-file.ts`) - Run Vitest on edited test files
-- **SessionStop** (`lint-all.ts`) - Run ESLint on entire project (blocking)
-- **SessionStop** (`typecheck-all.ts`) - Run TypeScript type checking on entire project (blocking)
-- **SessionStop** (`vitest-all.ts`) - Run full test suite with Vitest (blocking)
+- **SessionStart** (`install-vercel.ts`) - Installs Vercel CLI on remote environments, warns if missing locally (non-blocking)
+- **SessionStart** (`install-supabase.ts`) - Installs Supabase CLI on remote environments, warns if missing locally (non-blocking)
+- **PreToolUse[Task]** (shared `log-task-call.ts`) - Logs Task tool calls and saves context for SubagentStop hooks (non-blocking)
+- **PostToolUse[Task]** (shared `log-task-result.ts`) - Logs Task tool results after agent completion (non-blocking)
+- **PostToolUse[Task]** (`encourage-ui-review.ts`) - Encourages ui-reviewer agent after ui-developer completes (non-blocking)
+- **PostToolUse[Write|Edit]** (`check-file-eslint.ts`) - Runs ESLint on individual files after edits (non-blocking, informational)
+- **PostToolUse[Write|Edit]** (`check-file-types.ts`) - Runs TypeScript type checking on individual files after edits (non-blocking, informational)
+- **PostToolUse[Write|Edit]** (`check-file-tsdoc.ts`) - Validates TSDoc documentation on TypeScript files after edits (non-blocking, informational)
+- **PostToolUse[Write|Edit test files]** (`check-file-vitest-results.ts`) - Runs Vitest on test files after edits (non-blocking, informational)
+- **Stop** (`check-global-eslint.ts`) - Runs ESLint on entire project at session end (blocking)
+- **Stop** (`check-global-types.ts`) - Runs TypeScript type checking on entire project at session end (blocking)
+- **Stop** (`check-global-vitest-results.ts`) - Runs full Vitest test suite at session end (blocking)
 
-### code-context
+**Key Features:**
+- **CLI Installation:** Automatic installation of Vercel and Supabase CLIs on remote environments
+- **Per-File Checks:** Immediate feedback on ESLint, TypeScript, and TSDoc issues after each file edit
+- **Test Execution:** Automatic test running when test files are modified
+- **Project-Wide Validation:** Comprehensive checks at session end ensure no issues slip through
+- **Blocking Stop Hooks:** Prevents ending session with linting errors, type errors, or failing tests
+- **Task Tracking:** Logs all Task tool calls for context in SubagentStop hooks
+- **UI Review Encouragement:** Prompts for visual review after UI development work
 
-Automatic context discovery and project structure validation for Claude Code projects.
+**Use Cases:**
+- Next.js application development
+- TypeScript projects requiring strict type safety
+- Projects with comprehensive test suites
+- Teams enforcing code quality standards
+- CI/CD workflows requiring pre-push validation
+
+### project-context
+
+Enhanced context discovery, folder structure validation, and project guidance for Claude Code workflows.
+
+**Purpose:**
+Automatically discovers and links CLAUDE.md documentation, validates project structure for .claude directories, enforces plan scoping, and encourages context updates based on user prompts. Provides intelligent URL redirection to prefer markdown documentation.
 
 **Hooks:**
-- **PostToolUse[Read]** (`add-folder-context.ts`) - Automatically discover and link related CLAUDE.md documentation
-- **PreToolUse[Task]** (shared `log-task-call.ts`) - Save task call metadata for SubagentStop hooks
-- **PostToolUse[Task]** (shared `log-task-result.ts`) - Log task completion results
-- **PreToolUse[Write|Edit]** (shared `validate-folder-structure-write.ts`) - Validate .claude directory structure
-- **PreToolUse[Write|Edit]** (shared `validate-rules-file.ts`) - Validate rule file structure and frontmatter
-- **PreToolUse[Bash]** (shared `validate-folder-structure-mkdir.ts`) - Validate mkdir commands in .claude directories
+- **UserPromptSubmit** (`encourage-context-review.ts`) - Encourages updating plans, agents, skills, and CLAUDE.md files based on user prompts (non-blocking, informational)
+- **PreToolUse[Task]** (shared `log-task-call.ts`) - Logs Task tool calls before execution and saves context (non-blocking)
+- **PreToolUse[Write|Edit]** (shared `validate-folder-structure-write.ts`) - Validates folder structure when creating .claude files (blocking on structure violations)
+- **PreToolUse[Write|Edit]** (shared `validate-rules-file.ts`) - Validates rule file structure and Required Skills frontmatter (blocking on validation errors)
+- **PreToolUse[Bash]** (shared `validate-folder-structure-mkdir.ts`) - Validates mkdir commands for .claude directories (blocking on invalid paths)
+- **PreToolUse[WebFetch]** (`try-markdown-page.ts`) - Redirects WebFetch to markdown versions of documentation when available (non-blocking)
+- **PostToolUse[Task]** (shared `log-task-result.ts`) - Logs Task tool results after completion (non-blocking)
+- **PostToolUse[Write|Edit]** (`create-plan-symlink.ts`) - Creates PLAN.md symlink when plan files are written (non-blocking)
+- **PostToolUse[Write|Edit]** (shared `enforce-plan-scoping.ts`) - Enforces plan-based path scoping for write/edit operations (can block on scope violations)
+- **PostToolUse[Read]** (`add-folder-context.ts`) - Discovers and adds CLAUDE.md context when reading files (non-blocking)
+- **PostToolUse[Read]** (shared `enforce-plan-scoping.ts`) - Warns when reads are outside plan scope (non-blocking, guidance only)
 
-### markdown-structure-rules
+**Key Features:**
+- **Automatic Context Discovery:** Finds and links CLAUDE.md files when reading project files
+- **Folder Structure Validation:** Ensures .claude directories follow proper organization standards
+- **Plan Scoping:** Enforces staying within plan boundaries for file operations
+- **Rules Validation:** Ensures rule files have proper structure and Required Skills metadata
+- **Context Encouragement:** Prompts to update documentation based on user activity
+- **Markdown Preference:** Automatically redirects to .md versions of documentation URLs
+- **Plan Symlinks:** Maintains PLAN.md link to active plan file
+- **Task Tracking:** Comprehensive logging of agent invocations and results
 
-Validates markdown structure for rules files in `.claude/rules/`.
-
-**Hooks:**
-- **PreToolUse[Write|Edit]** (`validate-rules-structure.ts`) - Validate rules file structure
-
-**Validation Rules:**
-- **Rules** (`.claude/rules/*.md`): Require `Required Skills` frontmatter field and `## Rules` heading
-
-### github-context-sync
-
-GitHub context and state synchronization with branch sync status.
-
-**Hooks:**
-- **SessionStart** (`fetch-branch-context.ts`) - Displays branch issue context, sync status, and outstanding issues
-- **PostToolUse[Task]** (`encourage-ui-review.ts`) - Encourages ui-reviewer after ui-developer agent completes
-
-**SessionStart Features:**
-- Shows full linked GitHub issue content for current branch (title, body, comments)
-- **NEW: Branch sync status** - Informational sync status with remote tracking branch and origin/main
-- Lists outstanding open issues not linked to any branch
-- Cascading issue discovery: state file → GitHub search → issue body markers
-- Non-blocking - errors don't stop session
-
-**PostToolUse[Task] Features:**
-- Detects ui-developer agent completion
-- Encourages main agent to invoke ui-reviewer for visual inspection
-- Suggests starting dev server if needed
-- Provides validation checklist against agent/skill documentation
-- Non-blocking - informational only
+**Use Cases:**
+- Large codebases requiring organized documentation
+- Projects with .claude directory structures (agents, skills, rules, hooks)
+- Plan-driven development workflows
+- Documentation-heavy projects
+- Teams enforcing project structure standards
+- Research-oriented development (prefers markdown docs)
 
 ## Vercel Preview Configuration
 
@@ -592,6 +612,31 @@ Enable debug logging for hooks:
 ```bash
 DEBUG=* claude              # All debug output
 DEBUG=plugin-name claude    # Specific plugin
+```
+
+## Claude Code Documentation Notes
+
+The official Claude Code documentation may be out of date or incomplete. When implementing hooks:
+
+- **Test actual behavior** rather than relying solely on docs
+- **Check GitHub issues** for known bugs (e.g., issue #10412 about Stop hooks via plugins)
+- **The `reason` field in Stop hooks is shown to Claude** (tells it what to fix)
+- **The `systemMessage` field is shown to the user** (status info, not visible to Claude)
+- **Use explicit `decision: "approve"`** when allowing stop (not just empty `{}`)
+- **Use explicit `decision: "block"` with actionable `reason`** when blocking
+
+### Stop Hook Output Best Practices
+
+```typescript
+// When blocking - provide actionable instructions to Claude
+return {
+  decision: 'block',
+  reason: 'ESLint errors detected. You MUST fix these before stopping:\n\n[errors here]\n\nFix each error, then run linter to verify.',
+  systemMessage: 'Claude is blocked from stopping due to ESLint errors.',
+};
+
+// When approving - be explicit
+return { decision: 'approve' };
 ```
 
 ## Troubleshooting

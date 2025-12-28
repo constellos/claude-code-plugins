@@ -18,7 +18,8 @@ import { join } from 'path';
  * 1. bun.lockb (Bun)
  * 2. pnpm-lock.yaml (pnpm)
  * 3. yarn.lock (Yarn)
- * 4. Falls back to npm if no lockfile is found
+ * 4. package-lock.json (npm)
+ * 5. Falls back to bun if no lockfile is found (modern default)
  *
  * @param cwd - The directory to check for lockfiles
  * @returns The detected package manager: 'bun', 'pnpm', 'yarn', or 'npm'
@@ -35,7 +36,8 @@ export function detectPackageManager(cwd: string): 'npm' | 'yarn' | 'pnpm' | 'bu
   if (existsSync(join(cwd, 'bun.lockb'))) return 'bun';
   if (existsSync(join(cwd, 'pnpm-lock.yaml'))) return 'pnpm';
   if (existsSync(join(cwd, 'yarn.lock'))) return 'yarn';
-  return 'npm';
+  if (existsSync(join(cwd, 'package-lock.json'))) return 'npm';
+  return 'bun'; // Modern default when no lockfile found
 }
 
 /**

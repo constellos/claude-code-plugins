@@ -49,7 +49,7 @@ Or, if no skills are required:
 
 ## Implementation
 
-The `enforce-structured-markdown.ts` PreToolUse hook validates:
+The `validate-rules-file.ts` PreToolUse hook (from project-context plugin) validates:
 1. All rules files have a "Required Skills:" heading
 2. The heading format is correct (prefix with colon, comma-separated list or "None")
 3. Rule files have the required frontmatter structure
@@ -74,4 +74,4 @@ markdown:
 - This meta-rule validates the structure of other rule files
 - The "Required Skills:" heading can have any suffix after the colon (validated by pattern `## Required Skills:*`)
 - Skills listed must match skill names in `.claude/skills/`
-- The structured-context-rules plugin enforces this structure on all Write/Edit operations to `.claude/rules/*.md` files
+- The project-context plugin enforces this structure on all Write/Edit operations to `.claude/rules/*.md` files

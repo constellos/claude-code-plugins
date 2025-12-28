@@ -87,7 +87,10 @@ async function handler(
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Linting failed: ${err.message || 'Unknown error'}`,
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `Linting failed: ${err.message || 'Unknown error'}`,
+      },
     };
   }
 }

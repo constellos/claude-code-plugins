@@ -15,7 +15,7 @@
  * @module typecheck-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
@@ -32,7 +32,12 @@ const execAsync = promisify(exec);
  * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with type errors as blocking error if found
  */
-async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
+async function handler(input: StopInput): Promise<StopHookOutput> {
+  // Prevent infinite loops - if hook is already active, allow stop
+  if (input.stop_hook_active) {
+    return { decision: 'approve' };
+  }
+
   const logger = createDebugLogger(input.cwd, 'typecheck-all', true);
 
   try {
@@ -41,7 +46,7 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     });
 
     // Run TypeScript type checking on the entire project
-    await execAsync('tsc --noEmit', {
+    await execAsync('npx tsc --noEmit', {
       cwd: input.cwd,
       timeout: 120000, // 2 minute timeout for full project type check
     });
@@ -49,7 +54,7 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     // If tsc completes successfully with no errors
     await logger.logOutput({ success: true, errors: [] });
 
-    return {};
+    return { decision: 'approve' };
   } catch (error: unknown) {
     // tsc exits with non-zero code when there are type errors
     const err = error as { stdout?: string; stderr?: string; message?: string };
@@ -61,9 +66,11 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         type_errors: output,
       });
 
-      // Return blocking error - session cannot end with type errors
+      // Return blocking error to AI - session cannot end with type errors
       return {
-        systemMessage: `🚨 TypeScript type errors detected:\n\n${output}\n\nPlease fix these type errors before ending the session.`,
+        decision: 'block',
+        reason: `TypeScript type errors detected. You MUST fix these before stopping:\n\n${output}\n\nFix each error listed above, then run tsc --noEmit again to verify all issues are resolved.`,
+        systemMessage: 'Claude is blocked from stopping due to TypeScript errors and will work to fix them.',
       };
     }
 
@@ -71,7 +78,9 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Type checking failed: ${err.message || 'Unknown error'}`,
+      decision: 'block',
+      reason: `TypeScript command failed: ${err.message || 'Unknown error'}. Check if TypeScript is installed and tsconfig.json exists.`,
+      systemMessage: 'Claude is blocked from stopping due to TypeScript command failure.',
     };
   }
 }

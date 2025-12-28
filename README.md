@@ -2,6 +2,16 @@
 
 A curated marketplace of plugins that extend Claude Code with typed hooks for development workflows. This repository provides both ready-to-use plugins and shared TypeScript utilities for creating your own.
 
+## Overview
+
+This marketplace contains three production-ready plugins designed for modern development workflows:
+
+- **github-context** - GitHub integration with branch context, commit enhancement, and PR orchestration
+- **nextjs-supabase-ai-sdk-dev** - Development quality enforcement with linting, type checking, and testing
+- **project-context** - Context discovery, folder validation, and documentation management
+
+All plugins leverage shared TypeScript utilities for consistent behavior, comprehensive type safety, and automatic logging. Hooks are self-executable TypeScript files with full type definitions.
+
 ## Quick Start
 
 ### Installation
@@ -13,8 +23,8 @@ A curated marketplace of plugins that extend Claude Code with typed hooks for de
   "extraKnownMarketplaces": {
     "constellos": {
       "source": {
-        "source": "file",
-        "path": "./.claude-plugin/marketplace.json"
+        "source": "directory",
+        "path": "./.claude-plugin"
       }
     }
   }
@@ -24,11 +34,9 @@ A curated marketplace of plugins that extend Claude Code with typed hooks for de
 2. Install plugins using the CLI:
 
 ```bash
-/plugin install github-vercel-supabase-ci@constellos
-/plugin install github-review-sync@constellos
-/plugin install nextjs-supabase-ai-sdk-dev@constellos
-/plugin install code-context@constellos
-/plugin install structured-context-rules@constellos
+claude plugin install github-context@constellos
+claude plugin install nextjs-supabase-ai-sdk-dev@constellos
+claude plugin install project-context@constellos
 ```
 
 Or enable them in your settings:
@@ -36,141 +44,121 @@ Or enable them in your settings:
 ```json
 {
   "enabledPlugins": {
-    "github-vercel-supabase-ci@constellos": true,
-    "github-review-sync@constellos": true,
+    "github-context@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
-    "code-context@constellos": true,
-    "structured-context-rules@constellos": true
+    "project-context@constellos": true
   }
 }
 ```
 
-## Claude Worktree Setup
-
-The `claude-worktree.sh` script creates isolated git worktrees for each Claude Code session. This enables:
-- Independent branches for each session
-- No interference with your main working directory
-- Easy cleanup and experimentation
-
-### Installation
-
-Add to your `.bashrc` or `.zshrc`:
-
-```bash
-# Claude Code worktree launcher
-claude-worktree() {
-  bash /path/to/claude-code-plugins/claude-worktree.sh "$@"
-}
-```
-
-Or create a global alias:
-
-```bash
-alias claude-worktree='bash /path/to/claude-code-plugins/claude-worktree.sh'
-```
-
-### Usage
-
-Launch Claude Code in a new worktree:
-
-```bash
-claude-worktree              # Basic usage
-claude-worktree --verbose    # With CLI flags
-claude-worktree --no-context # Pass any claude CLI flag
-```
-
-**What it does:**
-1. Detects if you're in a worktree and navigates to parent repo
-2. Fetches latest from `origin/main` (or `origin/master`)
-3. Creates a new worktree with unique branch name (e.g., `claude-serene-marmot-n6cukzn7`)
-4. Launches `claude` in the worktree directory
-
-**With Vercel:**
-
-If you have the `github-vercel-supabase-ci` plugin installed, environment variables are automatically synced from Vercel at session start via the `vercel-env-setup` hook.
-
-### Cleanup
-
-Worktrees are stored in `.worktrees/` and can be removed with:
-
-```bash
-git worktree remove .worktrees/claude-branch-name
-```
-
 ## Available Plugins
 
-### github-vercel-supabase-ci
+### GitHub Context (`github-context`)
 
-CI/CD automation for GitHub, Vercel, and Supabase projects.
+**Purpose:** Comprehensive GitHub integration for issue-driven development with automatic context discovery and commit enhancement.
 
-**Features:**
-- Auto-install and configure CI tools (Vercel CLI, Supabase CLI, Docker)
-- Install GitHub Actions workflows
-- Sync Vercel environment variables to worktrees
-- Wait for CI checks after PR creation
-
-**Hooks:**
-- `SessionStart` - Setup environment, install workflows, sync Vercel env vars
-- `PostToolUse[Bash]` - Monitor PR checks
-
-### github-review-sync
-
-GitHub integration for branch validation and automated commits.
-
-**Features:**
-- Check for merge conflicts before session ends
-- Verify branch sync status
-- Auto-commit subagent work with task context
+**Key Features:**
+- Displays linked GitHub issue for current branch at session start
+- Shows branch sync status (remote tracking branch and origin/main)
+- Lists outstanding open issues available for work
+- Auto-commits subagent work with task context and git trailers
+- Automatically creates/updates GitHub issues from plan files
+- Enhances commits with task and issue metadata
+- Checks PR status at session end with CI and preview URL reporting
+- Installs GitHub CLI on remote environments
 
 **Hooks:**
-- `SessionStop` - Check branch status (blocking)
-- `SubagentStop` - Auto-commit agent changes
+- **SessionStart** (`install-github.ts`) - Installs GitHub CLI (non-blocking)
+- **SessionStart** (`add-github-context.ts`) - Displays branch issue context and sync status (non-blocking)
+- **PostToolUse[Write|Edit]** (`sync-plan-to-issue.ts`) - Syncs plan files to GitHub issues (non-blocking)
+- **PostToolUse[Bash]** (`enhance-commit-context.ts`) - Enriches commits with task metadata (non-blocking)
+- **SubagentStop** (`commit-task.ts`) - Auto-commits agent work (non-blocking)
+- **Stop** (`commit-session-check-pr-status.ts`) - Session commit and PR checks (progressive blocking)
 
-### nextjs-supabase-ai-sdk-dev
+**Use Cases:**
+- Issue-driven development with branch linking
+- Multi-agent workflows with automatic commit documentation
+- PR readiness checks before ending sessions
+- Automated task documentation through enriched commits
 
-Development quality gates for Next.js projects.
+**Documentation:** [plugins/github-context/README.md](./plugins/github-context/README.md)
 
-**Features:**
-- Run ESLint on file edits and at session end
-- Run TypeScript type checking on edits and at session end
-- Run Vitest tests automatically
+---
 
-**Hooks:**
-- `PostToolUse[Write|Edit]` - Lint and typecheck edited files
-- `PostToolUse[*.test.ts|*.test.tsx]` - Run tests
-- `SessionStop` - Full lint, typecheck, and test suite (blocking)
+### Next.js Development Tools (`nextjs-supabase-ai-sdk-dev`)
 
-### code-context
+**Purpose:** Enforces code quality through automated checks at both file and project levels for Next.js, Supabase, and AI SDK projects.
 
-Intelligent code structure mapping and navigation.
-
-**Features:**
-- Track subagent context and file operations
-- Discover related CLAUDE.md files automatically
-- Validate markdown structure for configuration files
-- Run custom rule checks on file edits
-
-**Hooks:**
-- `SubagentStart` / `SubagentStop` - Context tracking
-- `PreToolUse[Write|Edit]` - Markdown validation
-- `PostToolUse[Read]` - Context discovery
-- `PostToolUse[Write|Edit]` - Rule checks
-
-### structured-context-rules
-
-Comprehensive validation for all Claude Code configuration files.
-
-**Features:**
-- Validate agent structure (Objective, Principles, context)
-- Validate skill structure (Purpose, context, metadata)
-- Validate rule structure (Required Skills, headings)
-- Validate CLAUDE.md files (name, description metadata)
-- Validate plan files (Intent, Plan, Success Criteria)
-- Enforce output style tool restrictions
+**Key Features:**
+- Per-file quality checks (ESLint, TypeScript, TSDoc) on every edit
+- Automatic test execution when test files are modified
+- Comprehensive project-wide validation at session end (blocking)
+- Installs Vercel and Supabase CLIs on remote environments
+- Encourages UI review after ui-developer agent completes
+- Logs all Task tool calls for context in SubagentStop hooks
 
 **Hooks:**
-- `PreToolUse[Write|Edit]` - Markdown structure validation
-- `PreToolUse` - Output style enforcement
+- **SessionStart** (`install-vercel.ts`, `install-supabase.ts`) - CLI installation (non-blocking)
+- **PreToolUse[Task]** (shared `log-task-call.ts`) - Task context logging (non-blocking)
+- **PostToolUse[Task]** (shared `log-task-result.ts`) - Task result logging (non-blocking)
+- **PostToolUse[Task]** (`encourage-ui-review.ts`) - UI review encouragement (non-blocking)
+- **PostToolUse[Write|Edit]** (`check-file-eslint.ts`) - ESLint on files (non-blocking, informational)
+- **PostToolUse[Write|Edit]** (`check-file-types.ts`) - TypeScript on files (non-blocking, informational)
+- **PostToolUse[Write|Edit]** (`check-file-tsdoc.ts`) - TSDoc validation (non-blocking, informational)
+- **PostToolUse[Write|Edit test files]** (`check-file-vitest-results.ts`) - Test execution (non-blocking, informational)
+- **Stop** (`check-global-eslint.ts`) - Project-wide ESLint (blocking)
+- **Stop** (`check-global-types.ts`) - Project-wide TypeScript (blocking)
+- **Stop** (`check-global-vitest-results.ts`) - Full test suite (blocking)
+
+**Use Cases:**
+- Next.js application development
+- TypeScript projects requiring strict type safety
+- Projects with comprehensive test suites
+- Teams enforcing code quality standards
+- CI/CD workflows requiring pre-push validation
+
+**Documentation:** [plugins/nextjs-supabase-ai-sdk-dev/README.md](./plugins/nextjs-supabase-ai-sdk-dev/README.md)
+
+---
+
+### Project Context (`project-context`)
+
+**Purpose:** Automatically discovers and links documentation, validates project structure, and provides intelligent guidance for Claude Code workflows.
+
+**Key Features:**
+- Discovers and links CLAUDE.md files when reading project files
+- Validates .claude directory structure (agents, skills, rules, hooks)
+- Enforces plan-based path scoping for file operations
+- Validates rule files require proper Required Skills metadata
+- Encourages context updates based on user prompts
+- Redirects WebFetch to markdown versions of documentation URLs
+- Creates PLAN.md symlink to active plan file
+- Comprehensive task tracking and logging
+
+**Hooks:**
+- **UserPromptSubmit** (`encourage-context-review.ts`) - Context update encouragement (non-blocking)
+- **PreToolUse[Task]** (shared `log-task-call.ts`) - Task logging (non-blocking)
+- **PreToolUse[Write|Edit]** (shared `validate-folder-structure-write.ts`) - Folder validation (blocking on violations)
+- **PreToolUse[Write|Edit]** (shared `validate-rules-file.ts`) - Rules validation (blocking on errors)
+- **PreToolUse[Bash]** (shared `validate-folder-structure-mkdir.ts`) - mkdir validation (blocking on invalid paths)
+- **PreToolUse[WebFetch]** (`try-markdown-page.ts`) - Markdown URL preference (non-blocking)
+- **PostToolUse[Task]** (shared `log-task-result.ts`) - Task result logging (non-blocking)
+- **PostToolUse[Write|Edit]** (`create-plan-symlink.ts`) - Plan symlink creation (non-blocking)
+- **PostToolUse[Write|Edit]** (shared `enforce-plan-scoping.ts`) - Plan scope enforcement (can block)
+- **PostToolUse[Read]** (`add-folder-context.ts`) - Context discovery (non-blocking)
+- **PostToolUse[Read]** (shared `enforce-plan-scoping.ts`) - Read scope guidance (non-blocking)
+
+**Use Cases:**
+- Large codebases requiring organized documentation
+- Projects with .claude directory structures
+- Plan-driven development workflows
+- Documentation-heavy projects
+- Teams enforcing project structure standards
+- Research-oriented development (markdown preference)
+
+**Documentation:** [plugins/project-context/README.md](./plugins/project-context/README.md)
+
+---
 
 ## Architecture
 
@@ -184,29 +172,64 @@ Comprehensive validation for all Claude Code configuration files.
 │   │   └── types.ts           # Hook type definitions
 │   ├── hooks/
 │   │   ├── utils/             # Hook utilities (I/O, debug, etc.)
-│   │   ├── log-subagent-*.ts  # Subagent tracking hooks
-│   │   ├── enforce-*.ts       # Validation hooks
-│   │   └── run-rule-checks.ts # Custom check execution
+│   │   ├── log-task-call.ts   # PreToolUse[Task] hook
+│   │   ├── log-task-result.ts # PostToolUse[Task] hook
+│   │   ├── validate-folder-structure-write.ts
+│   │   ├── validate-folder-structure-mkdir.ts
+│   │   ├── validate-rules-file.ts
+│   │   └── enforce-plan-scoping.ts
 │   └── rules/                  # Rule documentation
 │
 └── plugins/                    # Individual marketplace plugins
-    ├── github-vercel-supabase-ci/
-    ├── github-review-sync/
+    ├── github-context/
+    │   ├── .claude-plugin/plugin.json
+    │   ├── README.md
+    │   └── hooks/
+    │       ├── hooks.json
+    │       ├── install-github.ts
+    │       ├── add-github-context.ts
+    │       ├── sync-plan-to-issue.ts
+    │       ├── enhance-commit-context.ts
+    │       ├── commit-task.ts
+    │       └── commit-session-check-pr-status.ts
+    │
     ├── nextjs-supabase-ai-sdk-dev/
-    ├── code-context/
-    └── structured-context-rules/
+    │   ├── .claude-plugin/plugin.json
+    │   ├── README.md
+    │   └── hooks/
+    │       ├── hooks.json
+    │       ├── install-vercel.ts
+    │       ├── install-supabase.ts
+    │       ├── check-file-eslint.ts
+    │       ├── check-file-types.ts
+    │       ├── check-file-tsdoc.ts
+    │       ├── check-file-vitest-results.ts
+    │       ├── encourage-ui-review.ts
+    │       ├── check-global-eslint.ts
+    │       ├── check-global-types.ts
+    │       └── check-global-vitest-results.ts
+    │
+    └── project-context/
+        ├── .claude-plugin/plugin.json
+        ├── README.md
+        └── hooks/
+            ├── hooks.json
+            ├── encourage-context-review.ts
+            ├── add-folder-context.ts
+            ├── create-plan-symlink.ts
+            └── try-markdown-page.ts
 ```
 
 ## Creating Your Own Plugin
 
-1. Create plugin directory structure:
+### 1. Create plugin directory structure
 
 ```bash
 mkdir -p plugins/my-plugin/.claude-plugin
 mkdir -p plugins/my-plugin/hooks
 ```
 
-2. Create `plugin.json`:
+### 2. Create `plugin.json`
 
 ```json
 {
@@ -217,24 +240,29 @@ mkdir -p plugins/my-plugin/hooks
 }
 ```
 
-3. Create `hooks/hooks.json`:
+### 3. Create `hooks/hooks.json`
+
+**Important:** Hooks must be wrapped in a `"hooks"` object.
 
 ```json
 {
-  "SessionStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/my-hook.ts"
-        }
-      ]
-    }
-  ]
+  "description": "My plugin hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/my-hook.ts"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-4. Create hook file `hooks/my-hook.ts`:
+### 4. Create hook file `hooks/my-hook.ts`
 
 ```typescript
 import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
@@ -253,7 +281,7 @@ export { handler };
 runHook(handler);
 ```
 
-5. Add to marketplace.json:
+### 5. Add to marketplace.json
 
 ```json
 {
@@ -266,22 +294,33 @@ runHook(handler);
 }
 ```
 
+### 6. Create README.md
+
+Document your plugin following the official Claude Code patterns. See existing plugin READMEs for examples.
+
 ## Shared Utilities
 
-All plugins can import from the `shared/` folder:
+All plugins can import from the `shared/` folder for consistent behavior:
 
 ### Types (`shared/types/types.ts`)
 
-Full TypeScript typing for all Claude Code hook events.
+Full TypeScript typing for all Claude Code hook events:
+- SessionStart, SessionEnd, Stop
+- PreToolUse, PostToolUse
+- SubagentStart, SubagentStop
+- UserPromptSubmit
+- And more
 
 ### Hook Utilities (`shared/hooks/utils/`)
 
-- **io.ts** - stdin/stdout JSON handling and `runHook` wrapper
-- **debug.ts** - Debug logging with JSONL output
+- **io.ts** - stdin/stdout JSON handling and `runHook` wrapper with automatic logging
+- **debug.ts** - Debug logging with JSONL output to `.claude/logs/hook-events.json`
 - **transcripts.ts** - Parse Claude transcript JSONL files
-- **subagent-state.ts** - Subagent context management
-- **package-manager.ts** - Detect npm/yarn/pnpm
-- **toml.ts** - Simple TOML parser
+- **subagent-state.ts** - Save/load/analyze subagent context and file operations
+- **task-state.ts** - Task state management for PreToolUse[Task] → SubagentStop flow
+- **package-manager.ts** - Detect npm/yarn/pnpm/bun from lockfiles
+- **toml.ts** - Simple TOML parser for config files
+- **was-tool-event-main-agent.ts** - Detect if tool event is from main agent or subagent
 
 ## Development
 
@@ -312,17 +351,64 @@ After editing plugin files:
 2. Start new session
 3. Changes are automatically loaded
 
+## Troubleshooting
+
+### Plugins Not Loading
+
+**Issue:** Plugins don't appear in Claude Code or hooks don't fire
+
+**Solution:**
+1. Verify `.claude/settings.json` has correct marketplace path and enabled plugins
+2. Check plugin cache: `~/.claude/plugins/cache/`
+3. Reinstall plugins:
+   ```bash
+   claude plugin uninstall --scope project my-plugin@constellos
+   claude plugin install --scope project my-plugin@constellos
+   ```
+4. Restart Claude Code session
+
+### Hooks Not Firing
+
+**Issue:** Hooks registered but not executing
+
+**Solution:**
+1. Verify `hooks.json` has correct format with `"hooks"` wrapper object
+2. Check `.claude/logs/hook-events.json` for hook execution logs
+3. Ensure hook file paths use `${CLAUDE_PLUGIN_ROOT}` variable
+4. Reinstall plugin to refresh cache
+
+### When to Restart vs Reinstall
+
+**Requires NEW session** (exit and restart Claude Code):
+- Changes to `.claude/settings.json`
+- Adding/removing plugins from marketplace
+- Changes to marketplace.json
+
+**Requires plugin REINSTALL** (no session restart needed):
+- Changes to `hooks/hooks.json`
+- Changes to hook implementation files (.ts)
+- Changes to shared utilities
+- Bug fixes or improvements
+
+**Reinstall command:**
+```bash
+claude plugin uninstall --scope project my-plugin@constellos
+claude plugin install --scope project my-plugin@constellos
+```
+
 ## Documentation
 
-Comprehensive documentation in `.claude/skills/`:
+Comprehensive documentation:
 
+- **[CLAUDE.md](./CLAUDE.md)** - Detailed technical documentation and architecture
+- **Individual plugin READMEs** - Plugin-specific documentation with hooks, configuration, and usage
+
+Skills documentation in `.claude/skills/`:
 - **claude-plugins** - Plugin development guide
 - **claude-hooks** - Hook types and patterns
 - **claude-skills** - Agent Skills
 - **claude-commands** - Slash commands
 - **claude-agents** - Subagent configuration
-
-See [CLAUDE.md](./CLAUDE.md) for detailed technical documentation.
 
 ## Requirements
 
@@ -342,3 +428,5 @@ Contributions welcome! Please ensure:
 - Tests pass (`npm test`)
 - Type checking passes (`npm run typecheck`)
 - ESLint passes (`npm run lint`)
+- Follow official Claude Code plugin patterns
+- Document new plugins with comprehensive READMEs

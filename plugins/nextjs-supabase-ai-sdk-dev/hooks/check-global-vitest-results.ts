@@ -15,7 +15,7 @@
  * @module vitest-all
  */
 
-import type { SessionEndInput, SessionEndHookOutput } from '../shared/types/types.js';
+import type { StopInput, StopHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
@@ -33,7 +33,12 @@ const execAsync = promisify(exec);
  * @param input - SessionEnd hook input from Claude Code
  * @returns Hook output with test failures as blocking error if found
  */
-async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
+async function handler(input: StopInput): Promise<StopHookOutput> {
+  // Prevent infinite loops - if hook is already active, allow stop
+  if (input.stop_hook_active) {
+    return { decision: 'approve' };
+  }
+
   const logger = createDebugLogger(input.cwd, 'vitest-all', true);
 
   try {
@@ -51,7 +56,7 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     // If tests complete successfully with no failures
     await logger.logOutput({ success: true, test_results: stdout });
 
-    return {};
+    return { decision: 'approve' };
   } catch (error: unknown) {
     // Vitest exits with non-zero code when there are test failures
     const err = error as { stdout?: string; stderr?: string; message?: string };
@@ -63,9 +68,11 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
         test_failures: output,
       });
 
-      // Return blocking error - session cannot end with test failures
+      // Return blocking error to AI - session cannot end with test failures
       return {
-        systemMessage: `🚨 Test failures detected:\n\n${output}\n\nPlease fix these test failures before ending the session.`,
+        decision: 'block',
+        reason: `Test failures detected. You MUST fix these before stopping:\n\n${output}\n\nFix each failing test listed above, then run the tests again to verify all pass.`,
+        systemMessage: 'Claude is blocked from stopping due to test failures and will work to fix them.',
       };
     }
 
@@ -73,7 +80,9 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     await logger.logError(error as Error);
 
     return {
-      systemMessage: `Test execution failed: ${err.message || 'Unknown error'}`,
+      decision: 'block',
+      reason: `Test command failed: ${err.message || 'Unknown error'}. Check if Vitest is installed and the test script exists in package.json.`,
+      systemMessage: 'Claude is blocked from stopping due to test command failure.',
     };
   }
 }

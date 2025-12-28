@@ -728,11 +728,13 @@ export interface StopInput extends BaseHookInput {
  * Output from Stop hooks
  *
  * Can block the stop operation to prevent execution from halting.
+ * Use "block" to prevent stopping and force Claude to fix issues.
+ * Use "approve" to explicitly allow stopping.
  */
 export interface StopHookOutput extends BaseHookOutput {
-  /** If "block", prevents Claude Code from stopping */
-  decision?: "block";
-  /** Reason for blocking the stop */
+  /** If "block", prevents Claude Code from stopping. If "approve", allows stop. */
+  decision?: "block" | "approve";
+  /** Reason for blocking (shown to Claude so it knows what to fix) */
   reason?: string;
 }
 
