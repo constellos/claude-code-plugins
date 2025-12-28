@@ -104,7 +104,7 @@ async function appendHookEvent(cwd: string, entry: HookEventEntry): Promise<void
 export function createDebugLogger(
   cwd: string,
   hookEventName: string,
-  debug: boolean
+  _debug: boolean
 ): DebugLogger {
   return {
     logInput: async (input: unknown) => {
