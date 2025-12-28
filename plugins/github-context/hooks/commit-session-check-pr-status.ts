@@ -1075,8 +1075,10 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     if (!currentBranch || mainBranches.includes(currentBranch)) {
       if (commitMade) {
         return {
+          ok: false,
+          blocking: true,
           decision: 'block',
-          reason: `✅ Auto-committed session work: ${commitSha}\n\nSession end.`,
+          reason: `✅ Auto-committed session work: ${commitSha}\n\nPush to remote before ending session.`,
           systemMessage: 'Session work auto-committed.',
         };
       }
