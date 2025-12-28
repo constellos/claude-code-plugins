@@ -1,6 +1,6 @@
 {
   "name": "github-context",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "GitHub integration with branch context, commit review, and issue orchestration",
   "author": {
     "name": "constellos"
