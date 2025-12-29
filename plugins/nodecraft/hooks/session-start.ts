@@ -15,10 +15,10 @@ import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/
  * Connects to constellos-mcp and retrieves active tasks for the current user.
  * Displays pending and running tasks to provide context at session start.
  * 
- * @param input - SessionStart hook input from Claude Code
+ * @param _input - SessionStart hook input from Claude Code
  * @returns Hook output with task context for Claude
  */
-async function handler(input: SessionStartInput): Promise<SessionStartHookOutput> {
+async function handler(_input: SessionStartInput): Promise<SessionStartHookOutput> {
   try {
     // TODO: Once MCP server is deployed, fetch active tasks
     // const activeTasks = await mcp.listTasks({ status: ['pending', 'running'] });
