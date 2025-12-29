@@ -9,28 +9,24 @@
  * This hook validates six types of markdown files:
  *
  * 1. Agent files in .claude/agents/ directory
- *    - Required headings: Objective, Principles, Agent-scoped project context
- *    - Title can use wildcards but should include agent name
+ *    Required headings: Objective, Principles, Agent-scoped project context
  *
  * 2. Skill files in .claude/skills/ subdirectories (excludes SKILL.md templates)
- *    - Required headings: Purpose, Skill-scoped context
- *    - Required metadata: name, description
+ *    Required headings: Purpose, Skill-scoped context
  *
  * 3. Rules files in .claude/rules/ directory
- *    - Required headings: Rules
- *    - Required metadata: Required Skills
+ *    Required headings: Rules
  *
- * 4. Plugin README files in plugins/*/README.md
- *    - Required headings: Badge section, TOC, Overview, Features, Installation, Hooks, Configuration, Use Cases, Troubleshooting, Contributing, See Also, License
- *    - All headings must have emoji prefixes (📋 🎯 ✨ 📦 🪝 ⚙️ 💡 🐛 🤝 📚 📄)
+ * 4. Plugin README files in plugins README.md
+ *    Required headings: Badge section, TOC, Overview, Features, Installation,
+ *    Hooks, Configuration, Use Cases, Troubleshooting, Contributing, See Also, License
  *
- * 5. Plugin CLAUDE.md files in plugins/*/CLAUDE.md
- *    - Required headings: Quick Reference, Hook Summary, Key Features, Installation, Debug Logging, See Also
- *    - Required metadata: title, description, version, folder
+ * 5. Plugin CLAUDE.md files in plugins CLAUDE.md
+ *    Required headings: Quick Reference, Hook Summary, Key Features,
+ *    Installation, Debug Logging, See Also
  *
  * 6. CLAUDE.md files in any other directory
- *    - Required metadata: name, description
- *    - Optional metadata: folders, files
+ *    Required metadata: name, description
  *
  * The hook blocks Write/Edit operations if validation fails, providing detailed
  * error messages about missing headings and metadata fields.
@@ -294,7 +290,7 @@ function getFileValidationRules(filePath: string, cwd: string): {
   }
 
   // Plugin README files: plugins/*/README.md
-  if (relativePath.match(/^plugins\/[^\/]+\/README\.md$/)) {
+  if (relativePath.match(/^plugins\/[^/]+\/README\.md$/)) {
     return {
       type: 'plugin-readme',
       requiredHeadings: [
@@ -316,7 +312,7 @@ function getFileValidationRules(filePath: string, cwd: string): {
   }
 
   // Plugin CLAUDE.md files: plugins/*/CLAUDE.md (must come before general CLAUDE.md check)
-  if (relativePath.match(/^plugins\/[^\/]+\/CLAUDE\.md$/)) {
+  if (relativePath.match(/^plugins\/[^/]+\/CLAUDE\.md$/)) {
     return {
       type: 'plugin-claude',
       requiredHeadings: [
