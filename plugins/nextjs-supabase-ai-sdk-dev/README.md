@@ -1,82 +1,64 @@
+![Version](https://img.shields.io/badge/version-0.1.1-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen?style=for-the-badge&logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?style=for-the-badge&logo=typescript)
+![Next.js](https://img.shields.io/badge/Next.js-15+-black?style=for-the-badge&logo=next.js)
+![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel)
+![AI SDK](https://img.shields.io/badge/AI%20SDK-Vercel-blue?style=for-the-badge)
+![ESLint](https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest)
+
+# 🔌 Next.js Supabase AI SDK Dev Plugin
+
+> Development quality enforcement for Next.js, Supabase, and AI SDK projects with automated checks and systematic UI development
+
 ---
-title: Next.js Supabase AI SDK Dev Plugin
-description: Development quality checks plugin for Next.js, Supabase, and AI SDK projects
-folder:
-  subfolders:
-    allowed: [.claude-plugin, hooks]
-    required: [.claude-plugin, hooks]
-  files:
-    allowed: [CLAUDE.md, README.md, .gitignore]
-    required: [CLAUDE.md]
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Installation](#-installation)
+- [Hooks](#-hooks)
+- [Configuration](#-configuration)
+- [Use Cases](#-use-cases)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [See Also](#-see-also)
+- [License](#-license)
+
 ---
 
-# nextjs-supabase-ai-sdk-dev Plugin
+## 🎯 Overview
 
-Development quality checks plugin for Next.js, Supabase, and AI SDK projects.
+The Next.js Supabase AI SDK Dev plugin provides comprehensive development quality enforcement through automated checks at both file and project levels. It combines per-file quality checks (ESLint, TypeScript, TSDoc, Vitest) with a systematic UI development system featuring 5 progressive skills.
 
-## Overview
+Perfect for Next.js projects using TypeScript, Supabase, and Vercel AI SDK with strict quality standards.
 
-This plugin provides:
-- **Automated quality checks** - Linting, type checking, and test execution after file edits
-- **UI development system** - Progressive skills and UI developer agent for systematic UI development
-- **MCP integration** - Local development tools (ai-elements, shadcn, next-devtools)
+---
 
-Perfect for Next.js projects using TypeScript, Supabase, and Vercel AI SDK.
+## ✨ Features
 
-## UI Development Features
+### Automated Quality Checks
+- **Per-File Linting**: ESLint runs after every file edit (informational, non-blocking)
+- **Type Checking**: TypeScript validation on all file edits (informational, non-blocking)
+- **TSDoc Validation**: Enforces TSDoc 2025 standards with comprehensive documentation guidance
+- **Test Execution**: Vitest runs automatically when test files are modified
 
-### UI Developer Agent
+### UI Development System
+- **Progressive Skills**: 5-step workflow (wireframe → design → interaction → integration → AI)
+- **Mobile-First**: ASCII wireframes with mobile-first notation
+- **Contract-First**: TypeScript interfaces before implementation
+- **Compound Components**: Card.Root, Card.Header, Card.Content patterns
+- **Server Components**: Defaults to Server Components, pushes 'use client' deep
 
-**Location**: `agents/ui-developer.md`
-
-Systematic UI development agent with 5 progressive skills:
-
-1. **ui-wireframing** - Mobile-first ASCII wireframes in `WIREFRAME.md` files
-2. **ui-design** - Contract-first static UI with compound components (Shadcn/AI Elements/Radix)
-3. **ui-interaction** - Client-side events, local state, validation with Zod
-4. **ui-integration** - Server actions, Supabase queries, backend integration
-5. **ai-sdk-ui** - AI-powered features with Vercel AI SDK
-
-**Workflow**:
-```
-Wireframe → Design → Interaction → Integration → AI
-```
-
-**Principles**:
-- Mobile-first design
-- Contract-first development (TypeScript interfaces before implementation)
-- Compound components pattern (Card.Root, Card.Header, Card.Content)
-- Server Component defaults (push 'use client' deep)
-- Defense-in-depth (explicit auth checks + RLS)
-
-**MCP Tools Available**:
-- `mcp__ai_elements__*` - AI Elements component library
-- `mcp__shadcn__*` - Shadcn component installation and management
-- `mcp__next_devtools__*` - Live preview and debugging for local development
-
-### MCP Server Configuration
-
-**Location**: `.claude-plugin/.mcp.json`
-
-Bundled MCP servers:
-- **ai-elements**: HTTP transport to AI SDK registry
-- **shadcn**: Local command execution for component installation
-- **next-devtools**: Local development server integration
-
-These servers are automatically available when using the ui-developer agent in projects with this plugin enabled.
-
-### UI Skills Documentation
-
-All skills are located in `../../shared/skills/`:
-
-- **ui-wireframing/SKILL.md** - ASCII wireframes with mobile-first notation
-- **ui-design/SKILL.md** - Component hierarchy and composition patterns
-- **ui-interaction/SKILL.md** - useTransition, useOptimistic, client-side validation
-- **ui-integration/SKILL.md** - Server actions, Supabase, revalidation strategies
-- **ai-sdk-ui/SKILL.md** - useChat, useCompletion, streaming UI, tool calling
+### MCP Integration
+- **ai-elements**: AI Elements component library via HTTP transport
+- **shadcn**: Component installation and management via local commands
+- **next-devtools**: Live preview and debugging for local development (no Playwright needed)
 
 ### Technology Stack
-
 - **UI Components**: Shadcn (default), AI Elements, Radix, HTML
 - **Styling**: Tailwind CSS with mobile-first approach
 - **State Management**: Server Components (default), client components when needed
@@ -84,120 +66,92 @@ All skills are located in `../../shared/skills/`:
 - **Backend**: Supabase with defense-in-depth (RLS + explicit auth checks)
 - **AI Integration**: Vercel AI SDK with streaming UI
 
-### Local Development
+---
 
-When developing UI locally:
-1. Use **next-devtools MCP** for live preview (no Playwright needed)
-2. Invoke ui-developer agent for systematic feature development
-3. Follow progressive skill workflow (wireframe → design → interaction → integration → AI)
-4. Test with moderate Vitest tests (only for custom logic/complexity)
+## 📦 Installation
 
-## Quality Check Hooks
+```bash
+claude plugin install nextjs-supabase-ai-sdk-dev@constellos
+```
 
-### 1. PostToolUse[Write|Edit] - ESLint Linting
+---
 
-**File**: `hooks/lint-file.ts`
-**Event**: `PostToolUse`
-**Matcher**: `Write|Edit` (runs after Write or Edit tool use)
+## 🪝 Hooks
 
-**What it does**:
-- Runs ESLint on the project after any file write or edit
-- Detects package manager (npm/yarn/pnpm/bun) automatically
-- Executes `npm run lint` (or equivalent) command
-- Provides lint errors as additional context to Claude
+### PostToolUse[Write|Edit] - lint-file.ts
 
-**Behavior**:
-- Only triggers on Write and Edit operations
+**File:** `hooks/lint-file.ts`
+**Blocking:** No (informational)
+
+Runs ESLint on the project after any file write or edit. Detects package manager (npm/yarn/pnpm/bun) automatically and executes `npm run lint` (or equivalent). Provides lint errors as additional context to Claude for immediate fixing.
+
+**Behavior:**
 - 30-second timeout for lint execution
 - Returns empty output on success (no lint errors)
 - Returns additional context with lint errors on failure
 - System message on execution failure (timeout, ESLint not found)
 
-**Output**:
-- Success: Empty (no output)
-- Lint errors: Additional context with ESLint output and instruction to fix
-- Execution failure: System message with error details
+<details>
+<summary>📝 Example Output</summary>
+
+```
+ESLint found errors:
+
+/path/to/file.ts
+  5:1  error  'useState' is not defined  no-undef
+  12:3  error  Missing semicolon  semi
+
+Please fix these linting issues.
+```
+</details>
 
 ---
 
-### 2. PostToolUse[Write|Edit] - TypeScript Type Checking
+### PostToolUse[Write|Edit] - typecheck-file.ts
 
-**File**: `hooks/typecheck-file.ts`
-**Event**: `PostToolUse`
-**Matcher**: `Write|Edit` (runs after Write or Edit tool use)
+**File:** `hooks/typecheck-file.ts`
+**Blocking:** No (informational)
 
-**What it does**:
-- Runs `tsc --noEmit` to check TypeScript types after file edits
-- Provides type errors as additional context to Claude
-- Allows Claude to fix type errors immediately
+Runs `tsc --noEmit` to check TypeScript types after file edits. Provides type errors as additional context to Claude, allowing immediate type error fixes during development.
 
-**Behavior**:
-- Only triggers on Write and Edit operations
+**Behavior:**
 - 30-second timeout for type check
 - Returns empty output on success (no type errors)
 - Returns additional context with type errors on failure
 - System message on execution failure (timeout, tsc not found)
 
-**Output**:
-- Success: Empty (no output)
-- Type errors: Additional context with TypeScript output and instruction to fix
-- Execution failure: System message with error details
+<details>
+<summary>📝 Example Output</summary>
+
+```
+TypeScript type checking found errors:
+
+src/components/Button.tsx:15:5 - error TS2322: Type 'string' is not assignable to type 'number'.
+
+15     count = "invalid";
+       ~~~~~
+
+Please fix these type errors.
+```
+</details>
 
 ---
 
-### 3. PostToolUse[*.test.ts|*.test.tsx] - Vitest Test Runner
+### PostToolUse[Write|Edit] - tsdoc-validate.ts
 
-**File**: `hooks/vitest-file.ts`
-**Event**: `PostToolUse`
-**Matcher**: `Write(**.test.ts)|Write(**.test.tsx)|Edit(**.test.ts)|Edit(**.test.tsx)`
+**File:** `hooks/tsdoc-validate.ts`
+**Blocking:** No (informational)
 
-**What it does**:
-- Runs Vitest test suite after editing test files
-- Detects package manager (npm/yarn/pnpm/bun) automatically
-- Executes `npm run test` (or equivalent) command
-- Provides test failures as additional context to Claude
+Validates TSDoc documentation using ESLint with eslint-plugin-jsdoc. Checks for missing documentation on exported functions/classes, ensures @param, @returns, @example tags are present, and provides guidance on TSDoc 2025 best practices from CLAUDE.md.
 
-**Behavior**:
-- Only triggers on Write/Edit of `.test.ts` or `.test.tsx` files
-- 60-second timeout for test execution
-- Returns empty output on success (all tests pass)
-- Returns additional context with test failures on failure
-- System message on execution failure (timeout, Vitest not found)
-
-**Output**:
-- Success: Empty (no output)
-- Test failures: Additional context with Vitest output and instruction to fix
-- Execution failure: System message with error details
-
----
-
-### 4. PostToolUse[Write|Edit] - TSDoc Validation
-
-**File**: `hooks/tsdoc-validate.ts`
-**Event**: `PostToolUse`
-**Matcher**: `Write|Edit` (runs on .ts files only)
-**Non-blocking**: Yes
-
-**What it does**:
-- Validates TSDoc documentation using ESLint with eslint-plugin-jsdoc
-- Checks for missing documentation on exported functions/classes
-- Ensures @param, @returns, @example tags are present
-- Provides guidance on TSDoc 2025 best practices from CLAUDE.md
-- Encourages comprehensive documentation without blocking development
-
-**Behavior**:
+**Behavior:**
 - Only triggers on `.ts` files (skips `.test.ts` and `.d.ts`)
 - 30-second timeout
 - Non-blocking warnings via additionalContext
 - Silent skip if ESLint TSDoc config not found
 - Categorizes violations (missing JSDoc, params, returns, examples, formatting)
 
-**Output**:
-- Success: Empty (no violations found)
-- Documentation issues: Contextual guidance with categorized violations
-- Execution failure: System message
-
-**TSDoc Standards Enforced**:
+**TSDoc Standards Enforced:**
 - @module tag at file top (for context)
 - Multi-line format for all public exports
 - @param tags with descriptions for all parameters
@@ -205,7 +159,9 @@ When developing UI locally:
 - @example blocks showing usage (recommended/warning level)
 - Proper formatting and alignment
 
-**Example Output**:
+<details>
+<summary>📝 Example Output</summary>
+
 ```
 TSDoc documentation issues found in src/utils/helper.ts:
 
@@ -225,49 +181,56 @@ TSDoc 2025 Requirements (from CLAUDE.md):
 - @returns tags describing return values
 - @example blocks showing realistic usage
 ```
+</details>
 
 ---
 
-## Subagent Logging
+### PostToolUse[Write|Edit] - vitest-file.ts
 
-For subagent execution tracking and file operation logging, install the **logging** plugin:
+**File:** `hooks/vitest-file.ts`
+**Blocking:** No (informational)
+**Matcher:** `Write(**.test.ts)|Write(**.test.tsx)|Edit(**.test.ts)|Edit(**.test.tsx)`
 
-```bash
-/plugin install logging@claude-code-kit-local
+Runs Vitest test suite after editing test files. Detects package manager automatically and executes `npm run test` (or equivalent). Provides test failures as additional context for immediate fixing.
+
+**Behavior:**
+- Only triggers on Write/Edit of `.test.ts` or `.test.tsx` files
+- 60-second timeout for test execution
+- Returns empty output on success (all tests pass)
+- Returns additional context with test failures on failure
+- System message on execution failure (timeout, Vitest not found)
+
+<details>
+<summary>📝 Example Output</summary>
+
 ```
+Vitest test failures:
 
-The logging plugin provides:
-- SubagentStart hook - Tracks agent context when subagents begin
-- SubagentStop hook - Logs file operations when subagents complete
+❌ src/components/Button.test.tsx
+  ✓ renders correctly (2ms)
+  ✗ handles click events (5ms)
+    Expected: "clicked"
+    Received: undefined
 
-See `plugins/logging/CLAUDE.md` for details.
+Please fix these test failures.
+```
+</details>
 
 ---
 
-## Debug Logging
+## ⚙️ Configuration
 
-Enable debug output for hooks:
+Add to `.claude/settings.json`:
 
-```bash
-DEBUG=* claude                    # All debug output
-DEBUG=lint-file claude            # Lint hook only
-DEBUG=typecheck-file claude       # Type check hook only
-DEBUG=tsdoc-validate claude       # TSDoc validation hook only
-DEBUG=vitest-file claude          # Test hook only
-DEBUG=subagent claude             # Shared subagent hooks
+```json
+{
+  "enabledPlugins": {
+    "nextjs-supabase-ai-sdk-dev@constellos": true
+  }
+}
 ```
 
-## Requirements
-
-- Node.js (for TypeScript hook runner)
-- ESLint configured in project (with `lint` script in package.json)
-- TypeScript configured in project (`tsc` available)
-- Vitest configured in project (with `test` script in package.json)
-- Supported package managers: npm, yarn, pnpm, or bun
-
-## Package.json Scripts
-
-This plugin expects these scripts in your package.json:
+**Required package.json scripts:**
 
 ```json
 {
@@ -278,26 +241,119 @@ This plugin expects these scripts in your package.json:
 }
 ```
 
-## Configuration
+**MCP Servers:**
 
-This plugin is referenced in `.claude-plugin/marketplace.json`:
+The plugin includes bundled MCP server configuration in `.claude-plugin/.mcp.json`:
 
 ```json
 {
-  "name": "nextjs-supabase-ai-sdk-dev",
-  "source": "../plugins/nextjs-supabase-ai-sdk-dev",
-  "strict": false
+  "mcpServers": {
+    "next-devtools": {
+      "command": "npx",
+      "args": ["-y", "next-devtools-mcp@latest"]
+    }
+  }
 }
 ```
 
-Install with:
-```bash
-/plugin install nextjs-supabase-ai-sdk-dev@claude-code-kit-local
-```
+---
 
-## Performance Notes
+## 💡 Use Cases
 
-- Lint and typecheck hooks run on **every** Write/Edit operation
-- Test hook only runs when editing `.test.ts` or `.test.tsx` files
-- All hooks have timeouts (30s for lint/typecheck, 60s for tests)
-- Consider disabling in large codebases if hooks slow down development
+| Use Case | Description | Benefit |
+|----------|-------------|---------|
+| Next.js development | Automated quality checks on every file edit | Catch errors immediately during development |
+| TypeScript projects | Strict type checking after edits | Maintain type safety throughout development |
+| Test-driven development | Auto-run tests when test files change | Instant feedback on test failures |
+| Documentation enforcement | TSDoc validation with 2025 standards | Comprehensive, maintainable codebase documentation |
+| UI development | Systematic 5-skill workflow | Consistent, high-quality UI implementation |
+
+---
+
+## 🐛 Troubleshooting
+
+<details>
+<summary>Lint hook not running</summary>
+
+1. Verify ESLint is configured:
+   ```bash
+   npm run lint
+   ```
+2. Check `package.json` has `lint` script
+3. Ensure project has `.eslintrc` or `eslint.config.js`
+4. Enable debug logging:
+   ```bash
+   DEBUG=lint-file claude
+   ```
+</details>
+
+<details>
+<summary>Type checking errors</summary>
+
+1. Verify TypeScript is installed:
+   ```bash
+   npx tsc --version
+   ```
+2. Check `tsconfig.json` exists
+3. Run type check manually:
+   ```bash
+   npx tsc --noEmit
+   ```
+4. Enable debug logging:
+   ```bash
+   DEBUG=typecheck-file claude
+   ```
+</details>
+
+<details>
+<summary>Tests not running</summary>
+
+1. Verify Vitest is configured:
+   ```bash
+   npm run test
+   ```
+2. Check `package.json` has `test` script
+3. Ensure test file matches `.test.ts` or `.test.tsx` pattern
+4. Enable debug logging:
+   ```bash
+   DEBUG=vitest-file claude
+   ```
+</details>
+
+<details>
+<summary>Hooks slow down development</summary>
+
+1. Consider disabling in large codebases
+2. Increase timeouts in hook configuration
+3. Run checks only on specific file patterns
+4. Use `.eslintignore` to exclude files
+</details>
+
+---
+
+## 🤝 Contributing
+
+When modifying hooks:
+
+1. Update hook implementation in `hooks/`
+2. Run type checking: `npm run typecheck`
+3. Run linting: `npm run lint`
+4. Test hooks manually with `DEBUG=* claude`
+5. Update this README
+6. Update [CLAUDE.md](./CLAUDE.md) quick reference
+7. Reinstall plugin to refresh cache
+
+---
+
+## 📚 See Also
+
+- [CLAUDE.md](./CLAUDE.md) - Quick reference for AI context
+- [Marketplace](../../CLAUDE.md) - All available plugins and architecture
+- [UI Skills](../../shared/skills/) - UI development skill documentation
+- [Shared Utilities](./shared/CLAUDE.md) - Shared hook utilities library
+
+---
+
+## 📄 License
+
+MIT © constellos
