@@ -5,3 +5,4 @@ dist/
 .claude/logs/
 PLAN.md
 plugins/**/hooks/.claude/
+.worktrees/
