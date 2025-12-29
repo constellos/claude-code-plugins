@@ -39,6 +39,16 @@
       },
       "source": "./plugins/project-context",
       "strict": false
+    },
+    {
+      "name": "nodes-md-integration",
+      "description": "Integration plugin for nodes-md with interactive plugin debugging command",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/nodes-md-integration",
+      "strict": false
     }
   ]
 }
