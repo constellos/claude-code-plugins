@@ -1,0 +1,8 @@
+{
+  "name": "nodes-md-integration",
+  "version": "0.1.0",
+  "description": "Integration plugin for nodes-md with interactive plugin debugging command",
+  "author": {
+    "name": "constellos"
+  }
+}
