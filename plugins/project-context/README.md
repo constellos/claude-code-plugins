@@ -1,66 +1,96 @@
+![Version](https://img.shields.io/badge/version-0.1.1-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen?style=for-the-badge&logo=node.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?style=for-the-badge&logo=typescript)
+![Markdown](https://img.shields.io/badge/Markdown-000000?style=for-the-badge&logo=markdown)
+
+# 🔌 Project Context Plugin
+
+> Automatic context discovery, structure validation, and plan scoping for Claude Code projects
+
 ---
-title: Code Context Plugin
-description: Code structure mapping, navigation aids, and context discovery for Claude Code
-folder:
-  subfolders:
-    allowed: [.claude-plugin, hooks, shared]
-    required: [.claude-plugin, hooks]
-  files:
-    allowed: [CLAUDE.md, README.md, .gitignore]
-    required: [README.md]
+
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Installation](#-installation)
+- [Hooks](#-hooks)
+- [Configuration](#-configuration)
+- [Use Cases](#-use-cases)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#-contributing)
+- [See Also](#-see-also)
+- [License](#-license)
+
 ---
 
-# Code Context Plugin
+## 🎯 Overview
 
-Automatic context discovery and project structure validation for Claude Code projects.
-
-## Overview
-
-The Code Context plugin provides four main capabilities:
-
-1. **Context Discovery** - Automatically finds and links related CLAUDE.md documentation when reading files
-2. **Markdown Preference** - Redirects WebFetch to markdown versions of documentation when available for better AI parsing
-3. **Structure Validation** - Validates .claude directory structure and ensures proper project organization
-4. **Plan-Based Path Scoping** - Enforces file operation boundaries based on plan frontmatter to manage context and separate concerns
+The Project Context plugin provides automatic context discovery and project structure validation for Claude Code projects. It automatically discovers and links CLAUDE.md documentation, validates .claude directory structure, enforces plan-based path scoping, and provides intelligent URL redirection to prefer markdown documentation.
 
 This plugin helps Claude access markdown-friendly documentation, understand project structure, maintain consistent organization, and work within defined scope boundaries.
 
-## Hooks
+---
 
-### PostToolUse[Read] - Context Discovery
+## ✨ Features
 
-**File:** `hooks/add-folder-context.ts`
+### Context Discovery
+- **Automatic CLAUDE.md Linking**: Finds and links related documentation when reading files
+- **Search Strategy**: Project root → parent directories → child directories (one level deep)
+- **Clickable Links**: Provides file:// URLs for easy navigation
 
-**Event:** PostToolUse (Read operations)
+### Markdown Preference
+- **URL Redirection**: Redirects WebFetch to markdown versions of documentation
+- **AI-Friendly**: Prefers .md file URLs over HTML for better parsing
+- **Offline Access**: Markdown docs work offline and are easier to diff
 
-**What it does:**
-When a file is read, this hook automatically discovers related CLAUDE.md documentation files and provides them as clickable links in the additional context.
+### Structure Validation
+- **Directory Validation**: Ensures .claude directories follow proper organization
+- **File Validation**: Validates agents, skills, rules, hooks directory structure
+- **Blocking Prevention**: Stops invalid file creation that would break conventions
 
-**Search strategy:**
-1. Project root - checks for `/CLAUDE.md`
-2. Parent directories - walks up from read file to project root
-3. Child directories - scans one level deep in the file's directory
-
-**Output format:**
-```
-Related context:
-[/project/CLAUDE.md](file:///project/CLAUDE.md)
-[/project/src/CLAUDE.md](file:///project/src/CLAUDE.md)
-[/project/src/api/CLAUDE.md](file:///project/src/api/CLAUDE.md)
-```
-
-**Non-blocking:** Yes - failures don't prevent Read operations
+### Plan Scoping
+- **Path Enforcement**: Enforces file operation boundaries based on plan frontmatter
+- **Write Blocking**: Blocks writes outside defined scope
+- **Read Warnings**: Warns when reads are outside plan scope (non-blocking guidance)
+- **Context Management**: Helps manage context and separate concerns in large projects
 
 ---
 
-### PreToolUse[Task] - Task Call Logging
+## 📦 Installation
+
+```bash
+claude plugin install project-context@constellos
+```
+
+---
+
+## 🪝 Hooks
+
+### UserPromptSubmit - encourage-context-review.ts
+
+**File:** `hooks/encourage-context-review.ts`
+**Blocking:** No (informational)
+
+Encourages updating plans, agents, skills, and CLAUDE.md files based on user prompts. Analyzes prompt content and suggests documentation updates when appropriate.
+
+<details>
+<summary>📝 Trigger Examples</summary>
+
+- User creates or modifies features → Suggest updating relevant skills
+- User discusses new agent workflows → Suggest creating agent documentation
+- User changes project structure → Suggest updating CLAUDE.md
+</details>
+
+---
+
+### PreToolUse[Task] - log-task-call.ts
 
 **File:** `shared/hooks/log-task-call.ts`
+**Blocking:** No
 
-**Event:** PreToolUse (Task tool calls)
-
-**What it does:**
-Saves Task tool call metadata to `.claude/logs/task-calls.json` for later retrieval in SubagentStop hooks. Enables tracking what tasks were requested and correlating with agent execution results.
+Logs Task tool calls before execution and saves context to `.claude/logs/task-calls.json`. Provides metadata for SubagentStop hooks to enhance commit messages.
 
 **Saved context:**
 - Tool use ID
@@ -69,77 +99,65 @@ Saves Task tool call metadata to `.claude/logs/task-calls.json` for later retrie
 - Task prompt
 - Timestamp
 
-**Non-blocking:** Yes - always allows Task execution
-
 ---
 
-### PostToolUse[Task] - Task Result Logging
-
-**File:** `shared/hooks/log-task-result.ts`
-
-**Event:** PostToolUse (Task tool completions)
-
-**What it does:**
-Logs Task tool results after agent completion. Captures agent output and context for analysis.
-
-**Non-blocking:** Yes
-
----
-
-### PreToolUse[Write|Edit] - Folder Structure Validation (Write)
+### PreToolUse[Write|Edit] - validate-folder-structure-write.ts
 
 **File:** `shared/hooks/validate-folder-structure-write.ts`
+**Blocking:** Yes (on structure violations)
 
-**Event:** PreToolUse (Write operations)
+Validates .claude directory structure when creating files. Ensures files are created in proper locations (agents/, skills/, rules/, hooks/, etc.).
 
-**What it does:**
-Validates folder structure when creating files in `.claude/` directories. Ensures proper organization for:
-- `.claude/agents/` - Agent definitions
-- `.claude/hooks/` - Hook implementations
-- `.claude/skills/` - Skill definitions
-- `.claude/rules/` - Rule files
+**Validates:**
+- Files go in correct subdirectories
+- Required parent directories exist
+- Naming conventions are followed
+- No invalid nested structures
 
-**Blocking:** Yes - denies Write operations that would create invalid structure
+<details>
+<summary>📝 Example Validation</summary>
+
+**Allowed:**
+- `.claude/agents/my-agent.md` ✅
+- `.claude/skills/my-skill/SKILL.md` ✅
+- `.claude/rules/my-rule.md` ✅
+
+**Blocked:**
+- `.claude/my-file.md` ❌ (must be in subdirectory)
+- `.claude/agents/nested/file.md` ❌ (invalid nesting)
+</details>
 
 ---
 
-### PreToolUse[Write|Edit] - Rules File Validation
+### PreToolUse[Write|Edit] - validate-rules-file.ts
 
 **File:** `shared/hooks/validate-rules-file.ts`
+**Blocking:** Yes (on validation errors)
 
-**Event:** PreToolUse (Write/Edit operations on rule files)
+Validates rule file structure and Required Skills frontmatter. Ensures all rule files have proper headings and metadata.
 
-**What it does:**
-Validates rule file structure and frontmatter in `.claude/rules/*.md` files. Ensures:
-- Valid YAML frontmatter
-- Required "Required Skills" metadata field
-- Proper file structure
-
-**Blocking:** Yes - denies operations creating invalid rule files
+**Validates:**
+- "Required Skills:" heading exists
+- Format is correct (comma-separated list or "None")
+- Frontmatter includes markdown heading rules
 
 ---
 
-### PreToolUse[Bash] - Folder Structure Validation (mkdir)
+### PreToolUse[Bash] - validate-folder-structure-mkdir.ts
 
 **File:** `shared/hooks/validate-folder-structure-mkdir.ts`
+**Blocking:** Yes (on invalid paths)
 
-**Event:** PreToolUse (Bash mkdir commands)
-
-**What it does:**
-Validates `mkdir` commands that create directories in `.claude/`. Prevents creation of invalid or non-standard directory structures.
-
-**Blocking:** Yes - denies mkdir commands for invalid directory names
+Validates mkdir commands for .claude directories. Prevents creation of invalid directory structures.
 
 ---
 
-### PreToolUse[WebFetch] - Markdown URL Preference
+### PreToolUse[WebFetch] - try-markdown-page.ts
 
 **File:** `hooks/try-markdown-page.ts`
+**Blocking:** No (redirects URL)
 
-**Event:** PreToolUse (WebFetch operations)
-
-**What it does:**
-Automatically redirects WebFetch requests to markdown versions of documentation pages when available. This provides better AI-friendly content by preferring raw markdown over HTML pages.
+Redirects WebFetch to markdown versions of documentation when available. Converts URLs to raw markdown for better AI parsing.
 
 **URL transformation strategies:**
 1. **GitHub documentation** - Converts `github.com/owner/repo/blob/branch/path` to `raw.githubusercontent.com/owner/repo/branch/path.md`
@@ -151,46 +169,54 @@ Automatically redirects WebFetch requests to markdown versions of documentation 
 2. Generates candidate markdown URLs based on the original URL
 3. Uses `curl` with HEAD requests to check if markdown versions exist (5 second timeout)
 4. If found, modifies the WebFetch URL to fetch the markdown version
-5. Provides additional context showing the redirect: `📝 Found markdown version: redirecting from [original] to [markdown]`
 
-**Example:**
+<details>
+<summary>📝 Example</summary>
+
 ```
 Original URL: https://github.com/vercel/next.js/blob/canary/docs/app/guide.html
 Redirected to: https://raw.githubusercontent.com/vercel/next.js/canary/docs/app/guide.md
-```
 
-**Non-blocking:** Yes - failures gracefully fall back to original URL
+Additional context: 📝 Found markdown version: redirecting from [original] to [markdown]
+```
+</details>
 
 ---
 
-### PostToolUse[Write|Edit] - Plan Symlink Creation
+### PostToolUse[Task] - log-task-result.ts
+
+**File:** `shared/hooks/log-task-result.ts`
+**Blocking:** No
+
+Logs Task tool results after agent completion. Tracks agent execution for debugging and analysis.
+
+---
+
+### PostToolUse[Write|Edit] - create-plan-symlink.ts
 
 **File:** `hooks/create-plan-symlink.ts`
+**Blocking:** No
 
-**Event:** PostToolUse (Write/Edit to plan files)
-
-**What it does:**
-When a plan file is written to `.claude/plans/*.md`, this hook creates or updates a `PLAN.md` symlink in the project root pointing to the active plan. This allows other hooks to easily access the current plan without maintaining external state.
+Creates PLAN.md symlink when plan files are written. Maintains `${cwd}/PLAN.md` → plan file path symlink for easy access.
 
 **Behavior:**
-1. Detects writes to `.claude/plans/*.md`
+1. Detects writes to `.claude/plans/*.md` files
 2. Removes existing `PLAN.md` symlink (if present)
 3. Creates new symlink: `${cwd}/PLAN.md` → plan file path
 
-**Non-blocking:** Yes - failures don't prevent Write operations
+**Provides template pattern for similar symlink hooks**
 
 ---
 
-### PostToolUse[Write|Edit|Read] - Plan Path Scoping
+### PostToolUse[Write|Edit|Read] - enforce-plan-scoping.ts
 
 **File:** `shared/hooks/enforce-plan-scoping.ts`
+**Blocking:** Conditional (blocks writes, warns on reads)
 
-**Event:** PostToolUse (Write, Edit, or Read operations)
-
-**What it does:**
-Enforces file operation boundaries based on plan frontmatter. Separates main agent and subagent scopes to manage context and prevent accidental bloat.
+Enforces plan-based path scoping for file operations. Reads plan frontmatter `paths` field and validates operations against defined scope.
 
 **Plan frontmatter schema:**
+
 ```yaml
 ---
 paths:
@@ -218,119 +244,192 @@ paths:
 - Supports `?` (single character)
 - Forbidden patterns take precedence over allowed
 
-**Agent-specific messages:**
+<details>
+<summary>📝 Agent-specific messages</summary>
+
 - **Main agent denied**: "Write denied. Main agent scope is restricted by plan. Use Plan agent to update scope or delegate to subagents."
 - **Subagent denied**: "Write denied. Subagent scope is restricted by plan. Have main agent handle this area or update plan."
 - **Read warning**: Non-blocking guidance to stay within plan boundaries
-
-**Blocking:** Yes for Write/Edit, No for Read
+</details>
 
 ---
 
-## Installation
+### PostToolUse[Read] - add-folder-context.ts
 
-This plugin is part of the claude-code-plugins marketplace:
+**File:** `hooks/add-folder-context.ts`
+**Blocking:** No
 
-```bash
-# Add the marketplace
-claude plugin marketplace add ./
+Discovers and adds CLAUDE.md context when reading files. Automatically finds related documentation and provides clickable links.
 
-# Install the plugin
-claude plugin install code-context@constellos
+**Search Strategy:**
+1. Project root - checks for `/CLAUDE.md`
+2. Parent directories - walks up from read file to project root
+3. Child directories - scans one level deep in the file's directory
+
+<details>
+<summary>📝 Example Output</summary>
+
 ```
+Related context:
+[/project/CLAUDE.md](file:///project/CLAUDE.md)
+[/project/src/CLAUDE.md](file:///project/src/CLAUDE.md)
+[/project/src/api/CLAUDE.md](file:///project/src/api/CLAUDE.md)
+```
+</details>
 
-Or enable in `.claude/settings.json`:
+---
+
+## ⚙️ Configuration
+
+Add to `.claude/settings.json`:
 
 ```json
 {
   "enabledPlugins": {
-    "code-context@constellos": true
+    "project-context@constellos": true
   }
 }
 ```
 
-## Configuration
+**Plan Scoping Configuration:**
 
-No configuration required. The plugin works automatically when installed.
+Add `paths` object to plan frontmatter to enable scoping:
 
-## Debug Logging
-
-Enable debug output for specific hooks:
-
-```bash
-# Context discovery
-DEBUG=add-folder-context claude
-
-# Markdown URL redirection
-DEBUG=try-markdown-page claude
-
-# Plan scoping
-DEBUG=enforce-plan-scoping,create-plan-symlink claude
-
-# All hooks
-DEBUG=* claude
+```yaml
+---
+paths:
+  main-agent:
+    allowedPaths: ["plugins/**", "shared/**"]
+    forbiddenPaths: ["node_modules/**"]
+  subagents:
+    allowedPaths: ["**/*.ts", "tests/**"]
+    forbiddenPaths: []
+---
 ```
 
-Debug output logs:
-- Files being read/written
-- CLAUDE.md files discovered
-- WebFetch URL transformations and redirects
-- Markdown URL availability checks
-- Plan symlink creation
-- Path validation results
-- Agent context detection
+---
 
-## Use Cases
+## 💡 Use Cases
 
-**Context Discovery:**
-- Automatically discover relevant documentation when exploring code
-- Navigate project structure via CLAUDE.md breadcrumbs
-- Understand folder purpose and organization
-- Find related documentation without explicit searching
+| Use Case | Description | Benefit |
+|----------|-------------|---------|
+| Large codebases | Automatic CLAUDE.md discovery and linking | Navigate documentation without manual searching |
+| .claude structures | Validates agents, skills, rules, hooks organization | Maintains consistent project structure |
+| Plan-driven development | Enforces file operation boundaries | Manages context and separates concerns |
+| Documentation-heavy projects | Prefers markdown URLs for WebFetch | Better AI parsing and offline access |
+| Team standards | Enforces structure and rules validation | Consistent organization across team |
 
-**Markdown Preference:**
-- Get AI-friendly markdown content instead of HTML pages
-- Access GitHub documentation in raw markdown format
-- Better parsing and understanding of technical documentation
-- Reduced processing overhead for documentation fetching
-- Seamless fallback to original URLs when markdown unavailable
+---
 
-**Structure Validation:**
-- Prevent creation of invalid .claude directory structures
-- Ensure consistent project organization
-- Validate rule file structure and metadata
-- Maintain documentation standards
+## 🐛 Troubleshooting
 
-**Plan-Based Path Scoping:**
-- Manage context by restricting main agent and subagent file operations
-- Give Plan agent control over workspace boundaries
-- Isolate context-expensive areas to focused subagents
-- Prevent accidental context bloat from broad file access
-- Guide agents to stay within their designated scope
+<details>
+<summary>Context not discovering CLAUDE.md files</summary>
 
-## Plugin Structure
+1. Verify CLAUDE.md files exist in expected locations
+2. Check file naming (must be exactly `CLAUDE.md`)
+3. Enable debug logging:
+   ```bash
+   DEBUG=add-folder-context claude
+   ```
+4. Verify you're reading files (hook only fires on Read operations)
+</details>
 
-```
-plugins/enhanced-context/
-├── .claude-plugin/
-│   └── plugin.json                     # Plugin metadata
-├── hooks/
-│   ├── hooks.json                      # Hook configuration
-│   ├── add-folder-context.ts          # Context discovery hook
-│   ├── try-markdown-page.ts           # Markdown URL preference hook
-│   ├── create-plan-symlink.ts         # Plan symlink creation hook
-│   └── encourage-context-review.ts    # Context review guidance hook
-├── shared/                             # Bundled shared utilities (for distribution)
-│   └── hooks/
-│       ├── enforce-plan-scoping.ts    # Plan path scoping hook
-│       ├── validate-folder-structure-write.ts
-│       ├── validate-rules-file.ts
-│       └── ... (other shared hooks)
-└── README.md                           # This file
-```
+<details>
+<summary>Structure validation blocking writes</summary>
 
-## Related Documentation
+1. Review .claude directory structure requirements
+2. Ensure files are in correct subdirectories (agents/, skills/, rules/)
+3. Check error message for specific validation failure
+4. Enable debug logging:
+   ```bash
+   DEBUG=validate-folder-structure claude
+   ```
+</details>
 
-- [Plugin Development Guide](.claude/skills/claude-plugins/SKILL.md)
-- [Hook Development Guide](.claude/skills/claude-hooks/SKILL.md)
-- [Shared Utilities](../../shared/CLAUDE.md)
+<details>
+<summary>Plan scoping blocking writes</summary>
+
+1. Check plan frontmatter `paths` object
+2. Verify target file matches glob patterns
+3. Update plan scope to include new paths if needed
+4. Enable debug logging:
+   ```bash
+   DEBUG=enforce-plan-scoping claude
+   ```
+</details>
+
+<details>
+<summary>Markdown URLs not redirecting</summary>
+
+1. Verify URL is from supported documentation site (GitHub, Next.js, Vercel, Supabase)
+2. Check that markdown version exists
+3. Enable debug logging:
+   ```bash
+   DEBUG=try-markdown-page claude
+   ```
+4. Check `.claude/logs/hook-events.json` for redirect details
+</details>
+
+<details>
+<summary>Hooks not reflecting latest changes</summary>
+
+**Problem:** Plugin cache is stale (validation hooks not working as expected)
+
+**Cause:** Plugins are cached at `~/.claude/plugins/cache/` and not automatically updated when source code changes
+
+**Solution:**
+
+1. **Using worktrees (recommended):** `claude-worktree.sh` auto-refreshes cache
+   ```bash
+   bash claude-worktree.sh
+   ```
+
+2. **Manual refresh:**
+   ```bash
+   claude plugin uninstall --scope project project-context@constellos
+   claude plugin install --scope project project-context@constellos
+   ```
+
+3. **Verify cache:**
+   ```bash
+   # List cached hooks
+   ls ~/.claude/plugins/cache/constellos/project-context/hooks/
+
+   # Compare cached vs source
+   diff ~/.claude/plugins/cache/constellos/project-context/hooks/hooks.json \
+        ./plugins/project-context/hooks/hooks.json
+   ```
+
+**Cache location:** `~/.claude/plugins/cache/constellos/project-context/`
+</details>
+
+---
+
+## 🤝 Contributing
+
+When modifying hooks:
+
+1. Update hook implementation in `hooks/` or `shared/hooks/`
+2. Run type checking: `npm run typecheck`
+3. Run linting: `npm run lint`
+4. Test hooks manually with `DEBUG=* claude`
+5. Update this README
+6. Update [CLAUDE.md](./CLAUDE.md) quick reference
+7. Reinstall plugin to refresh cache
+
+---
+
+## 📚 See Also
+
+- [CLAUDE.md](./CLAUDE.md) - Quick reference for AI context
+- [Marketplace](../../CLAUDE.md) - All available plugins and architecture
+- [Shared Validation Hooks](./shared/CLAUDE.md) - Shared validation hooks documentation
+- [Plugin Development Guide](../../.claude/skills/claude-plugins/SKILL.md)
+- [Hook Development Guide](../../.claude/skills/claude-hooks/SKILL.md)
+
+---
+
+## 📄 License
+
+MIT © constellos

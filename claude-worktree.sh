@@ -46,6 +46,82 @@ _generate_claude_name() {
   echo "${adj}-${name}-${suffix}"
 }
 
+# Get enabled plugins from .claude/settings.json
+_get_enabled_plugins() {
+  local settings_file="${repo_root}/.claude/settings.json"
+
+  if [[ ! -f "$settings_file" ]]; then
+    return 0
+  fi
+
+  # Check if jq is available
+  if ! command -v jq &>/dev/null; then
+    echo "⚠️  Warning: jq not found. Cannot auto-refresh plugins." >&2
+    echo "   Install with: brew install jq (macOS) or apt install jq (Linux)" >&2
+    return 1
+  fi
+
+  # Parse enabledPlugins from settings.json
+  jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null || return 1
+}
+
+# Clean up invalid plugin installations
+_cleanup_invalid_plugins() {
+  local cache_dir="$HOME/.claude/plugins/cache/constellos"
+
+  if [[ ! -d "$cache_dir" ]]; then
+    return 0
+  fi
+
+  echo "Checking for invalid plugin installations..."
+
+  # Check each cached plugin
+  for plugin_dir in "$cache_dir"/*; do
+    if [[ ! -d "$plugin_dir" ]]; then
+      continue
+    fi
+
+    local plugin_name=$(basename "$plugin_dir")
+    local source_dir="${repo_root}/plugins/${plugin_name}"
+
+    # If source doesn't exist, plugin is invalid
+    if [[ ! -d "$source_dir" ]]; then
+      echo "  ⚠️  Invalid: $plugin_name (source not found)"
+      echo "     Removing cache at: $plugin_dir"
+      rm -rf "$plugin_dir"
+    fi
+  done
+}
+
+# Uninstall and reinstall all enabled plugins
+_refresh_plugins() {
+  local plugins=($(_get_enabled_plugins))
+
+  if [[ ${#plugins[@]} -eq 0 ]]; then
+    echo "No plugins configured in .claude/settings.json (or jq not available)"
+    return 0
+  fi
+
+  echo "Refreshing plugin cache for worktree..."
+
+  # Uninstall all plugins first (clears cache)
+  for plugin in "${plugins[@]}"; do
+    echo "  🔄 Uninstalling: $plugin"
+    claude plugin uninstall --scope project "$plugin" 2>/dev/null || true
+  done
+
+  # Reinstall all plugins from fresh source
+  for plugin in "${plugins[@]}"; do
+    echo "  ✅ Installing: $plugin"
+    if ! claude plugin install --scope project "$plugin"; then
+      echo "     ⚠️  Failed to install $plugin" >&2
+      return 1
+    fi
+  done
+
+  echo "✅ Plugin cache refreshed!"
+}
+
 # Check if we're in a git repository
 if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   echo "Not in a git repo, launching claude normally..."
@@ -108,6 +184,23 @@ git worktree add -b "$branch_name" "$worktree_dir" "${remote}/${main_branch}"
 if [[ $? -eq 0 ]]; then
   cd "$worktree_dir"
   echo "Worktree ready at: $worktree_dir"
+
+  # Plugin cache management (don't fail on errors)
+  set +e
+  _cleanup_invalid_plugins
+  cleanup_exit=$?
+  _refresh_plugins
+  refresh_exit=$?
+  set -e
+
+  if [[ $cleanup_exit -ne 0 ]] || [[ $refresh_exit -ne 0 ]]; then
+    echo ""
+    echo "⚠️  Warning: Plugin cache refresh had errors"
+    echo "   You may need to manually reinstall plugins:"
+    echo "   claude plugin uninstall --scope project plugin-name@constellos"
+    echo "   claude plugin install --scope project plugin-name@constellos"
+    echo ""
+  fi
 
   # Launch Claude Code with all provided CLI flags
   claude "$@"
