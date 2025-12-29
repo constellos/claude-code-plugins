@@ -25,7 +25,7 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
       return {};
     }
 
-    const taskInput = input.tool_input as any;
+    const taskInput = input.tool_input as Record<string, unknown>;
     const agentType = taskInput?.subagent_type;
 
     // Track agent invocations
