@@ -372,6 +372,35 @@ git rev-parse --show-toplevel  # Show worktree root
 git branch --show-current      # Show current branch
 ```
 
+### Automatic Plugin Cache Management
+
+The `claude-worktree.sh` script automatically manages plugin cache to ensure every worktree uses current plugin code:
+
+1. **Detects enabled plugins** from `.claude/settings.json`
+2. **Cleans up invalid installations** - Removes cached plugins whose source no longer exists
+3. **Refreshes plugin cache** - Uninstalls and reinstalls all plugins from worktree source
+4. **Ensures fresh hooks** - Every worktree session uses current plugin code
+
+**Why this matters:**
+- Plugins are cached globally at `~/.claude/plugins/cache/`
+- Cache is not automatically invalidated when source changes
+- Old cached hooks can cause unexpected behavior (missing new hooks, running removed hooks)
+- Automatic refresh ensures worktree uses fresh plugin code
+
+**Dependencies:**
+- Requires `jq` for parsing JSON: `brew install jq` (macOS) or `apt install jq` (Linux)
+- Without `jq`, manual plugin reinstallation required
+
+**Manual cache refresh:**
+```bash
+# List plugins
+claude plugin list
+
+# Uninstall and reinstall
+claude plugin uninstall --scope project plugin-name@constellos
+claude plugin install --scope project plugin-name@constellos
+```
+
 ## UI Development Workflow
 
 This project includes a comprehensive UI development system with progressive skills and automated review:
@@ -695,6 +724,53 @@ If hooks aren't executing:
    - Hook event types and lifecycle
    - Plugin installation and configuration
    - Debugging techniques
+
+### Plugin Cache Out of Sync
+
+**Symptom:** Hooks behaving differently than expected (old hooks firing, new hooks missing, removed hooks still running)
+
+**Cause:** Plugin cache at `~/.claude/plugins/cache/` contains old versions from before recent changes
+
+**Solution:**
+
+1. **Automatic (recommended):** Use `claude-worktree.sh` which auto-refreshes plugins on every new worktree
+   ```bash
+   bash claude-worktree.sh
+   ```
+
+2. **Manual:** Reinstall plugins to refresh cache:
+   ```bash
+   # Uninstall all constellos plugins
+   claude plugin uninstall --scope project github-context@constellos
+   claude plugin uninstall --scope project nextjs-supabase-ai-sdk-dev@constellos
+   claude plugin uninstall --scope project project-context@constellos
+
+   # Reinstall from current source
+   claude plugin install --scope project github-context@constellos
+   claude plugin install --scope project nextjs-supabase-ai-sdk-dev@constellos
+   claude plugin install --scope project project-context@constellos
+   ```
+
+3. **Nuclear option:** Delete entire cache and reinstall:
+   ```bash
+   rm -rf ~/.claude/plugins/cache/constellos
+   claude plugin install --scope project github-context@constellos
+   claude plugin install --scope project nextjs-supabase-ai-sdk-dev@constellos
+   claude plugin install --scope project project-context@constellos
+   ```
+
+**Verification:**
+```bash
+# Check if await-pr-checks hook exists (added in PR #71)
+ls ~/.claude/plugins/cache/constellos/github-context/hooks/await-pr-checks.ts
+
+# Verify NO Stop hooks in nextjs-supabase-ai-sdk-dev (removed in PR #71)
+cat ~/.claude/plugins/cache/constellos/nextjs-supabase-ai-sdk-dev/hooks/hooks.json | grep -i "stop"
+
+# Compare cached vs source to see differences
+diff ~/.claude/plugins/cache/constellos/github-context/hooks/hooks.json \
+     ./plugins/github-context/hooks/hooks.json
+```
 
 ### When to Restart Sessions vs Reinstall Plugins
 

@@ -364,6 +364,39 @@ gh auth login  # If not authenticated
    ```
 </details>
 
+<details>
+<summary>Hooks not reflecting latest changes</summary>
+
+**Problem:** Plugin cache is stale (e.g., await-pr-checks hook missing, or old Stop hooks still running)
+
+**Cause:** Plugins are cached at `~/.claude/plugins/cache/` and not automatically updated when source code changes
+
+**Solution:**
+
+1. **Using worktrees (recommended):** `claude-worktree.sh` auto-refreshes cache
+   ```bash
+   bash claude-worktree.sh
+   ```
+
+2. **Manual refresh:**
+   ```bash
+   claude plugin uninstall --scope project github-context@constellos
+   claude plugin install --scope project github-context@constellos
+   ```
+
+3. **Verify cache:**
+   ```bash
+   # Check await-pr-checks hook exists (added in PR #71)
+   ls ~/.claude/plugins/cache/constellos/github-context/hooks/await-pr-checks.ts
+
+   # Compare cached vs source
+   diff ~/.claude/plugins/cache/constellos/github-context/hooks/hooks.json \
+        ./plugins/github-context/hooks/hooks.json
+   ```
+
+**Cache location:** `~/.claude/plugins/cache/constellos/github-context/`
+</details>
+
 ---
 
 ## 🤝 Contributing

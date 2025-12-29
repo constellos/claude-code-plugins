@@ -329,6 +329,39 @@ The plugin includes bundled MCP server configuration in `.claude-plugin/.mcp.jso
 4. Use `.eslintignore` to exclude files
 </details>
 
+<details>
+<summary>Hooks not reflecting latest changes</summary>
+
+**Problem:** Plugin cache is stale (e.g., old Stop hooks still running despite being removed in PR #71)
+
+**Cause:** Plugins are cached at `~/.claude/plugins/cache/` and not automatically updated when source code changes
+
+**Solution:**
+
+1. **Using worktrees (recommended):** `claude-worktree.sh` auto-refreshes cache
+   ```bash
+   bash claude-worktree.sh
+   ```
+
+2. **Manual refresh:**
+   ```bash
+   claude plugin uninstall --scope project nextjs-supabase-ai-sdk-dev@constellos
+   claude plugin install --scope project nextjs-supabase-ai-sdk-dev@constellos
+   ```
+
+3. **Verify cache:**
+   ```bash
+   # Verify NO Stop hooks (removed in PR #71)
+   cat ~/.claude/plugins/cache/constellos/nextjs-supabase-ai-sdk-dev/hooks/hooks.json | grep -i "stop"
+
+   # Compare cached vs source
+   diff ~/.claude/plugins/cache/constellos/nextjs-supabase-ai-sdk-dev/hooks/hooks.json \
+        ./plugins/nextjs-supabase-ai-sdk-dev/hooks/hooks.json
+   ```
+
+**Cache location:** `~/.claude/plugins/cache/constellos/nextjs-supabase-ai-sdk-dev/`
+</details>
+
 ---
 
 ## 🤝 Contributing

@@ -371,6 +371,39 @@ paths:
 4. Check `.claude/logs/hook-events.json` for redirect details
 </details>
 
+<details>
+<summary>Hooks not reflecting latest changes</summary>
+
+**Problem:** Plugin cache is stale (validation hooks not working as expected)
+
+**Cause:** Plugins are cached at `~/.claude/plugins/cache/` and not automatically updated when source code changes
+
+**Solution:**
+
+1. **Using worktrees (recommended):** `claude-worktree.sh` auto-refreshes cache
+   ```bash
+   bash claude-worktree.sh
+   ```
+
+2. **Manual refresh:**
+   ```bash
+   claude plugin uninstall --scope project project-context@constellos
+   claude plugin install --scope project project-context@constellos
+   ```
+
+3. **Verify cache:**
+   ```bash
+   # List cached hooks
+   ls ~/.claude/plugins/cache/constellos/project-context/hooks/
+
+   # Compare cached vs source
+   diff ~/.claude/plugins/cache/constellos/project-context/hooks/hooks.json \
+        ./plugins/project-context/hooks/hooks.json
+   ```
+
+**Cache location:** `~/.claude/plugins/cache/constellos/project-context/`
+</details>
+
 ---
 
 ## 🤝 Contributing
