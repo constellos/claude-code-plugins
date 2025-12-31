@@ -65,33 +65,14 @@ _get_enabled_plugins() {
   jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null || return 1
 }
 
-# Clean up invalid plugin installations
-_cleanup_invalid_plugins() {
-  local cache_dir="$HOME/.claude/plugins/cache/constellos"
-
-  if [[ ! -d "$cache_dir" ]]; then
-    return 0
-  fi
-
-  echo "Checking for invalid plugin installations..."
-
-  # Check each cached plugin
-  for plugin_dir in "$cache_dir"/*; do
-    if [[ ! -d "$plugin_dir" ]]; then
-      continue
-    fi
-
-    local plugin_name=$(basename "$plugin_dir")
-    local source_dir="${repo_root}/plugins/${plugin_name}"
-
-    # If source doesn't exist, plugin is invalid
-    if [[ ! -d "$source_dir" ]]; then
-      echo "  ⚠️  Invalid: $plugin_name (source not found)"
-      echo "     Removing cache at: $plugin_dir"
-      rm -rf "$plugin_dir"
-    fi
-  done
-}
+# NOTE: Removed _cleanup_invalid_plugins function
+#
+# The previous implementation was buggy - it checked ${repo_root}/plugins/
+# but that only works when running FROM the claude-code-plugins repo itself.
+# User-scoped plugins are installed from the constellos marketplace at
+# /home/ben/constellos/claude-code-plugins and should NOT be managed by
+# worktree scripts. Only project-scoped plugins (configured in the project's
+# .claude/settings.json) should be refreshed.
 
 # Uninstall and reinstall all enabled plugins
 _refresh_plugins() {
@@ -216,18 +197,17 @@ if [[ $? -eq 0 ]]; then
   cd "$worktree_dir"
   echo "Worktree ready at: $worktree_dir"
 
-  # Plugin cache management (don't fail on errors)
+  # Plugin cache management for PROJECT-SCOPED plugins only (don't fail on errors)
+  # User-scoped plugins are managed globally and should not be touched here
   set +e
-  _cleanup_invalid_plugins
-  cleanup_exit=$?
   _refresh_plugins
   refresh_exit=$?
   set -e
 
-  if [[ $cleanup_exit -ne 0 ]] || [[ $refresh_exit -ne 0 ]]; then
+  if [[ $refresh_exit -ne 0 ]]; then
     echo ""
     echo "⚠️  Warning: Plugin cache refresh had errors"
-    echo "   You may need to manually reinstall plugins:"
+    echo "   You may need to manually reinstall project-scoped plugins:"
     echo "   claude plugin uninstall --scope project plugin-name@constellos"
     echo "   claude plugin install --scope project plugin-name@constellos"
     echo ""
