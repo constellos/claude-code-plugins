@@ -12,7 +12,6 @@ import type { HookInput, HookOutput } from '../../types/types.js';
 import {
   createDebugLogger,
   createBlockingErrorResponse,
-  createPassthroughResponse,
   type DebugConfig,
 } from './debug.js';
 
@@ -123,6 +122,26 @@ export function runHook<I extends HookInput = HookInput, O extends HookOutput = 
 
 /**
  * Main hook execution function
+ *
+ * Handles the complete hook lifecycle: reads input from stdin, executes the handler,
+ * and writes output to stdout. All errors are caught and converted to blocking responses.
+ *
+ * @param handler - Hook handler function to execute
+ * @returns Promise that resolves when hook completes
+ *
+ * @example
+ * ```typescript
+ * async function myHandler(input: SessionStartInput): Promise<SessionStartHookOutput> {
+ *   return {
+ *     hookSpecificOutput: {
+ *       hookEventName: 'SessionStart',
+ *       additionalContext: 'Success',
+ *     },
+ *   };
+ * }
+ *
+ * await main(myHandler);
+ * ```
  */
 async function main<I extends HookInput, O extends HookOutput>(
   handler: HookHandler<I, O>
@@ -165,14 +184,9 @@ async function main<I extends HookInput, O extends HookOutput>(
     // Log error
     await logger.logError(err);
 
-    if (debug) {
-      // Debug mode: return blocking error
-      const errorResponse = createBlockingErrorResponse(hookEventName, err);
-      writeStdoutJson(errorResponse);
-    } else {
-      // Normal mode: return pass-through response (fail silently)
-      const passthroughResponse = createPassthroughResponse(hookEventName);
-      writeStdoutJson(passthroughResponse);
-    }
+    // ALWAYS return blocking error response
+    // Debug flag controls logging only, not blocking behavior
+    const errorResponse = createBlockingErrorResponse(hookEventName, err);
+    writeStdoutJson(errorResponse);
   }
 }

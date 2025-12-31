@@ -7,7 +7,7 @@
  * @module post-tool-use
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 
 /**
  * PostToolUse hook handler for Task tool
@@ -61,6 +61,6 @@ export { handler };
 
 // Self-executable with npx tsx
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { runHook } = await import('../../../shared/hooks/utils/io.js');
+  const { runHook } = await import('../shared/hooks/utils/io.js');
   runHook(handler);
 }
