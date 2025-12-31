@@ -3,7 +3,7 @@
 # Claude Code Worktree Launcher
 #
 # Creates an isolated git worktree for Claude Code sessions.
-# Each session gets its own branch and worktree in .worktrees/
+# Each session gets its own branch and worktree in ~/.claude-worktrees/{repo}/
 #
 # Usage:
 #   bash claude-worktree.sh [claude CLI flags]
@@ -135,7 +135,7 @@ fi
 repo_root=$(git rev-parse --show-toplevel)
 repo_name=$(basename "$repo_root")
 branch_name="claude-$(_generate_claude_name)"
-worktree_dir="${repo_root}/.worktrees/${branch_name}"
+worktree_dir="${HOME}/.claude-worktrees/${repo_name}/${branch_name}"
 
 # Detect remote (usually 'origin')
 remote=$(git remote | head -1)
