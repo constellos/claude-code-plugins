@@ -175,6 +175,37 @@ fi
 echo "Fetching latest from ${remote}/${main_branch}..."
 git fetch "$remote" "$main_branch"
 
+# Pull remote main to local main (fast-forward only)
+# This keeps local main in sync for worktree base reference
+echo "Updating local ${main_branch} from ${remote}/${main_branch}..."
+current_branch=$(git branch --show-current)
+if [[ "$current_branch" == "$main_branch" ]]; then
+  # Already on main, do a direct pull
+  if ! git pull --ff-only "$remote" "$main_branch"; then
+    echo "Error: Failed to pull ${remote}/${main_branch} to local ${main_branch}"
+    echo "This may be due to:"
+    echo "  - Uncommitted local changes on ${main_branch}"
+    echo "  - Diverged history (local commits not on remote)"
+    echo "  - Network connectivity issues"
+    echo ""
+    echo "Please resolve manually before creating a worktree."
+    exit 1
+  fi
+else
+  # Not on main, update main without switching branches
+  if ! git fetch "$remote" "${main_branch}:${main_branch}"; then
+    echo "Error: Failed to update local ${main_branch} from ${remote}/${main_branch}"
+    echo "This may be due to:"
+    echo "  - Local ${main_branch} has diverged from ${remote}/${main_branch}"
+    echo "  - The branch is checked out in another worktree"
+    echo "  - Network connectivity issues"
+    echo ""
+    echo "Please resolve manually before creating a worktree."
+    exit 1
+  fi
+fi
+echo "Local ${main_branch} updated successfully."
+
 echo "Creating: $branch_name"
 echo "From: ${remote}/${main_branch}"
 
