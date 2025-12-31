@@ -89,13 +89,21 @@
     ]
   },
   "enabledPlugins": {
-    "plugin-dev@claude-code-plugins": true
+    "plugin-dev@claude-code-plugins": true,
+    "github-context@constellos": true,
+    "project-context@constellos": true
   },
   "extraKnownMarketplaces": {
     "constellos": {
       "source": {
         "source": "directory",
-        "path": "./.claude-plugin"
+        "path": "${CLAUDE_PROJECT_DIR}/.claude-plugin"
+      }
+    },
+    "claude-code-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-code"
       }
     }
   }
