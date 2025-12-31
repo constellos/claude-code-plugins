@@ -1,6 +1,6 @@
 {
   "name": "project-context",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Project context discovery, markdown-friendly documentation, and maintenance for Claude Code",
   "author": {
     "name": "constellos"
@@ -15,5 +15,11 @@
     "markdown",
     "webfetch",
     "claude-code"
-  ]
+  ],
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    }
+  }
 }
