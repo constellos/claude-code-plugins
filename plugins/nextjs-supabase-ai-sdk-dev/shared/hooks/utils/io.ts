@@ -12,7 +12,6 @@ import type { HookInput, HookOutput } from '../../types/types.js';
 import {
   createDebugLogger,
   createBlockingErrorResponse,
-  createPassthroughResponse,
   type DebugConfig,
 } from './debug.js';
 
@@ -39,7 +38,14 @@ export async function readStdinJson<T = unknown>(): Promise<T> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
 
-    process.stdin.on('data', (chunk) => chunks.push(chunk));
+    process.stdin.on('data', (chunk) => {
+      // Handle both Buffer and string inputs
+      if (Buffer.isBuffer(chunk)) {
+        chunks.push(chunk);
+      } else {
+        chunks.push(Buffer.from(chunk));
+      }
+    });
     process.stdin.on('end', () => {
       try {
         const data = Buffer.concat(chunks).toString('utf8');
@@ -96,8 +102,8 @@ export type HookHandler<I extends HookInput = HookInput, O extends HookOutput = 
  * @example
  * ```typescript
  * // my-hook.ts
- * import { runHook } from '../shared/hooks/utils/io.js';
- * import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
+ * import { runHook } from '../../../shared/hooks/utils/io.js';
+ * import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
  *
  * async function handler(input: SessionStartInput): Promise<SessionStartHookOutput> {
  *   return {
@@ -123,6 +129,26 @@ export function runHook<I extends HookInput = HookInput, O extends HookOutput = 
 
 /**
  * Main hook execution function
+ *
+ * Handles the complete hook lifecycle: reads input from stdin, executes the handler,
+ * and writes output to stdout. All errors are caught and converted to blocking responses.
+ *
+ * @param handler - Hook handler function to execute
+ * @returns Promise that resolves when hook completes
+ *
+ * @example
+ * ```typescript
+ * async function myHandler(input: SessionStartInput): Promise<SessionStartHookOutput> {
+ *   return {
+ *     hookSpecificOutput: {
+ *       hookEventName: 'SessionStart',
+ *       additionalContext: 'Success',
+ *     },
+ *   };
+ * }
+ *
+ * await main(myHandler);
+ * ```
  */
 async function main<I extends HookInput, O extends HookOutput>(
   handler: HookHandler<I, O>
@@ -165,14 +191,9 @@ async function main<I extends HookInput, O extends HookOutput>(
     // Log error
     await logger.logError(err);
 
-    if (debug) {
-      // Debug mode: return blocking error
-      const errorResponse = createBlockingErrorResponse(hookEventName, err);
-      writeStdoutJson(errorResponse);
-    } else {
-      // Normal mode: return pass-through response (fail silently)
-      const passthroughResponse = createPassthroughResponse(hookEventName);
-      writeStdoutJson(passthroughResponse);
-    }
+    // ALWAYS return blocking error response
+    // Debug flag controls logging only, not blocking behavior
+    const errorResponse = createBlockingErrorResponse(hookEventName, err);
+    writeStdoutJson(errorResponse);
   }
 }

@@ -1,6 +1,14 @@
 /**
  * Debug utilities for Claude Code hooks
- * Provides logging and error handling with debug mode support
+ *
+ * Provides logging and error handling with debug mode support. Hook events
+ * are logged in JSONL format to .claude/logs/hook-events.json for debugging
+ * and troubleshooting hook execution.
+ *
+ * Each log entry is a single JSON object per line with timestamp, event name,
+ * type (input/output/error), and the associated data.
+ *
+ * @module debug
  */
 
 import * as fs from 'fs/promises';
@@ -40,6 +48,24 @@ export interface DebugLogger {
 
 /**
  * Append a hook event entry to hook-events.json (JSONL format)
+ *
+ * Writes a single-line JSON entry to the log file, creating the directory
+ * structure if it doesn't exist. Failures are silently ignored to prevent
+ * logging errors from breaking hook execution.
+ *
+ * @param cwd - The working directory where .claude/logs/ should be created
+ * @param entry - The hook event entry to append to the log file
+ * @returns Promise that resolves when the entry is written (or fails silently)
+ *
+ * @example
+ * ```typescript
+ * await appendHookEvent('/path/to/project', {
+ *   timestamp: new Date().toISOString(),
+ *   event: 'SessionStart',
+ *   type: 'input',
+ *   data: { cwd: '/path/to/project' }
+ * });
+ * ```
  */
 async function appendHookEvent(cwd: string, entry: HookEventEntry): Promise<void> {
   const logDir = path.join(cwd, LOGS_DIR);
@@ -55,15 +81,34 @@ async function appendHookEvent(cwd: string, entry: HookEventEntry): Promise<void
 
 /**
  * Create a debug logger for a hook execution
+ *
+ * Returns a logger object with methods for logging hook inputs, outputs, and errors
+ * to .claude/logs/hook-events.json in JSONL format. Logging only occurs when debug
+ * mode is enabled.
+ *
+ * @param cwd - The working directory where logs should be written
+ * @param hookEventName - The name of the hook event (e.g., 'SessionStart', 'PostToolUse')
+ * @param debug - Whether debug logging is enabled
+ * @returns A DebugLogger with logInput, logOutput, and logError methods
+ *
+ * @example
+ * ```typescript
+ * import { createDebugLogger } from './debug.js';
+ *
+ * const logger = createDebugLogger('/path/to/project', 'SessionStart', true);
+ *
+ * await logger.logInput({ cwd: '/path/to/project', source: 'startup' });
+ * await logger.logOutput({ success: true, message: 'Hook completed' });
+ * ```
  */
 export function createDebugLogger(
   cwd: string,
   hookEventName: string,
-  debug: boolean
+  _debug: boolean
 ): DebugLogger {
   return {
     logInput: async (input: unknown) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -73,7 +118,7 @@ export function createDebugLogger(
     },
 
     logOutput: async (output: unknown) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -83,7 +128,7 @@ export function createDebugLogger(
     },
 
     logError: async (error: Error) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -104,7 +149,26 @@ export function createDebugLogger(
 
 /**
  * Create a blocking error response for hooks
- * Used when debug mode is enabled and an error occurs
+ *
+ * Generates an appropriate error response object that blocks execution when
+ * a hook error occurs in debug mode. The response format varies by hook event
+ * type to match the expected output schema.
+ *
+ * @param hookEventName - The name of the hook event that errored
+ * @param error - The error that occurred during hook execution
+ * @returns A hook output object configured to block/deny with error details
+ *
+ * @example
+ * ```typescript
+ * import { createBlockingErrorResponse } from './debug.js';
+ *
+ * try {
+ *   // Hook logic that might throw
+ * } catch (error) {
+ *   return createBlockingErrorResponse('PreToolUse', error as Error);
+ *   // Returns: { hookSpecificOutput: { permissionDecision: 'deny', ... } }
+ * }
+ * ```
  */
 export function createBlockingErrorResponse(
   hookEventName: string,
@@ -170,7 +234,29 @@ export function createBlockingErrorResponse(
 }
 
 /**
- * Create a pass-through response for hooks (used when debug is off and error occurs)
+ * Create a pass-through response for hooks
+ *
+ * Generates an appropriate response object that allows execution to continue
+ * when a hook error occurs and debug mode is disabled. The response format
+ * varies by hook event type to match the expected output schema while permitting
+ * normal Claude Code operation.
+ *
+ * @param hookEventName - The name of the hook event
+ * @returns A hook output object configured to allow/pass-through
+ *
+ * @example
+ * ```typescript
+ * import { createPassthroughResponse } from './debug.js';
+ *
+ * try {
+ *   // Hook logic that might throw
+ * } catch (error) {
+ *   if (!debugMode) {
+ *     return createPassthroughResponse('PreToolUse');
+ *     // Returns: { hookSpecificOutput: { permissionDecision: 'allow' } }
+ *   }
+ * }
+ * ```
  */
 export function createPassthroughResponse(hookEventName: string): Record<string, unknown> {
   switch (hookEventName) {

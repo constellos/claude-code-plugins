@@ -1,20 +1,21 @@
 /**
  * PostToolUse hook for nodecraft plugin
- * 
+ *
  * Captures agent results after Task tool completion and updates task memory
  * with findings, decisions, and outcomes.
- * 
+ *
  * @module post-tool-use
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 
 /**
  * PostToolUse hook handler for Task tool
- * 
+ *
  * Monitors Task tool usage (reviewer/planner agents) and stores their
  * results in task memory for future context and workflow coordination.
- * 
+ *
  * @param input - PostToolUse hook input from Claude Code
  * @returns Hook output with memory update confirmation
  */
@@ -59,8 +60,5 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
 
 export { handler };
 
-// Self-executable with npx tsx
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const { runHook } = await import('../../../shared/hooks/utils/io.js');
-  runHook(handler);
-}
+// Make this file self-executable with npx tsx
+runHook(handler);

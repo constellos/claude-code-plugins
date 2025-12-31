@@ -104,11 +104,11 @@ async function appendHookEvent(cwd: string, entry: HookEventEntry): Promise<void
 export function createDebugLogger(
   cwd: string,
   hookEventName: string,
-  debug: boolean
+  _debug: boolean
 ): DebugLogger {
   return {
     logInput: async (input: unknown) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -118,7 +118,7 @@ export function createDebugLogger(
     },
 
     logOutput: async (output: unknown) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,
@@ -128,7 +128,7 @@ export function createDebugLogger(
     },
 
     logError: async (error: Error) => {
-      if (!debug) return;
+      // Always log hook events regardless of debug flag
       await appendHookEvent(cwd, {
         timestamp: new Date().toISOString(),
         event: hookEventName,

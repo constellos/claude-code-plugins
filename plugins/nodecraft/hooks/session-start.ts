@@ -1,32 +1,29 @@
 /**
  * SessionStart hook for nodecraft plugin
- * 
+ *
  * Initializes task queue connection and displays pending tasks for the user
  * at the start of each Claude Code session.
- * 
+ *
  * @module session-start
  */
 
-import type { SessionStartInput, SessionStartHookOutput } from '../../../shared/types/types.js';
+import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 
 /**
  * SessionStart hook handler
- * 
+ *
  * Connects to constellos-mcp and retrieves active tasks for the current user.
  * Displays pending and running tasks to provide context at session start.
- * 
-<<<<<<< HEAD
+ *
  * @param _input - SessionStart hook input from Claude Code
-=======
- * @param input - SessionStart hook input from Claude Code
->>>>>>> origin/main
  * @returns Hook output with task context for Claude
  */
 async function handler(_input: SessionStartInput): Promise<SessionStartHookOutput> {
   try {
     // TODO: Once MCP server is deployed, fetch active tasks
     // const activeTasks = await mcp.listTasks({ status: ['pending', 'running'] });
-    
+
     return {
       hookSpecificOutput: {
         hookEventName: 'SessionStart',
@@ -57,8 +54,5 @@ Use the reviewer or planner agents to start workflows.`,
 
 export { handler };
 
-// Self-executable with npx tsx
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const { runHook } = await import('../../../shared/hooks/utils/io.js');
-  runHook(handler);
-}
+// Make this file self-executable with npx tsx
+runHook(handler);
