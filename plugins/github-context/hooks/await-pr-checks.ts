@@ -19,9 +19,9 @@
 import type {
   PostToolUseInput,
   PostToolUseHookOutput,
-} from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+} from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -322,5 +322,5 @@ async function handler(
 // Export handler for testing
 export { handler };
 
-// Make this file self-executable with tsx
+// Make this file self-executable with npx tsx
 runHook(handler);
