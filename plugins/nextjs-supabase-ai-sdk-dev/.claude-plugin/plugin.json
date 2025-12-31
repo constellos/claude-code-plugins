@@ -1,6 +1,6 @@
 {
   "name": "nextjs-supabase-ai-sdk-dev",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Next.js, Supabase, and AI SDK development utilities and hooks",
   "author": {
     "name": "constellos"
@@ -12,6 +12,22 @@
     "next-devtools": {
       "command": "npx",
       "args": ["-y", "next-devtools-mcp@latest"]
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": ["-y", "@anthropics/shadcn-mcp@latest"]
+    },
+    "ai-elements": {
+      "command": "npx",
+      "args": ["-y", "@anthropics/ai-elements-mcp@latest"]
+    },
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "${SUPABASE_ACCESS_TOKEN}"]
+    },
+    "vercel": {
+      "command": "npx",
+      "args": ["-y", "mcp-handler@latest"]
     }
   }
 }

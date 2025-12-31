@@ -1,0 +1,5 @@
+{
+  "supabase": {
+    "accessToken": "${SUPABASE_ACCESS_TOKEN}"
+  }
+}

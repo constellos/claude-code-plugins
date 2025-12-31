@@ -396,6 +396,122 @@ claude plugin uninstall --scope project my-plugin@constellos
 claude plugin install --scope project my-plugin@constellos
 ```
 
+## Claude Worktree Launcher
+
+This repository includes `claude-worktree.sh`, a utility script that creates isolated git worktrees for Claude Code sessions. Each session gets its own branch and worktree, enabling parallel development without conflicts.
+
+### Features
+
+- **Isolated Worktrees:** Creates worktrees at `~/.claude-worktrees/{org}/{repo}/{branch-name}`
+- **Automatic Branch Naming:** Generates unique branch names like `kind-marmot-s7y8gh44`
+- **Fresh Remote State:** Always fetches and creates worktree from latest `origin/main` or `origin/master`
+- **Plugin Cache Refresh:** Automatically reinstalls plugins to ensure worktree uses current plugin code
+- **Worktree Detection:** If already in a worktree, navigates to parent repo first
+
+### Installation
+
+Add to your `.bashrc` or `.zshrc`:
+
+```bash
+claude-worktree() {
+    bash "$HOME/constellos/claude-code-plugins/claude-worktree.sh" "$@"
+}
+```
+
+Then reload your shell:
+
+```bash
+source ~/.bashrc
+```
+
+### Usage
+
+From any git repository:
+
+```bash
+# Create worktree and launch Claude Code
+claude-worktree
+
+# Pass CLI flags to Claude
+claude-worktree --verbose
+claude-worktree --no-context
+```
+
+### How It Works
+
+1. Detects if you're in a git repository (launches Claude normally if not)
+2. If in a worktree, navigates to parent repository first
+3. Fetches latest from remote main branch
+4. Creates new worktree at `~/.claude-worktrees/{org}/{repo}/{branch-name}`
+5. Configures local plugin marketplaces to point to worktree
+6. Launches Claude Code in the worktree
+7. Returns you to the worktree directory when Claude exits
+
+### Dependencies
+
+- `git` - Git version control
+- `jq` - JSON processor (for plugin marketplace configuration)
+
+Install jq if needed:
+```bash
+# macOS
+brew install jq
+
+# Ubuntu/Debian
+sudo apt install jq
+```
+
+## Nodes-md MCP Server (Elysia-based)
+
+The [nodes-md](https://github.com/constellos/nodes-md) project includes a custom MCP server built with Elysia and Supabase. This serves as a reference implementation for building MCP servers with the Bun runtime.
+
+### Architecture
+
+- **Framework**: [Elysia](https://elysiajs.com/) - Fast Bun web framework
+- **Database**: Supabase for persistent storage
+- **Protocol**: Model Context Protocol SDK
+
+### Location
+
+```
+~/constellos/nodes-md/apps/mcp/
+├── src/
+│   └── index.ts          # MCP server implementation
+├── package.json          # Dependencies
+└── tsconfig.json         # TypeScript config
+```
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `hello` | Simple hello world test tool |
+| `create_nodeset` | Create a new nodeset in the database |
+
+### Running the Server
+
+```bash
+cd ~/constellos/nodes-md/apps/mcp
+bun install
+bun run src/index.ts
+```
+
+### Environment Variables
+
+```bash
+SUPABASE_URL=your-supabase-url
+SUPABASE_SECRET_KEY=your-service-role-key
+PORT=3001  # Optional, defaults to 3001
+```
+
+### Using as Reference
+
+This implementation demonstrates:
+- Elysia server setup with MCP SDK
+- Supabase client initialization
+- Tool definition patterns
+- Type-safe database operations
+
 ## Documentation
 
 Comprehensive documentation:
