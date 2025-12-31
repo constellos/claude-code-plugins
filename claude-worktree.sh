@@ -6,19 +6,75 @@
 # Each session gets its own branch and worktree in ~/.claude-worktrees/{repo}/
 #
 # Usage:
-#   bash claude-worktree.sh [claude CLI flags]
+#   cw [owner/repo] [claude CLI flags]
 #
-# Example:
-#   bash claude-worktree.sh --verbose
-#   bash claude-worktree.sh --no-context
+# Examples:
+#   cw                          # Use current directory
+#   cw lazyjobs                 # Find lazyjobs in known locations
+#   cw celestian-dev/lazyjobs   # Use ~/celestian-dev/lazyjobs
+#   cw constellos/nodes-md      # Use ~/constellos/nodes-md
+#   cw --verbose                # Current dir with claude flags
 #
 # Setup:
-#   Add to .bashrc or .zshrc:
-#   claude-worktree() {
-#     bash /path/to/claude-code-plugins/claude-worktree.sh "$@"
-#   }
+#   source /path/to/claude-code-plugins/claude-worktree-completion.bash
+#   # This adds the 'cw' function and tab completion
+#
+# Known repo locations (searched in order):
+#   ~/constellos/
+#   ~/celestian-dev/
+#   ~/
 
 set -e
+
+# Known locations to search for repos
+REPO_SEARCH_PATHS=(
+  "${HOME}/constellos"
+  "${HOME}/celestian-dev"
+  "${HOME}"
+)
+
+# Find a repo by name or owner/name
+_find_repo() {
+  local query="$1"
+
+  # If query contains /, treat as owner/repo
+  if [[ "$query" == */* ]]; then
+    local owner="${query%%/*}"
+    local repo="${query#*/}"
+    local path="${HOME}/${owner}/${repo}"
+    if [[ -d "$path/.git" ]]; then
+      echo "$path"
+      return 0
+    fi
+  else
+    # Search in known locations
+    for base in "${REPO_SEARCH_PATHS[@]}"; do
+      local path="${base}/${query}"
+      if [[ -d "$path/.git" ]]; then
+        echo "$path"
+        return 0
+      fi
+    done
+  fi
+
+  return 1
+}
+
+# Parse first argument - could be a repo reference or a claude flag
+_target_repo=""
+if [[ $# -gt 0 && "$1" != -* ]]; then
+  # First arg doesn't start with -, might be a repo
+  if _find_repo "$1" >/dev/null 2>&1; then
+    _target_repo=$(_find_repo "$1")
+    shift  # Remove repo arg, rest are claude flags
+  fi
+fi
+
+# If we have a target repo, cd to it
+if [[ -n "$_target_repo" ]]; then
+  cd "$_target_repo"
+  echo "Using repo: $_target_repo"
+fi
 
 # Adjectives for branch naming
 _CLAUDE_ADJECTIVES=(
