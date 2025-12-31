@@ -396,61 +396,86 @@ claude plugin uninstall --scope project my-plugin@constellos
 claude plugin install --scope project my-plugin@constellos
 ```
 
-## Claude Worktree Launcher
+## Claude Worktree Launcher (`cw`)
 
 This repository includes `claude-worktree.sh`, a utility script that creates isolated git worktrees for Claude Code sessions. Each session gets its own branch and worktree, enabling parallel development without conflicts.
 
 ### Features
 
-- **Isolated Worktrees:** Creates worktrees at `~/.claude-worktrees/{org}/{repo}/{branch-name}`
-- **Automatic Branch Naming:** Generates unique branch names like `kind-marmot-s7y8gh44`
+- **Isolated Worktrees:** Creates worktrees at `~/.claude-worktrees/{repo}/{branch-name}`
+- **Automatic Branch Naming:** Generates unique branch names like `claude-kind-marmot-s7y8gh44`
 - **Fresh Remote State:** Always fetches and creates worktree from latest `origin/main` or `origin/master`
 - **Plugin Cache Refresh:** Automatically reinstalls plugins to ensure worktree uses current plugin code
 - **Worktree Detection:** If already in a worktree, navigates to parent repo first
+- **Tab Completion:** Autocomplete repo names from known locations
+- **Repo Shortcuts:** Jump to any repo by name or `owner/repo` path
 
-### Installation
+### Setup
 
-Add to your `.bashrc` or `.zshrc`:
+Add to your `~/.bashrc` or `~/.zshrc`:
 
 ```bash
-claude-worktree() {
-    bash "$HOME/constellos/claude-code-plugins/claude-worktree.sh" "$@"
-}
+# Claude Worktree launcher with tab completion
+source ~/constellos/claude-code-plugins/claude-worktree.sh
 ```
 
 Then reload your shell:
 
 ```bash
-source ~/.bashrc
+source ~/.bashrc  # or source ~/.zshrc
 ```
+
+You'll see: `cw: Claude worktree command ready (tab completion enabled)`
 
 ### Usage
 
-From any git repository:
-
 ```bash
-# Create worktree and launch Claude Code
-claude-worktree
+# From current directory
+cw
+
+# Jump to a repo by name (searches ~/constellos, ~/celestian-dev, ~/)
+cw lazyjobs
+cw nodes-md
+
+# Jump to a repo by owner/name
+cw celestian-dev/lazyjobs
+cw constellos/claude-code-plugins
 
 # Pass CLI flags to Claude
-claude-worktree --verbose
-claude-worktree --no-context
+cw --verbose
+cw lazyjobs --no-context
 ```
+
+### Tab Completion
+
+```bash
+cw laz<TAB>              # → lazyjobs
+cw celestian-dev/<TAB>   # → shows all repos in ~/celestian-dev/
+cw con<TAB>              # → constellos/
+```
+
+### Known Repo Locations
+
+The script searches these directories (in order):
+- `~/constellos/`
+- `~/celestian-dev/`
+- `~/`
 
 ### How It Works
 
-1. Detects if you're in a git repository (launches Claude normally if not)
-2. If in a worktree, navigates to parent repository first
-3. Fetches latest from remote main branch
-4. Creates new worktree at `~/.claude-worktrees/{org}/{repo}/{branch-name}`
-5. Configures local plugin marketplaces to point to worktree
-6. Launches Claude Code in the worktree
-7. Returns you to the worktree directory when Claude exits
+1. Resolves repo from argument (if provided) or uses current directory
+2. Detects if you're in a git repository (launches Claude normally if not)
+3. If in a worktree, navigates to parent repository first
+4. Fetches latest from remote main branch
+5. Creates new worktree at `~/.claude-worktrees/{repo}/{branch-name}`
+6. Refreshes project-scoped plugin cache
+7. Launches Claude Code in the worktree
+8. Returns you to the worktree directory when Claude exits
 
 ### Dependencies
 
 - `git` - Git version control
-- `jq` - JSON processor (for plugin marketplace configuration)
+- `jq` - JSON processor (optional, for plugin cache refresh)
 
 Install jq if needed:
 ```bash
