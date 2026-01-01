@@ -1080,6 +1080,11 @@ Please resolve this before ending the session.`;
 async function handler(input: StopInput): Promise<StopHookOutput> {
   const logger = createDebugLogger(input.cwd, 'commit-session-check-pr-status', true);
 
+  // Skip blocking behavior in plan mode - Claude is just exploring/planning
+  if (input.permission_mode === 'plan') {
+    return { decision: 'approve' };
+  }
+
   try {
     await logger.logInput({ session_id: input.session_id });
 
