@@ -1,0 +1,44 @@
+{
+  "name": "cloudflare-mcp-server-dev",
+  "version": "0.1.0",
+  "description": "Cloudflare Workers development with MCP servers for bindings, builds, observability, containers, and browser rendering",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "mcp",
+    "serverless",
+    "wrangler",
+    "durable-objects"
+  ],
+  "mcpServers": {
+    "cloudflare-bindings": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://bindings.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-docs": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://docs.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-builds": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://builds.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-observability": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://observability.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-containers": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://containers.mcp.cloudflare.com/mcp"]
+    },
+    "cloudflare-browser": {
+      "command": "npx",
+      "args": ["mcp-remote@latest", "https://browser.mcp.cloudflare.com/mcp"]
+    }
+  }
+}
