@@ -1,5 +1,5 @@
 {
-  "name": "cloudflare-workers-mcp-dev",
+  "name": "cloudflare-mcp-server-dev",
   "version": "0.1.0",
   "description": "Cloudflare Workers development with MCP servers for bindings, builds, observability, containers, and browser rendering",
   "author": {

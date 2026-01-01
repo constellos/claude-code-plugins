@@ -51,13 +51,13 @@
       "strict": false
     },
     {
-      "name": "cloudflare-workers-mcp-dev",
+      "name": "cloudflare-mcp-server-dev",
       "description": "Cloudflare Workers development with MCP servers for bindings, builds, observability, containers, and browser rendering",
       "version": "0.1.0",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/cloudflare-workers-mcp-dev",
+      "source": "./plugins/cloudflare-mcp-server-dev",
       "strict": false
     }
   ]
