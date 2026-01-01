@@ -327,8 +327,8 @@ _cw_main() {
       local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
       if [[ -n "$plugins" ]]; then
         echo "Refreshing plugin cache..."
-        # Clear constellos plugin cache to ensure fresh install
-        rm -rf ~/.claude/plugins/cache/constellos/* 2>/dev/null || true
+        # Clear ALL plugin caches to ensure fresh install
+        rm -rf ~/.claude/plugins/cache/* 2>/dev/null || true
         while IFS= read -r plugin; do
           # Extract plugin name for verbose output
           local plugin_name="${plugin%@*}"
