@@ -237,9 +237,16 @@ _cw_main() {
       local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
       if [[ -n "$plugins" ]]; then
         echo "Refreshing plugin cache..."
+        # Clear constellos plugin cache to ensure fresh install
+        rm -rf ~/.claude/plugins/cache/constellos/* 2>/dev/null || true
         while IFS= read -r plugin; do
+          # Extract plugin name for verbose output
+          local plugin_name="${plugin%@*}"
+          echo "Installing plugin \"${plugin_name}\"..."
           claude plugin uninstall --scope project "$plugin" 2>/dev/null || true
-          claude plugin install --scope project "$plugin" 2>/dev/null || true
+          claude plugin install --scope project "$plugin" 2>/dev/null && \
+            echo "✔ Successfully installed plugin: ${plugin_name} (scope: project)" || \
+            echo "✘ Failed to install plugin: ${plugin_name}"
         done <<< "$plugins"
       fi
     fi
