@@ -195,38 +195,73 @@ _cw_main() {
   # Detect remote early (needed for cleanup)
   local remote=$(git remote | head -1)
 
-  # Fetch with prune to update remote refs before cleanup
-  echo "Fetching remote refs..."
-  git fetch --prune "$remote" 2>/dev/null || true
+  # Validate remote and fetch
+  if [[ -z "$remote" ]]; then
+    echo "Warning: No git remote configured, skipping stale worktree cleanup"
+  else
+    echo "Fetching remote refs from $remote..."
+    git fetch --prune "$remote" 2>/dev/null || echo "Warning: Failed to fetch, cleanup may be incomplete"
+  fi
 
   # Clean up stale worktrees (branches deleted locally OR on remote)
   if [[ -d "$worktree_base" ]]; then
     echo "Checking for stale worktrees..."
     local stale_count=0
 
+    # Cache remote branches using ls-remote (more reliable than local refs)
+    # Single network call, then check against cached list
+    local remote_branches=""
+    if [[ -n "$remote" ]]; then
+      remote_branches=$(git ls-remote --heads "$remote" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||')
+    fi
+
     # Parse worktree list in porcelain format
     local wt_path=""
+    local is_locked=false
     while IFS= read -r line; do
       if [[ "$line" == "worktree "* ]]; then
         wt_path="${line#worktree }"
+        is_locked=false
+      elif [[ "$line" == "locked"* ]]; then
+        is_locked=true
       elif [[ "$line" == "branch "* ]]; then
         local branch="${line#branch refs/heads/}"
 
         # Only clean up claude-* branches in our worktree directory
         if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
-          # Check if branch still exists locally
-          if ! git show-ref --verify --quiet "refs/heads/$branch"; then
-            echo "Removing stale worktree: $branch (local branch deleted)"
-            git worktree remove --force "$wt_path" 2>/dev/null || true
-            ((stale_count++)) || true
-          # Also check if branch was deleted from remote
-          elif ! git show-ref --verify --quiet "refs/remotes/${remote}/$branch"; then
-            echo "Removing stale worktree: $branch (deleted from $remote)"
-            git worktree remove --force "$wt_path" 2>/dev/null || true
-            ((stale_count++)) || true
+          # Skip locked worktrees
+          if [[ "$is_locked" == true ]]; then
+            echo "Skipping locked worktree: $branch"
+          else
+            local should_remove=false
+            local reason=""
+
+            # Check if branch still exists locally
+            if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+              should_remove=true
+              reason="local branch deleted"
+            # Check if branch was deleted from remote (using cached ls-remote results)
+            elif [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
+              should_remove=true
+              reason="deleted from $remote"
+            fi
+
+            if [[ "$should_remove" == true ]]; then
+              echo "Removing stale worktree: $branch ($reason)"
+              if git worktree remove --force "$wt_path" 2>/dev/null; then
+                ((stale_count++)) || true
+              else
+                echo "  Warning: Failed to remove worktree at $wt_path"
+              fi
+            fi
           fi
         fi
         wt_path=""
+        is_locked=false
+      elif [[ -z "$line" ]]; then
+        # Empty line separates worktree entries - reset state
+        wt_path=""
+        is_locked=false
       fi
     done < <(git worktree list --porcelain)
 
@@ -235,6 +270,8 @@ _cw_main() {
 
     if [[ $stale_count -gt 0 ]]; then
       echo "Cleaned up $stale_count stale worktree(s)"
+    else
+      echo "No stale worktrees found"
     fi
   fi
 
