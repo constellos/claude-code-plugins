@@ -1,6 +1,7 @@
 ---
 title: Claude Rules Documentation
 description: Claude Code rule documentation files that provide context, constraints, and guidelines
+tags: [rules, validation, checks, frontmatter, constraints, guidelines]
 folder:
   subfolders:
     allowed: []

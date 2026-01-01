@@ -2,6 +2,7 @@
 title: GitHub Context Plugin
 description: GitHub integration with branch context, commit enhancement, issue synchronization, and PR orchestration
 version: 0.1.2
+tags: [github, git, commit, branch, issue, pr, pull-request, ci, workflow, actions]
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks, shared, .github-workflows]

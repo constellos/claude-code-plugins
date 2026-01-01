@@ -2,6 +2,7 @@
 title: Cloudflare Workers MCP Dev
 description: MCP servers for Cloudflare Workers development
 version: 0.1.0
+tags: [cloudflare, workers, mcp, kv, r2, d1, durable-objects, edge, serverless]
 folder:
   subfolders:
     allowed: [.claude-plugin]

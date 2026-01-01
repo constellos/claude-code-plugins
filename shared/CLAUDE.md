@@ -1,6 +1,7 @@
 ---
 title: Shared Utilities Library
 description: TypeScript utilities and types shared across all plugins in the marketplace
+tags: [shared, utilities, types, hooks, io, debug, typescript, transcripts, subagent]
 folder:
   subfolders:
     allowed: [hooks, rules, types]
