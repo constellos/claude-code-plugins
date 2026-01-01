@@ -190,7 +190,43 @@ _cw_main() {
   # Now we're in the parent repo, proceed with worktree creation
   local repo_root=$(git rev-parse --show-toplevel)
   local repo_name=$(basename "$repo_root")
-  local worktree_dir="${HOME}/.claude-worktrees/${repo_name}/${branch_name}"
+  local worktree_base="${HOME}/.claude-worktrees/${repo_name}"
+
+  # Clean up stale worktrees (branches that no longer exist)
+  if [[ -d "$worktree_base" ]]; then
+    echo "Checking for stale worktrees..."
+    local stale_count=0
+
+    # Parse worktree list in porcelain format
+    local wt_path=""
+    while IFS= read -r line; do
+      if [[ "$line" == "worktree "* ]]; then
+        wt_path="${line#worktree }"
+      elif [[ "$line" == "branch "* ]]; then
+        local branch="${line#branch refs/heads/}"
+
+        # Only clean up claude-* branches in our worktree directory
+        if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
+          # Check if branch still exists locally
+          if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+            echo "Removing stale worktree: $branch (branch deleted)"
+            git worktree remove --force "$wt_path" 2>/dev/null || true
+            ((stale_count++)) || true
+          fi
+        fi
+        wt_path=""
+      fi
+    done < <(git worktree list --porcelain)
+
+    # Prune any worktrees with missing directories
+    git worktree prune
+
+    if [[ $stale_count -gt 0 ]]; then
+      echo "Cleaned up $stale_count stale worktree(s)"
+    fi
+  fi
+
+  local worktree_dir="${worktree_base}/${branch_name}"
 
   # Detect remote
   local remote=$(git remote | head -1)
