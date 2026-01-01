@@ -1031,11 +1031,8 @@ Before implementing or modifying agents, skills, commands, or rules:
 
 ## Documentation
 
-Comprehensive Claude Code documentation in `.claude/skills/`:
-
-- `claude-plugins/SKILL.md` - Plugin development guide
-- `claude-hooks/SKILL.md` - Hook types and patterns
-- `claude-skills/SKILL.md` - Agent Skills
-- `claude-commands/SKILL.md` - Slash commands
-- `claude-agents/SKILL.md` - Subagent configuration
-- `turborepo-vercel/SKILL.md` - Turborepo monorepos with Vercel deployment
+For Claude Code plugin development documentation, use the `plugin-dev` plugin which provides comprehensive skills for:
+- Plugin structure and development
+- Hook types and patterns
+- Agent, skill, and command creation
+- MCP integration

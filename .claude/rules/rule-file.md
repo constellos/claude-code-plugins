@@ -73,5 +73,5 @@ markdown:
 
 - This meta-rule validates the structure of other rule files
 - The "Required Skills:" heading can have any suffix after the colon (validated by pattern `## Required Skills:*`)
-- Skills listed must match skill names in `.claude/skills/`
+- Skills listed should reference valid skill names from installed plugins
 - The project-context plugin enforces this structure on all Write/Edit operations to `.claude/rules/*.md` files
