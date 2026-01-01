@@ -327,12 +327,13 @@ _cw_main() {
       local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
       if [[ -n "$plugins" ]]; then
         echo "Refreshing plugin cache..."
-        # Clear ALL plugin caches to ensure fresh install
-        rm -rf ~/.claude/plugins/cache/* 2>/dev/null || true
         while IFS= read -r plugin; do
-          # Extract plugin name for verbose output
+          # Extract plugin name and marketplace from "plugin-name@marketplace"
           local plugin_name="${plugin%@*}"
+          local marketplace="${plugin#*@}"
           echo "Installing plugin \"${plugin_name}\"..."
+          # Clear only this specific plugin's cache (not other plugins/sessions)
+          rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
           claude plugin uninstall --scope project "$plugin" 2>/dev/null || true
           claude plugin install --scope project "$plugin" 2>/dev/null && \
             echo "✔ Successfully installed plugin: ${plugin_name} (scope: project)" || \
