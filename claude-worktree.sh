@@ -322,17 +322,34 @@ _cw_main() {
 
     # Plugin refresh (non-fatal)
     set +e
-    local settings_file="${repo_root}/.claude/settings.json"
-    if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
+    local settings_file="${worktree_dir}/.claude/settings.json"
+    local marketplace_file="${worktree_dir}/.claude-plugin/marketplace.json"
+
+    if [[ -f "$settings_file" ]] && [[ -f "$marketplace_file" ]] && command -v jq &>/dev/null; then
+      # Check if this repo uses local marketplace (constellos-local)
+      local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
+
+      if [[ -n "$has_local_marketplace" ]]; then
+        echo "Registering local marketplace from worktree..."
+        # Remove old marketplace registration (may point to different worktree)
+        claude plugin marketplace remove constellos-local 2>/dev/null || true
+        # Add marketplace from this worktree
+        if claude plugin marketplace add "$worktree_dir" 2>/dev/null; then
+          echo "✔ Marketplace constellos-local registered"
+        else
+          echo "⚠ Failed to add worktree marketplace"
+        fi
+      fi
+
+      # Install plugins from worktree settings
       local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
       if [[ -n "$plugins" ]]; then
-        echo "Refreshing plugin cache..."
+        echo "Installing plugins..."
         while IFS= read -r plugin; do
-          # Extract plugin name and marketplace from "plugin-name@marketplace"
           local plugin_name="${plugin%@*}"
           local marketplace="${plugin#*@}"
           echo "Installing plugin \"${plugin_name}\"..."
-          # Clear only this specific plugin's cache (not other plugins/sessions)
+          # Clear plugin cache
           rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
           claude plugin uninstall --scope project "$plugin" 2>/dev/null || true
           claude plugin install --scope project "$plugin" 2>/dev/null && \
