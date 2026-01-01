@@ -426,6 +426,26 @@ _cw_main() {
         fi
       fi
 
+      # Update git-based marketplaces before installing plugins
+      local marketplace_names=$(jq -r '.extraKnownMarketplaces | keys[]' "$settings_file" 2>/dev/null)
+      if [[ -n "$marketplace_names" ]]; then
+        while IFS= read -r marketplace_name; do
+          local marketplace_source=$(jq -r ".extraKnownMarketplaces[\"$marketplace_name\"].source.source" "$settings_file" 2>/dev/null)
+          local marketplace_path="$HOME/.claude/plugins/marketplaces/$marketplace_name"
+
+          # Update git/github-based marketplaces (skip local/directory sources)
+          if [[ "$marketplace_source" == "github" || "$marketplace_source" == "git" ]] && [[ -d "$marketplace_path/.git" ]]; then
+            echo "Updating marketplace: $marketplace_name..."
+            if git -C "$marketplace_path" fetch origin main --quiet 2>/dev/null && \
+               git -C "$marketplace_path" reset --hard origin/main --quiet 2>/dev/null; then
+              echo "✔ Marketplace $marketplace_name updated"
+            else
+              echo "⚠ Could not update $marketplace_name marketplace (will use cached version)"
+            fi
+          fi
+        done <<< "$marketplace_names"
+      fi
+
       # Install plugins from worktree settings
       local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
       if [[ -n "$plugins" ]]; then
@@ -434,12 +454,25 @@ _cw_main() {
           local plugin_name="${plugin%@*}"
           local marketplace="${plugin#*@}"
           echo "Installing plugin \"${plugin_name}\"..."
+
           # Clear plugin cache
           rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
-          claude plugin uninstall --scope project "$plugin" 2>/dev/null || true
-          claude plugin install --scope project "$plugin" 2>/dev/null && \
-            echo "✔ Successfully installed plugin: ${plugin_name} (scope: project)" || \
-            echo "✘ Failed to install plugin: ${plugin_name}"
+
+          # Uninstall (suppress "not installed" message but show other errors)
+          claude plugin uninstall --scope project "$plugin" 2>&1 | grep -v "not installed" || true
+
+          # Install and verify
+          if claude plugin install --scope project "$plugin"; then
+            # Verify cache was created
+            local cache_path="$HOME/.claude/plugins/cache/${marketplace}/${plugin_name}"
+            if [[ -d "$cache_path" ]]; then
+              echo "✔ Installed: ${plugin_name} (scope: project)"
+            else
+              echo "⚠ Installed but cache not found at: $cache_path"
+            fi
+          else
+            echo "✘ Failed to install: ${plugin_name}"
+          fi
         done <<< "$plugins"
       fi
     fi
