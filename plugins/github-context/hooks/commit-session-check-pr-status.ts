@@ -1283,8 +1283,7 @@ ${ciCheckResult.output}`,
     }
 
     // No PR and no comment - determine blocking behavior
-    // Only progressively block if THIS session made commits
-    if (commitMade) {
+    if (commitMade || syncCheck.aheadBy > 0) {
       // Get updated state (includes incremented block count)
       const updatedState = await getSessionStopState(input.session_id, input.cwd);
 
@@ -1302,13 +1301,6 @@ ${ciCheckResult.output}`,
         decision: 'block',
         reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, issueUrl, updatedState.blockCount, hasSubagentActivity),
         systemMessage: 'Claude is blocked from stopping - PR or issue comment required.',
-      };
-    }
-
-    // Branch is ahead but no new commits this session - show info, don't block
-    if (syncCheck.aheadBy > 0) {
-      return {
-        systemMessage: `ℹ️ Branch is ${syncCheck.aheadBy} commit(s) ahead of remote. Consider creating a PR before ending session.`,
       };
     }
 

@@ -6,7 +6,8 @@
     "name": "constellos"
   },
   "metadata": {
-    "description": "Plugin marketplace for Constellos development tools"
+    "description": "Plugin marketplace for Constellos development tools",
+    "pluginRoot": "./plugins"
   },
   "plugins": [
     {
