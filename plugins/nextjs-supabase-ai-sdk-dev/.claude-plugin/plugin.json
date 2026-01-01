@@ -13,17 +13,13 @@
       "command": "npx",
       "args": ["-y", "next-devtools-mcp@latest"]
     },
-    "shadcn": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote@latest", "https://ui.shadcn.com/docs/mcp"]
-    },
     "ai-elements": {
       "command": "npx",
       "args": ["-y", "mcp-remote@latest", "https://registry.ai-sdk.dev/api/mcp"]
     },
     "supabase": {
       "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--access-token", "${SUPABASE_ACCESS_TOKEN}"]
+      "args": ["-y", "mcp-remote@latest", "https://mcp.supabase.com/mcp"]
     },
     "vercel": {
       "command": "npx",
