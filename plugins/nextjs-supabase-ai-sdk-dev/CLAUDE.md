@@ -2,6 +2,7 @@
 title: Next.js Supabase AI SDK Dev Plugin
 description: Development quality checks plugin for Next.js, Supabase, and AI SDK projects
 version: 0.1.1
+tags: [nextjs, next, supabase, ai-sdk, typescript, eslint, vitest, test, lint, typecheck, ui, react]
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks, agents, skills, shared]
