@@ -38,6 +38,18 @@ interface PlanIssueState {
   };
 }
 
+interface BranchIssueEntry {
+  issueNumber: number;
+  issueUrl: string;
+  createdAt: string;
+  createdFromPrompt: boolean;
+  linkedFromBranchPrefix?: boolean;
+}
+
+interface BranchIssueState {
+  [branchName: string]: BranchIssueEntry;
+}
+
 /**
  * Execute a shell command
  */
@@ -149,6 +161,20 @@ async function loadPlanIssueState(cwd: string): Promise<PlanIssueState> {
 }
 
 /**
+ * Load branch issue state from disk
+ */
+async function loadBranchIssueState(cwd: string): Promise<BranchIssueState> {
+  const stateFile = path.join(cwd, '.claude', 'logs', 'branch-issues.json');
+
+  try {
+    const data = await fs.readFile(stateFile, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Save plan issue state to disk
  */
 async function savePlanIssueState(cwd: string, state: PlanIssueState): Promise<void> {
@@ -161,6 +187,11 @@ async function savePlanIssueState(cwd: string, state: PlanIssueState): Promise<v
 
 /**
  * Create or update GitHub issue from plan content
+ *
+ * Priority for finding existing issue:
+ * 1. Check branch-issues.json (created by UserPromptSubmit hook)
+ * 2. Check plan-issues.json (created by previous plan syncs)
+ * 3. Create new issue if none found
  */
 async function syncPlanToIssue(
   cwd: string,
@@ -169,8 +200,8 @@ async function syncPlanToIssue(
   planContent: string,
   branch: string
 ): Promise<{ issueNumber: number; issueUrl: string; action: 'created' | 'updated' }> {
-  const state = await loadPlanIssueState(cwd);
-  const existing = state[sessionId];
+  const planState = await loadPlanIssueState(cwd);
+  const branchState = await loadBranchIssueState(cwd);
 
   const title = extractPlanTitle(planContent, planPath);
 
@@ -182,6 +213,38 @@ async function syncPlanToIssue(
 
 ${planContent}`;
 
+  // PRIORITY 1: Check branch-issues.json (from UserPromptSubmit hook)
+  const branchIssue = branchState[branch];
+  if (branchIssue && branchIssue.issueNumber) {
+    // Update existing branch issue with plan content
+    const result = await execGhWithStdin(
+      ['issue', 'edit', String(branchIssue.issueNumber), '--title', title, '--body-file', '-'],
+      body,
+      cwd
+    );
+
+    if (result.success) {
+      // Also save to plan-issues.json for consistency
+      planState[sessionId] = {
+        planPath,
+        issueNumber: branchIssue.issueNumber,
+        issueUrl: branchIssue.issueUrl,
+        branch,
+        createdAt: branchIssue.createdAt,
+        lastUpdated: new Date().toISOString(),
+      };
+      await savePlanIssueState(cwd, planState);
+
+      return {
+        issueNumber: branchIssue.issueNumber,
+        issueUrl: branchIssue.issueUrl,
+        action: 'updated',
+      };
+    }
+  }
+
+  // PRIORITY 2: Check plan-issues.json (from previous plan syncs)
+  const existing = planState[sessionId];
   if (existing && existing.issueNumber) {
     // Update existing issue using stdin to avoid shell escaping issues
     const result = await execGhWithStdin(
@@ -193,7 +256,7 @@ ${planContent}`;
     if (result.success) {
       // Update state
       existing.lastUpdated = new Date().toISOString();
-      await savePlanIssueState(cwd, state);
+      await savePlanIssueState(cwd, planState);
 
       return {
         issueNumber: existing.issueNumber,
@@ -203,7 +266,7 @@ ${planContent}`;
     }
   }
 
-  // Create new issue using stdin to avoid shell escaping issues
+  // PRIORITY 3: Create new issue
   const result = await execGhWithStdin(
     ['issue', 'create', '--title', title, '--body-file', '-', '--label', 'plan'],
     body,
@@ -223,7 +286,7 @@ ${planContent}`;
   }
 
   // Save state
-  state[sessionId] = {
+  planState[sessionId] = {
     planPath,
     issueNumber,
     issueUrl,
@@ -231,7 +294,7 @@ ${planContent}`;
     createdAt: new Date().toISOString(),
     lastUpdated: new Date().toISOString(),
   };
-  await savePlanIssueState(cwd, state);
+  await savePlanIssueState(cwd, planState);
 
   return { issueNumber, issueUrl, action: 'created' };
 }
