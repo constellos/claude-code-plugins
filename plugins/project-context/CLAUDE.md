@@ -15,12 +15,11 @@ folder:
 
 ## Quick Reference
 
-**Purpose**: Automatically discovers and links CLAUDE.md documentation, validates .claude directory structure, enforces plan-based path scoping, and provides intelligent URL redirection to prefer markdown documentation.
+**Purpose**: Automatically discovers and links CLAUDE.md documentation, validates .claude directory structure, and provides intelligent URL redirection to prefer markdown documentation.
 
 **When to use**:
 - Large codebases requiring organized documentation structure
 - Projects with .claude directory structures (agents, skills, rules, hooks)
-- Plan-driven development workflows with defined scope boundaries
 - Documentation-heavy projects with markdown-friendly docs
 - Teams enforcing consistent project organization standards
 
@@ -36,7 +35,6 @@ folder:
 | try-markdown-page | PreToolUse[WebFetch] | No | Redirects WebFetch to markdown versions of documentation |
 | log-task-result | PostToolUse[Task] | No | Logs Task tool results after agent completion |
 | create-plan-symlink | PostToolUse[Write\|Edit] | No | Creates PLAN.md symlink when plan files are written |
-| enforce-plan-scoping | PostToolUse[Write\|Edit\|Read] | Conditional | Enforces plan-based path scoping (blocks writes, warns on reads) |
 | add-folder-context | PostToolUse[Read] | No | Discovers and adds CLAUDE.md context when reading files |
 
 ## Key Features
@@ -49,9 +47,6 @@ Redirects WebFetch to markdown versions of documentation when available. Prefers
 
 ### Structure Validation
 Validates .claude directory structure ensuring proper organization for agents, skills, rules, and hooks. Blocks operations that would create invalid folder hierarchies.
-
-### Plan Scoping
-Enforces file operation boundaries based on plan frontmatter (`paths` field). Blocks writes outside scope, warns on reads. Helps manage context and separate concerns in large projects.
 
 ### Rules Validation
 Ensures rule files have proper structure with "Required Skills:" heading and valid frontmatter. Integrates with existing validation hooks.
@@ -78,7 +73,6 @@ Add to `.claude/settings.json`:
 DEBUG=* claude                           # All hooks
 DEBUG=encourage-context-review claude    # Context encouragement
 DEBUG=add-folder-context claude          # Context discovery
-DEBUG=enforce-plan-scoping claude        # Plan scoping
 DEBUG=validate-folder-structure claude   # Structure validation
 DEBUG=try-markdown-page claude           # Markdown preference
 ```
