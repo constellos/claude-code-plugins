@@ -59,52 +59,60 @@ _cw_find_repo() {
 
 # Tab completion function
 _cw_completions() {
-  local cur="${COMP_WORDS[COMP_CWORD]}"
+  local cur="${COMP_WORDS[COMP_CWORD]:-}"
   local repos=()
+  local dir repo_name owner base owner_path partial_repo
+
+  # Save and set nullglob to handle empty directories gracefully
+  local nullglob_was_set=0
+  shopt -q nullglob && nullglob_was_set=1
+  shopt -s nullglob
 
   # Only complete first argument as repo
-  if [[ ${COMP_CWORD} -eq 1 ]]; then
+  if [[ ${COMP_CWORD:-0} -eq 1 ]]; then
     # Check if input has a slash (owner/repo format)
     if [[ "$cur" == */* ]]; then
-      local owner="${cur%%/*}"
-      local partial_repo="${cur#*/}"
-      local owner_path="${HOME}/${owner}"
+      owner="${cur%%/*}"
+      partial_repo="${cur#*/}"
+      owner_path="${HOME}/${owner}"
 
       if [[ -d "$owner_path" ]]; then
         for dir in "${owner_path}"/*/; do
-          if [[ -d "${dir}.git" ]]; then
-            local repo_name=$(basename "$dir")
-            if [[ "$repo_name" == "$partial_repo"* ]]; then
-              repos+=("${owner}/${repo_name}")
-            fi
+          [[ -d "${dir}.git" ]] || continue
+          repo_name=$(basename "$dir")
+          if [[ "$repo_name" == "$partial_repo"* ]]; then
+            repos+=("${owner}/${repo_name}")
           fi
         done
       fi
     else
       # No slash - show owner/ prefixes and direct repo matches
-      for base in "${_CW_REPO_PATHS[@]}"; do
-        [[ "$base" == "$HOME" ]] && continue  # Skip home dir for completion
-        local owner=$(basename "$base")
+      for base in "${_CW_REPO_PATHS[@]:-}"; do
+        [[ -z "$base" || "$base" == "$HOME" ]] && continue
+        [[ -d "$base" ]] || continue
+        owner=$(basename "$base")
         if [[ "$owner" == "$cur"* || -z "$cur" ]]; then
           repos+=("${owner}/")
         fi
         for dir in "${base}"/*/; do
-          if [[ -d "${dir}.git" ]]; then
-            local repo_name=$(basename "$dir")
-            if [[ "$repo_name" == "$cur"* ]]; then
-              repos+=("$repo_name")
-            fi
+          [[ -d "${dir}.git" ]] || continue
+          repo_name=$(basename "$dir")
+          if [[ "$repo_name" == "$cur"* ]]; then
+            repos+=("$repo_name")
           fi
         done
       done
     fi
   fi
 
-  COMPREPLY=($(compgen -W "${repos[*]}" -- "$cur"))
+  # Restore nullglob setting
+  [[ $nullglob_was_set -eq 0 ]] && shopt -u nullglob
+
+  COMPREPLY=($(compgen -W "${repos[*]}" -- "$cur" 2>/dev/null)) || COMPREPLY=()
 
   # If completing owner/, don't add space after
   if [[ ${#COMPREPLY[@]} -eq 1 && "${COMPREPLY[0]}" == */ ]]; then
-    compopt -o nospace
+    compopt -o nospace 2>/dev/null || true
   fi
 }
 
