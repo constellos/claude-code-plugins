@@ -192,7 +192,14 @@ _cw_main() {
   local repo_name=$(basename "$repo_root")
   local worktree_base="${HOME}/.claude-worktrees/${repo_name}"
 
-  # Clean up stale worktrees (branches that no longer exist)
+  # Detect remote early (needed for cleanup)
+  local remote=$(git remote | head -1)
+
+  # Fetch with prune to update remote refs before cleanup
+  echo "Fetching remote refs..."
+  git fetch --prune "$remote" 2>/dev/null || true
+
+  # Clean up stale worktrees (branches deleted locally OR on remote)
   if [[ -d "$worktree_base" ]]; then
     echo "Checking for stale worktrees..."
     local stale_count=0
@@ -209,7 +216,12 @@ _cw_main() {
         if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
           # Check if branch still exists locally
           if ! git show-ref --verify --quiet "refs/heads/$branch"; then
-            echo "Removing stale worktree: $branch (branch deleted)"
+            echo "Removing stale worktree: $branch (local branch deleted)"
+            git worktree remove --force "$wt_path" 2>/dev/null || true
+            ((stale_count++)) || true
+          # Also check if branch was deleted from remote
+          elif ! git show-ref --verify --quiet "refs/remotes/${remote}/$branch"; then
+            echo "Removing stale worktree: $branch (deleted from $remote)"
             git worktree remove --force "$wt_path" 2>/dev/null || true
             ((stale_count++)) || true
           fi
@@ -227,9 +239,6 @@ _cw_main() {
   fi
 
   local worktree_dir="${worktree_base}/${branch_name}"
-
-  # Detect remote
-  local remote=$(git remote | head -1)
 
   # Detect main branch
   local main_branch=""

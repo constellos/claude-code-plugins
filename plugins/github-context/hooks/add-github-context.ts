@@ -40,6 +40,18 @@ interface PlanIssueState {
   };
 }
 
+interface BranchIssueEntry {
+  issueNumber: number;
+  issueUrl: string;
+  createdAt: string;
+  createdFromPrompt: boolean;
+  linkedFromBranchPrefix?: boolean;
+}
+
+interface BranchIssueState {
+  [branchName: string]: BranchIssueEntry;
+}
+
 interface GitHubIssue {
   number: number;
   title: string;
@@ -138,6 +150,20 @@ async function loadPlanIssueState(cwd: string): Promise<PlanIssueState> {
 }
 
 /**
+ * Load branch issue state from disk
+ */
+async function loadBranchIssueState(cwd: string): Promise<BranchIssueState> {
+  const stateFile = path.join(cwd, '.claude', 'logs', 'branch-issues.json');
+
+  try {
+    const data = await fs.readFile(stateFile, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Fetch full issue details from GitHub
  */
 async function fetchFullIssue(issueNumber: number, cwd: string): Promise<GitHubIssue | null> {
@@ -161,16 +187,26 @@ async function fetchFullIssue(issueNumber: number, cwd: string): Promise<GitHubI
  * Find issue linked to current branch using cascading fallback strategy
  *
  * Strategy:
- * 1. Check plan-issues.json state file (by session ID and branch name)
- * 2. Search GitHub using branch name
- * 3. Scan issue bodies for "Branch: `name`" marker
+ * 1. Check branch-issues.json state file (by branch name - from UserPromptSubmit hook)
+ * 2. Check plan-issues.json state file (by session ID and branch name)
+ * 3. Search GitHub using branch name
+ * 4. Scan issue bodies for "Branch: `name`" marker
  */
 async function findBranchIssue(
   branch: string,
   cwd: string,
   sessionId: string
 ): Promise<{ issueNumber: number; fullIssue: GitHubIssue } | null> {
-  // STRATEGY 1: Check plan-issues.json state file
+  // STRATEGY 1: Check branch-issues.json state file (from UserPromptSubmit hook)
+  const branchState = await loadBranchIssueState(cwd);
+  if (branchState[branch]) {
+    const fullIssue = await fetchFullIssue(branchState[branch].issueNumber, cwd);
+    if (fullIssue) {
+      return { issueNumber: branchState[branch].issueNumber, fullIssue };
+    }
+  }
+
+  // STRATEGY 2: Check plan-issues.json state file
   const state = await loadPlanIssueState(cwd);
 
   // Find by session ID
@@ -420,7 +456,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     } else {
       sections.push('**Issue:** No linked issue found');
       sections.push('');
-      sections.push('💡 Create an issue for this branch using a plan file, or link manually.');
+      sections.push('💡 An issue will be created automatically on your first prompt.');
+      sections.push('');
+      sections.push('**To link to an existing issue instead:**');
+      sections.push('1. Rename branch with issue prefix: `git branch -m ' + currentBranch + ' <issue#>-' + currentBranch + '`');
+      sections.push('2. Example: `git branch -m ' + currentBranch + ' 42-' + currentBranch + '`');
+      sections.push('3. The hook will detect the issue number prefix and link automatically');
     }
 
     // Section 2: Outstanding issues (TITLES only)

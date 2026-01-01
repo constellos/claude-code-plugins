@@ -52,6 +52,57 @@ import { join } from 'path';
 
 const execAsync = promisify(exec);
 
+interface BranchIssueEntry {
+  issueNumber: number;
+  issueUrl: string;
+  createdAt: string;
+  createdFromPrompt: boolean;
+  linkedFromBranchPrefix?: boolean;
+}
+
+interface BranchIssueState {
+  [branchName: string]: BranchIssueEntry;
+}
+
+/**
+ * Load branch issue state from disk
+ * @param cwd - Working directory
+ * @returns Branch issue state object
+ */
+async function loadBranchIssueState(cwd: string): Promise<BranchIssueState> {
+  const stateFile = join(cwd, '.claude', 'logs', 'branch-issues.json');
+
+  try {
+    if (!existsSync(stateFile)) {
+      return {};
+    }
+    const data = readFileSync(stateFile, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Get issue info for a branch from branch-issues.json
+ * @param branch - Branch name
+ * @param cwd - Working directory
+ * @returns Issue info or null
+ */
+async function getBranchIssueInfo(
+  branch: string,
+  cwd: string
+): Promise<{ issueNumber: number; issueUrl: string } | null> {
+  const state = await loadBranchIssueState(cwd);
+  if (state[branch]) {
+    return {
+      issueNumber: state[branch].issueNumber,
+      issueUrl: state[branch].issueUrl,
+    };
+  }
+  return null;
+}
+
 // ============================================================================
 // Command Execution
 // ============================================================================
@@ -86,13 +137,59 @@ async function execCommand(
 
 /**
  * Check if there are uncommitted changes in the working directory
+ * Filters out gitignored files - only returns true for tracked/untracked non-ignored files
  * @param cwd - Working directory
- * @returns True if there are uncommitted changes
+ * @returns True if there are non-gitignored uncommitted changes
  * @example
  */
 async function hasUncommittedChanges(cwd: string): Promise<boolean> {
   const result = await execCommand('git status --porcelain', cwd);
-  return result.success && result.stdout.length > 0;
+  if (!result.success || !result.stdout) {
+    return false;
+  }
+
+  // Filter out gitignored files
+  const lines = result.stdout.split('\n').filter(Boolean);
+  for (const line of lines) {
+    // Extract file path from status line (format: "XY filename" or "XY  filename -> newname")
+    const filePath = line.slice(3).split(' -> ')[0];
+
+    // Check if file is gitignored
+    const ignoreCheck = await execCommand(`git check-ignore -q "${filePath}"`, cwd);
+    if (!ignoreCheck.success) {
+      // File is NOT ignored - we have real uncommitted changes
+      return true;
+    }
+  }
+
+  // All files were gitignored
+  return false;
+}
+
+/**
+ * Get list of non-gitignored uncommitted files for staging
+ * @param cwd - Working directory
+ * @returns List of file paths to stage
+ * @example
+ */
+async function getNonIgnoredChanges(cwd: string): Promise<string[]> {
+  const result = await execCommand('git status --porcelain', cwd);
+  if (!result.success || !result.stdout) {
+    return [];
+  }
+
+  const nonIgnoredFiles: string[] = [];
+  const lines = result.stdout.split('\n').filter(Boolean);
+
+  for (const line of lines) {
+    const filePath = line.slice(3).split(' -> ')[0];
+    const ignoreCheck = await execCommand(`git check-ignore -q "${filePath}"`, cwd);
+    if (!ignoreCheck.success) {
+      nonIgnoredFiles.push(filePath);
+    }
+  }
+
+  return nonIgnoredFiles;
 }
 
 /**
@@ -877,6 +974,7 @@ function formatHookErrors(missingFiles: string[]): string {
  * @param sessionId - Session ID
  * @param branch - Current branch name
  * @param issueNumber - Linked issue number (or null)
+ * @param issueUrl - Linked issue URL (or null)
  * @param blockCount - Number of times blocked
  * @param skipInstructions - Skip instructions if subagent active
  * @returns Formatted agent instruction message
@@ -886,6 +984,7 @@ function formatAgentInstructions(
   sessionId: string,
   branch: string,
   issueNumber: number | null,
+  issueUrl: string | null,
   blockCount: number,
   skipInstructions: boolean
 ): string {
@@ -897,9 +996,17 @@ function formatAgentInstructions(
     ? '🤖 SESSION COMMIT CHECKPOINT'
     : `🤖 SESSION COMMIT CHECKPOINT (Attempt ${blockCount}/3)`;
 
-  const issueInstruction = issueNumber
-    ? `gh issue comment ${issueNumber} --body "..."`
-    : `Find issue number from branch ${branch} or create new issue`;
+  let issueSection = '';
+  if (issueNumber && issueUrl) {
+    issueSection = `
+**Linked Issue:** #${issueNumber}
+${issueUrl}
+
+   Command: gh issue comment ${issueNumber} --body "..."`;
+  } else {
+    issueSection = `
+   Command: Find issue number from branch ${branch} or create new issue`;
+  }
 
   return `${header}
 
@@ -918,8 +1025,7 @@ Please choose ONE of the following:
    - What work you checked/reviewed
    - What you accomplished
    - Any issues or confusion noted
-
-   Command: ${issueInstruction}
+${issueSection}
 
 The comment will auto-include your session ID for tracking.`;
 }
@@ -1038,32 +1144,43 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
     if (hasChanges) {
       const branch = await getCurrentBranch(input.cwd);
-      await execCommand('git add -A', input.cwd);
 
-      const commitMessage = formatCommitMessage(input.session_id, branch);
-      const commitResult = await execCommand(
-        `git commit -m ${JSON.stringify(commitMessage)}`,
-        input.cwd
-      );
-
-      if (commitResult.success) {
-        const shaResult = await execCommand('git rev-parse HEAD', input.cwd);
-        commitSha = shaResult.success ? shaResult.stdout.substring(0, 7) : 'unknown';
-        commitMade = true;
-
-        await logger.logOutput({ commit_made: true, commit_sha: commitSha });
-
-        // Increment block count for progressive blocking
-        await updateSessionStopState(input.session_id, {
-          blockCount: sessionState.blockCount + 1,
-          lastBlockTimestamp: new Date().toISOString()
-        }, input.cwd);
-
-        // Re-check branch sync after commit
-        const postCommitSync = await checkBranchSync(input.cwd);
-        syncCheck.aheadBy = postCommitSync.aheadBy;
+      // Only stage non-gitignored files
+      const filesToStage = await getNonIgnoredChanges(input.cwd);
+      if (filesToStage.length === 0) {
+        // All changes are gitignored - skip commit
+        await logger.logOutput({ skipped: true, reason: 'All changes are gitignored' });
       } else {
-        await logger.logOutput({ commit_failed: true, error: commitResult.stderr });
+        // Stage only non-ignored files
+        for (const file of filesToStage) {
+          await execCommand(`git add "${file}"`, input.cwd);
+        }
+
+        const commitMessage = formatCommitMessage(input.session_id, branch);
+        const commitResult = await execCommand(
+          `git commit -m ${JSON.stringify(commitMessage)}`,
+          input.cwd
+        );
+
+        if (commitResult.success) {
+          const shaResult = await execCommand('git rev-parse HEAD', input.cwd);
+          commitSha = shaResult.success ? shaResult.stdout.substring(0, 7) : 'unknown';
+          commitMade = true;
+
+          await logger.logOutput({ commit_made: true, commit_sha: commitSha });
+
+          // Increment block count for progressive blocking
+          await updateSessionStopState(input.session_id, {
+            blockCount: sessionState.blockCount + 1,
+            lastBlockTimestamp: new Date().toISOString()
+          }, input.cwd);
+
+          // Re-check branch sync after commit
+          const postCommitSync = await checkBranchSync(input.cwd);
+          syncCheck.aheadBy = postCommitSync.aheadBy;
+        } else {
+          await logger.logOutput({ commit_failed: true, error: commitResult.stderr });
+        }
       }
     }
 
@@ -1151,7 +1268,11 @@ ${ciCheckResult.output}`,
     }
 
     // No PR - check if comment posted for this session
-    const issueNumber = await getLinkedIssueNumber(currentBranch, input.cwd);
+    // First try branch-issues.json, then fallback to linked issue discovery
+    const branchIssueInfo = await getBranchIssueInfo(currentBranch, input.cwd);
+    const issueNumber = branchIssueInfo?.issueNumber ?? await getLinkedIssueNumber(currentBranch, input.cwd);
+    const issueUrl = branchIssueInfo?.issueUrl ?? null;
+
     if (issueNumber && await hasCommentForSession(issueNumber, input.session_id, input.cwd)) {
       // Comment posted - reset state and allow session to end
       await resetSessionStopState(input.session_id, input.cwd);
@@ -1178,7 +1299,7 @@ ${ciCheckResult.output}`,
       // Block with agent instructions (first or second block)
       return {
         decision: 'block',
-        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, updatedState.blockCount, hasSubagentActivity),
+        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, issueUrl, updatedState.blockCount, hasSubagentActivity),
         systemMessage: 'Claude is blocked from stopping - PR or issue comment required.',
       };
     }
