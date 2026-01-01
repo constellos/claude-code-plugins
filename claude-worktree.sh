@@ -18,10 +18,20 @@
 # Setup (add to ~/.bashrc or ~/.zshrc):
 #   source ~/constellos/claude-code-plugins/claude-worktree.sh
 #
+# Self-Update:
+#   The script auto-updates from origin/main when sourced or called.
+#   If updates are pulled, you'll be prompted to re-source your shell config.
+#
 # Known repo locations (searched in order):
 #   ~/constellos/
 #   ~/celestian-dev/
 #   ~/
+
+# Store the directory where this script lives (for self-update)
+_CW_SCRIPT_DIR=""
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+  _CW_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 
 # Known locations to search for repos
 _CW_REPO_PATHS=(
@@ -29,6 +39,49 @@ _CW_REPO_PATHS=(
   "${HOME}/celestian-dev"
   "${HOME}"
 )
+
+# Self-update function: pulls latest from origin/main if script repo has updates
+# Returns 0 if no update needed, 1 if updated (caller should re-source)
+_cw_self_update() {
+  # Only update if we know where the script lives and it's a git repo
+  if [[ -z "$_CW_SCRIPT_DIR" ]] || [[ ! -d "$_CW_SCRIPT_DIR/.git" ]]; then
+    return 0
+  fi
+
+  local current_dir="$PWD"
+  cd "$_CW_SCRIPT_DIR" || return 0
+
+  # Fetch latest from origin (silently)
+  if ! git fetch origin main --quiet 2>/dev/null; then
+    cd "$current_dir"
+    return 0
+  fi
+
+  # Check if we're behind origin/main
+  local local_hash=$(git rev-parse HEAD 2>/dev/null)
+  local remote_hash=$(git rev-parse origin/main 2>/dev/null)
+
+  if [[ "$local_hash" != "$remote_hash" ]]; then
+    # Check if we can fast-forward (no local changes)
+    if git merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
+      echo "🔄 Updating cw script from origin/main..."
+      if git pull --ff-only origin main --quiet 2>/dev/null; then
+        echo "✔ Updated successfully!"
+        echo ""
+        echo "⚠️  Please re-source your shell config to use the updated script:"
+        echo "   source ~/.bashrc  # or ~/.zshrc"
+        echo ""
+        cd "$current_dir"
+        return 1
+      fi
+    else
+      echo "⚠️  cw script has local changes, skipping auto-update"
+    fi
+  fi
+
+  cd "$current_dir"
+  return 0
+}
 
 # Find a repo by name or owner/name
 _cw_find_repo() {
@@ -124,6 +177,12 @@ _cw_is_sourced() {
 # Main worktree creation logic
 _cw_main() {
   set -e
+
+  # Self-update check: pull latest script from origin/main if available
+  if ! _cw_self_update; then
+    # Script was updated, user needs to re-source
+    return 0
+  fi
 
   local target_repo=""
 
