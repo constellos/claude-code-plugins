@@ -330,6 +330,6 @@ CLAUDE.md should NOT duplicate README.md content. Instead:
 
 ## References
 
-- [README Structure Rule](./plugin-readme-structure.md)
+- [README Structure Rule](./plugin-readme.md)
 - [Official Claude Code Plugins](https://github.com/anthropics/claude-code/tree/main/plugins)
 - [CLAUDE.md Template](../../templates/CLAUDE.template.md)
