@@ -1,6 +1,7 @@
 ---
 title: Claude Code Plugins Marketplace
 description: A marketplace of Claude Code plugins with shared TypeScript utilities and typed hooks for development workflows
+tags: [marketplace, plugins, hooks, architecture, installation, typescript, claude-code]
 folder:
   subfolders:
     allowed: [.claude, .claude-plugin, .github, docs, plugins, shared]

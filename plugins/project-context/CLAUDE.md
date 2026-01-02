@@ -2,6 +2,7 @@
 title: Project Context Plugin
 description: Context discovery, structure validation, and plan scoping for Claude Code projects
 version: 0.1.1
+tags: [context, claude, documentation, folder, structure, rules, plan, markdown, validation]
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks, shared]
