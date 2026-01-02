@@ -10,13 +10,19 @@ on:
 
 jobs:
   Lint:
-    name: Lint
-    uses: constellos/.github/.github/workflows/reusable-lint.yml@main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: constellos/.github/actions/lint@main
 
   Typecheck:
-    name: Typecheck
-    uses: constellos/.github/.github/workflows/reusable-typecheck.yml@main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: constellos/.github/actions/typecheck@main
 
-  Unit-Tests-Pass:
-    name: Unit Tests Pass
-    uses: constellos/.github/.github/workflows/reusable-unit-tests.yml@main
+  Unit-Tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: constellos/.github/actions/unit-tests@main
