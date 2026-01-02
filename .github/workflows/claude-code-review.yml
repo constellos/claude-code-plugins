@@ -1,0 +1,11 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  Claude-Code-Review:
+    name: Claude Code Review
+    uses: constellos/.github/.github/workflows/reusable-claude-code-review.yml@main
+    secrets: inherit

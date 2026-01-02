@@ -9,35 +9,14 @@ on:
   merge_group:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - run: bun run lint
+  Lint:
+    name: Lint
+    uses: constellos/.github/.github/workflows/reusable-lint.yml@main
 
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: bun install --frozen-lockfile
-      - run: bun run typecheck
+  Typecheck:
+    name: Typecheck
+    uses: constellos/.github/.github/workflows/reusable-typecheck.yml@main
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - run: bun run test
+  Unit-Tests-Pass:
+    name: Unit Tests Pass
+    uses: constellos/.github/.github/workflows/reusable-unit-tests.yml@main
