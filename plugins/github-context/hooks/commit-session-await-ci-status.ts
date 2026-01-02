@@ -47,7 +47,6 @@ import { getSessionStopState, updateSessionStopState, resetSessionStopState } fr
 import { hasCommentForSession, getLinkedIssueNumber } from '../shared/hooks/utils/github-comments.js';
 import {
   saveOutputToLog,
-  parseCiChecks,
   formatCiChecksTable,
 } from '../shared/hooks/utils/log-file.js';
 import {
@@ -1117,7 +1116,7 @@ ${checksTable}
       });
 
       // Fetch PR details
-      const ciRun = await getCIRunDetails(prCheck.prNumber, input.cwd);
+      const ciRun = await getCIRunDetails(prCheck.prNumber, input.cwd) ?? {};
       const vercelUrls = await extractPreviewUrls(prCheck.prNumber, input.cwd);
 
       if (commitMade) {
