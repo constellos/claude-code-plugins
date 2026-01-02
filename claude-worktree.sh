@@ -384,45 +384,48 @@ _cw_main() {
     local settings_file="${worktree_dir}/.claude/settings.json"
     local marketplace_file="${worktree_dir}/.claude-plugin/marketplace.json"
 
-    if [[ -f "$settings_file" ]] && [[ -f "$marketplace_file" ]] && command -v jq &>/dev/null; then
-      # Check if this repo uses local marketplace (constellos-local)
-      local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
+    if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
+      # Local marketplace registration (only for plugin repos with marketplace.json)
+      if [[ -f "$marketplace_file" ]]; then
+        # Check if this repo uses local marketplace (constellos-local)
+        local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
 
-      if [[ -n "$has_local_marketplace" ]]; then
-        echo "Registering local marketplace from worktree..."
+        if [[ -n "$has_local_marketplace" ]]; then
+          echo "Registering local marketplace from worktree..."
 
-        # Check current marketplace registration path
-        local current_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
+          # Check current marketplace registration path
+          local current_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
 
-        # Only update if path is different or doesn't exist
-        if [[ -z "$current_path" || "$current_path" != "$worktree_dir" ]]; then
-          if [[ -n "$current_path" ]]; then
-            echo "Updating marketplace from $current_path"
-          fi
+          # Only update if path is different or doesn't exist
+          if [[ -z "$current_path" || "$current_path" != "$worktree_dir" ]]; then
+            if [[ -n "$current_path" ]]; then
+              echo "Updating marketplace from $current_path"
+            fi
 
-          # Remove old marketplace registration (may point to different worktree)
-          claude plugin marketplace remove constellos-local 2>&1 || echo "  (Remove returned error - may be expected)"
+            # Remove old marketplace registration (may point to different worktree)
+            claude plugin marketplace remove constellos-local 2>&1 || echo "  (Remove returned error - may be expected)"
 
-          # Clear constellos-local cache to ensure fresh plugin install
-          if [[ -d ~/.claude/plugins/cache/constellos-local ]]; then
-            echo "Clearing stale constellos-local cache..."
-            rm -rf ~/.claude/plugins/cache/constellos-local
-          fi
+            # Clear constellos-local cache to ensure fresh plugin install
+            if [[ -d ~/.claude/plugins/cache/constellos-local ]]; then
+              echo "Clearing stale constellos-local cache..."
+              rm -rf ~/.claude/plugins/cache/constellos-local
+            fi
 
-          # Add marketplace from this worktree
-          if claude plugin marketplace add "$worktree_dir"; then
-            # Verify it was updated
-            local new_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
-            if [[ "$new_path" == "$worktree_dir" ]]; then
-              echo "✔ Marketplace constellos-local registered at $worktree_dir"
+            # Add marketplace from this worktree
+            if claude plugin marketplace add "$worktree_dir"; then
+              # Verify it was updated
+              local new_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
+              if [[ "$new_path" == "$worktree_dir" ]]; then
+                echo "✔ Marketplace constellos-local registered at $worktree_dir"
+              else
+                echo "⚠ Marketplace may not have updated correctly (path: $new_path)"
+              fi
             else
-              echo "⚠ Marketplace may not have updated correctly (path: $new_path)"
+              echo "⚠ Failed to add worktree marketplace"
             fi
           else
-            echo "⚠ Failed to add worktree marketplace"
+            echo "✔ Marketplace constellos-local already pointing to this worktree"
           fi
-        else
-          echo "✔ Marketplace constellos-local already pointing to this worktree"
         fi
       fi
 
