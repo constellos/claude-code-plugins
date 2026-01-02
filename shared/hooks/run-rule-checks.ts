@@ -78,15 +78,23 @@ function matchGlob(pattern: string, filePath: string): boolean {
   }
 
   // Convert glob to regex
+  // Use unique placeholders that won't appear in normal patterns
+  const DOUBLE_STAR_SLASH = '<<<DSS>>>';
+  const DOUBLE_STAR = '<<<DS>>>';
+
   const regexPattern = pattern
     // Escape special regex characters except * and ?
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    // Convert ** to match anything including /
-    .replace(/\*\*/g, '.*')
-    // Convert * to match anything except /
+    // Use placeholders to avoid * in replacements being re-replaced
+    .replace(/\*\*\//g, DOUBLE_STAR_SLASH)   // Placeholder for **/
+    .replace(/\*\*/g, DOUBLE_STAR)            // Placeholder for **
+    // Convert single * to match anything except /
     .replace(/\*/g, '[^/]*')
-    // Convert ? to match single character
-    .replace(/\?/g, '.');
+    // Convert ? to match single character (BEFORE restoring placeholders!)
+    .replace(/\?/g, '.')
+    // Restore placeholders with proper regex patterns
+    .replace(new RegExp(DOUBLE_STAR_SLASH, 'g'), '(?:.*/)?')  // **/ becomes optional path prefix
+    .replace(new RegExp(DOUBLE_STAR, 'g'), '.*');             // ** becomes match anything
 
   const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(filePath);
