@@ -54,7 +54,9 @@ _cw_item() {
 }
 
 # Self-update function: pulls latest from origin/main if script repo has updates
-# Returns 0 if no update needed, 1 if updated (caller should re-source)
+# If an update is found, exec-reinvokes with the updated script (never returns)
+# Returns 0 if no update needed
+# Arguments: All arguments to pass to cw on re-invocation
 _cw_self_update() {
   # Only update if we know where the script lives and it's a git repo
   if [[ -z "$_CW_SCRIPT_DIR" ]] || [[ ! -d "$_CW_SCRIPT_DIR/.git" ]]; then
@@ -110,14 +112,21 @@ _cw_self_update() {
       fi
     fi
 
+    echo "✔ cw script updated, re-invoking with new version..."
     echo ""
-    echo "⚠ cw script updated from remote"
-    echo ""
-    echo "  Run this command to reload:"
-    echo "    source ~/.bashrc"
-    echo ""
+
+    # Build quoted args string for re-invocation
+    local quoted_args=""
+    for arg in "$@"; do
+      quoted_args+=" $(printf '%q' "$arg")"
+    done
+
+    # Return to original directory before exec
     cd "$current_dir"
-    return 1
+
+    # Exec-reinvoke with updated script - this replaces the current process
+    # The new bash will source the updated script file and run cw
+    exec bash -c "source '$_CW_SCRIPT_DIR/claude-worktree.sh' && cw$quoted_args"
   else
     echo "⚠️  Could not fast-forward main (local changes?), skipping update"
     # Switch back if we switched
@@ -226,10 +235,8 @@ _cw_main() {
   set -e
 
   # Self-update check: pull latest script from origin/main if available
-  if ! _cw_self_update; then
-    # Script was updated, user needs to re-source
-    return 0
-  fi
+  # If update found, _cw_self_update will exec-reinvoke with new script (never returns)
+  _cw_self_update "$@"
 
   local target_repo=""
 
