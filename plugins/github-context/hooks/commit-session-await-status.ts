@@ -37,7 +37,7 @@
  * - Detects comments with session ID markers
  * - Discovers linked issues from branch context
  * - Accepts progress documentation as alternative to PR
- * @module commit-session-await-pr-checks
+ * @module commit-session-await-status
  */
 
 import type { StopInput, StopHookOutput } from '../shared/types/types.js';
@@ -49,7 +49,7 @@ import {
   saveOutputToLog,
   parseCiChecks,
   formatCiChecksTable,
-} from '../../../shared/hooks/utils/log-file.js';
+} from '../shared/hooks/utils/log-file.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';

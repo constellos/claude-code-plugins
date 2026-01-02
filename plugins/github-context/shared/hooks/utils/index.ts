@@ -125,3 +125,20 @@ export {
   isSubagentType,
   getTranscriptAgentId,
 } from './was-tool-event-main-agent.js';
+
+// ============================================================================
+// Log File Utilities
+// ============================================================================
+// Functions for saving hook output to log files and parsing tool output
+// (ESLint, TypeScript, Vitest, CI checks).
+
+export {
+  saveOutputToLog,
+  parseEslintCounts,
+  parseTscErrorCount,
+  parseVitestResults,
+  parseCiChecks,
+  formatCiChecksTable,
+  formatErrorSummary,
+  formatSuccessMessage,
+} from './log-file.js';

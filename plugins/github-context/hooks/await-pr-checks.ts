@@ -26,7 +26,7 @@ import {
   saveOutputToLog,
   parseCiChecks,
   formatCiChecksTable,
-} from '../../../shared/hooks/utils/log-file.js';
+} from '../shared/hooks/utils/log-file.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
