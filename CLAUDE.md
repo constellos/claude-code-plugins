@@ -37,6 +37,7 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
 │   │   │   ├── package-manager.ts # Package manager detection
 │   │   │   ├── toml.ts        # TOML parser
 │   │   │   ├── was-tool-event-main-agent.ts # Agent detection
+│   │   │   ├── ci-status.ts   # CI status utilities (wait, preview URLs)
 │   │   │   └── index.ts       # Exports all utilities
 │   │   ├── log-subagent-start.ts  # SubagentStart hook
 │   │   ├── log-subagent-stop.ts   # SubagentStop hook
@@ -58,10 +59,12 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── hooks.json
     │       ├── install-github.ts           # SessionStart: install GitHub CLI
     │       ├── add-github-context.ts       # SessionStart: branch context & issues
+    │       ├── create-issue-on-prompt.ts   # UserPromptSubmit: create issue on first prompt
     │       ├── sync-plan-to-issue.ts       # PostToolUse[Write|Edit]: plan sync
     │       ├── enhance-commit-context.ts   # PostToolUse[Bash]: commit enhancement
-    │       ├── commit-task.ts              # SubagentStop: auto-commit agent work
-    │       └── commit-session-check-pr-status.ts  # Stop: session commit & PR checks
+    │       ├── await-pr-status.ts          # PostToolUse[Bash]: wait for CI after PR create
+    │       ├── commit-task-await-ci-status.ts    # SubagentStop: auto-commit + CI wait
+    │       └── commit-session-await-ci-status.ts # Stop: session commit + CI status
     │
     ├── nextjs-supabase-ai-sdk-dev/
     │   ├── .claude-plugin/plugin.json
@@ -69,14 +72,7 @@ A marketplace of Claude Code plugins with shared TypeScript utilities. This is N
     │       ├── hooks.json
     │       ├── install-vercel.ts           # SessionStart: install Vercel CLI
     │       ├── install-supabase.ts         # SessionStart: install Supabase CLI
-    │       ├── check-file-eslint.ts        # PostToolUse[Write|Edit]: ESLint on file
-    │       ├── check-file-types.ts         # PostToolUse[Write|Edit]: TypeScript on file
-    │       ├── check-file-tsdoc.ts         # PostToolUse[Write|Edit]: TSDoc validation
-    │       ├── check-file-vitest-results.ts # PostToolUse[Write|Edit]: Vitest on test files
-    │       ├── encourage-ui-review.ts      # PostToolUse[Task]: encourage ui-reviewer
-    │       ├── check-global-eslint.ts      # Stop: ESLint on all (blocking)
-    │       ├── check-global-types.ts       # Stop: TypeScript on all (blocking)
-    │       └── check-global-vitest-results.ts # Stop: Vitest on all (blocking)
+    │       └── encourage-ui-review.ts      # PostToolUse[Task]: encourage ui-reviewer
     │
     └── project-context/
         ├── .claude-plugin/plugin.json
@@ -182,6 +178,7 @@ import type {
 - **package-manager.ts** - Detect npm/yarn/pnpm/bun from lockfiles
 - **toml.ts** - Simple TOML parser for config files
 - **was-tool-event-main-agent.ts** - Detect if tool event is from main agent or subagent
+- **ci-status.ts** - Shared CI status utilities (wait for checks, extract preview URLs, format status)
 - **index.ts** - Re-exports all utilities
 
 ### Shared Hooks (`shared/hooks/`)
@@ -214,10 +211,12 @@ Provides comprehensive GitHub integration including CLI installation, branch/iss
 **Hooks:**
 - **SessionStart** (`install-github.ts`) - Installs GitHub CLI on remote environments, warns if missing locally (non-blocking)
 - **SessionStart** (`add-github-context.ts`) - Displays linked GitHub issue for current branch, branch sync status, and outstanding issues (non-blocking)
+- **UserPromptSubmit** (`create-issue-on-prompt.ts`) - Creates GitHub issue on first user prompt for branch tracking (non-blocking)
 - **PostToolUse[Write|Edit]** (`sync-plan-to-issue.ts`) - Automatically creates or updates GitHub issues from plan files (non-blocking)
 - **PostToolUse[Bash]** (`enhance-commit-context.ts`) - Enhances git commits with task context and issue references for both main agent and subagents (non-blocking)
-- **SubagentStop** (`commit-task.ts`) - Auto-commits subagent work with task context and git trailers (non-blocking)
-- **Stop** (`commit-session-check-pr-status.ts`) - Auto-commits session changes, checks PR status, and reports CI/preview URLs with progressive blocking
+- **PostToolUse[Bash]** (`await-pr-status.ts`) - Waits for CI checks after `gh pr create` command (non-blocking)
+- **SubagentStop** (`commit-task-await-ci-status.ts`) - Auto-commits subagent work with task context, waits for CI if triggered (non-blocking)
+- **Stop** (`commit-session-await-ci-status.ts`) - Auto-commits session changes, waits for CI, reports status with emoji table (progressive blocking)
 
 **Key Features:**
 - **Branch Context Discovery:** Shows full GitHub issue content (title, body, comments) linked to current branch
@@ -226,6 +225,7 @@ Provides comprehensive GitHub integration including CLI installation, branch/iss
 - **Auto-commit:** Automatically commits subagent work with rich task context
 - **Plan Synchronization:** Creates/updates GitHub issues from plan files automatically
 - **Commit Enhancement:** Enriches commits with task and issue metadata
+- **CI Status Waiting:** Waits for CI checks after commits and PR creation (10 min timeout, 500 char output limit)
 - **PR Status Monitoring:** Checks PR status at session end with CI and preview URL reporting
 
 **Use Cases:**
@@ -237,10 +237,10 @@ Provides comprehensive GitHub integration including CLI installation, branch/iss
 
 ### nextjs-supabase-ai-sdk-dev
 
-Development quality enforcement for Next.js, Supabase, and AI SDK projects with comprehensive linting, type checking, testing, and CLI installation.
+Development environment setup for Next.js, Supabase, and AI SDK projects with CLI installation and UI review encouragement.
 
 **Purpose:**
-Ensures code quality through automated checks at both file and project levels. Installs Vercel and Supabase CLIs on remote environments, runs per-file quality checks on edits, and performs comprehensive project-wide validation at session end.
+Provides development tooling setup by installing Vercel and Supabase CLIs on remote environments, tracking task context for subagent workflows, and encouraging UI review after development work. Per-file quality checks (lint, typecheck, vitest) are handled by the rule-based check system in project-context plugin.
 
 **Hooks:**
 - **SessionStart** (`install-vercel.ts`) - Installs Vercel CLI on remote environments, warns if missing locally (non-blocking)
@@ -248,29 +248,19 @@ Ensures code quality through automated checks at both file and project levels. I
 - **PreToolUse[Task]** (shared `log-task-call.ts`) - Logs Task tool calls and saves context for SubagentStop hooks (non-blocking)
 - **PostToolUse[Task]** (shared `log-task-result.ts`) - Logs Task tool results after agent completion (non-blocking)
 - **PostToolUse[Task]** (`encourage-ui-review.ts`) - Encourages ui-reviewer agent after ui-developer completes (non-blocking)
-- **PostToolUse[Write|Edit]** (`check-file-eslint.ts`) - Runs ESLint on individual files after edits (non-blocking, informational)
-- **PostToolUse[Write|Edit]** (`check-file-types.ts`) - Runs TypeScript type checking on individual files after edits (non-blocking, informational)
-- **PostToolUse[Write|Edit]** (`check-file-tsdoc.ts`) - Validates TSDoc documentation on TypeScript files after edits (non-blocking, informational)
-- **PostToolUse[Write|Edit test files]** (`check-file-vitest-results.ts`) - Runs Vitest on test files after edits (non-blocking, informational)
-- **Stop** (`check-global-eslint.ts`) - Runs ESLint on entire project at session end (blocking)
-- **Stop** (`check-global-types.ts`) - Runs TypeScript type checking on entire project at session end (blocking)
-- **Stop** (`check-global-vitest-results.ts`) - Runs full Vitest test suite at session end (blocking)
 
 **Key Features:**
 - **CLI Installation:** Automatic installation of Vercel and Supabase CLIs on remote environments
-- **Per-File Checks:** Immediate feedback on ESLint, TypeScript, and TSDoc issues after each file edit
-- **Test Execution:** Automatic test running when test files are modified
-- **Project-Wide Validation:** Comprehensive checks at session end ensure no issues slip through
-- **Blocking Stop Hooks:** Prevents ending session with linting errors, type errors, or failing tests
 - **Task Tracking:** Logs all Task tool calls for context in SubagentStop hooks
 - **UI Review Encouragement:** Prompts for visual review after UI development work
 
+**Note:** Per-file quality checks (ESLint, TypeScript, Vitest) are now handled by the rule-based check system. See the "Rule-Based Check System" section below.
+
 **Use Cases:**
-- Next.js application development
-- TypeScript projects requiring strict type safety
-- Projects with comprehensive test suites
-- Teams enforcing code quality standards
-- CI/CD workflows requiring pre-push validation
+- Next.js application development with Vercel deployment
+- Supabase-integrated projects requiring CLI access
+- UI development workflows with review encouragement
+- Multi-agent workflows requiring task context tracking
 
 ### project-context
 
@@ -288,14 +278,13 @@ Automatically discovers and links CLAUDE.md documentation, validates project str
 - **PreToolUse[WebFetch]** (`try-markdown-page.ts`) - Redirects WebFetch to markdown versions of documentation when available (non-blocking)
 - **PostToolUse[Task]** (shared `log-task-result.ts`) - Logs Task tool results after completion (non-blocking)
 - **PostToolUse[Write|Edit]** (`create-plan-symlink.ts`) - Creates PLAN.md symlink when plan files are written (non-blocking)
-- **PostToolUse[Write|Edit]** (shared `enforce-plan-scoping.ts`) - Enforces plan-based path scoping for write/edit operations (can block on scope violations)
+- **PostToolUse[Write|Edit]** (shared `run-rule-checks.ts`) - Runs checks defined in rule file frontmatter (blocking on failure, 500 char limit)
 - **PostToolUse[Read]** (`add-folder-context.ts`) - Discovers and adds CLAUDE.md context when reading files (non-blocking)
-- **PostToolUse[Read]** (shared `enforce-plan-scoping.ts`) - Warns when reads are outside plan scope (non-blocking, guidance only)
 
 **Key Features:**
+- **Rule-Based Checks:** Runs lint, typecheck, vitest on files matching rule globs (see "Rule-Based Check System" below)
 - **Automatic Context Discovery:** Finds and links CLAUDE.md files when reading project files
 - **Folder Structure Validation:** Ensures .claude directories follow proper organization standards
-- **Plan Scoping:** Enforces staying within plan boundaries for file operations
 - **Rules Validation:** Ensures rule files have proper structure and Required Skills metadata
 - **Context Encouragement:** Prompts to update documentation based on user activity
 - **Markdown Preference:** Automatically redirects to .md versions of documentation URLs
@@ -309,6 +298,79 @@ Automatically discovers and links CLAUDE.md documentation, validates project str
 - Documentation-heavy projects
 - Teams enforcing project structure standards
 - Research-oriented development (prefers markdown docs)
+
+## Rule-Based Check System
+
+The rule-based check system replaces per-plugin quality checks with a centralized, configurable approach. Checks are defined in `.claude/rules/*.md` file frontmatter and only run on files matching the specified glob patterns.
+
+### How It Works
+
+1. **Define checks in rule frontmatter** - Each rule file in `.claude/rules/` can specify which checks to run via YAML frontmatter
+2. **Glob-based file matching** - Checks only run on files matching the rule's `globs` patterns
+3. **Blocking on failure** - Failed checks block the edit with actionable error messages
+4. **Output truncation** - Error output is limited to 500 characters to prevent context bloat
+
+### Frontmatter Format
+
+```yaml
+---
+globs: ["**/*.ts", "**/*.tsx", "!**/*.test.ts"]
+checks:
+  - lint
+  - typecheck
+---
+```
+
+### Supported Check Types
+
+| Check | Command | Description |
+|-------|---------|-------------|
+| `lint` | `npx eslint {file}` | ESLint on specific file |
+| `typecheck` | `npx tsc --noEmit {file}` | TypeScript check on specific file |
+| `vitest` | `npx vitest run {file}` | Vitest on specific file |
+
+### Example Rule Files
+
+**TypeScript source files** (`.claude/rules/typescript.md`):
+```yaml
+---
+globs: ["**/*.ts", "**/*.tsx", "!**/*.test.ts", "!**/*.test.tsx"]
+checks:
+  - lint
+  - typecheck
+---
+
+# TypeScript Files
+
+## Required Skills: None
+
+TypeScript source files must pass lint and type checks.
+```
+
+**Test files** (`.claude/rules/tests.md`):
+```yaml
+---
+globs: ["**/*.test.ts", "**/*.test.tsx"]
+checks:
+  - lint
+  - typecheck
+  - vitest
+---
+
+# Test Files
+
+## Required Skills: None
+
+Test files must pass lint, type checks, and vitest.
+```
+
+### Benefits
+
+- **No context bloat** - Checks only run on matching files, not project-wide
+- **Configurable per-project** - Each project defines its own rules
+- **Blocking behavior** - Ensures code quality before continuing
+- **Truncated output** - 500 char limit prevents context overflow
+- **File-specific** - Runs checks on the edited file, not the entire project
 
 ## Vercel Preview Configuration
 
