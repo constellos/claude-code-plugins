@@ -490,23 +490,16 @@ _cw_main() {
         while IFS= read -r plugin; do
           local plugin_name="${plugin%@*}"
           local marketplace="${plugin#*@}"
-          echo "Installing plugin \"${plugin_name}\"..."
-
-          # Clear plugin cache
-          rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
 
           # Uninstall (suppress "not installed" message but show other errors)
           claude plugin uninstall --scope project "$plugin" 2>&1 | grep -v "not installed" || true
 
-          # Install and verify
+          # Clear this plugin's cache
+          rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
+
+          # Reinstall
           if claude plugin install --scope project "$plugin"; then
-            # Verify cache was created
-            local cache_path="$HOME/.claude/plugins/cache/${marketplace}/${plugin_name}"
-            if [[ -d "$cache_path" ]]; then
-              echo "✔ Installed: ${plugin_name} (scope: project)"
-            else
-              echo "⚠ Installed but cache not found at: $cache_path"
-            fi
+            echo "✔ Installed: ${plugin_name} (scope: project)"
           else
             echo "✘ Failed to install: ${plugin_name}"
           fi
