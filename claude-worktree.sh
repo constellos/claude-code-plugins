@@ -40,6 +40,19 @@ _CW_REPO_PATHS=(
   "${HOME}"
 )
 
+# Output formatting helpers
+_cw_section() {
+  local title="$1"
+  echo ""
+  echo "─── $title ───"
+}
+
+_cw_item() {
+  local status="$1"
+  local message="$2"
+  echo "  $status $message"
+}
+
 # Self-update function: pulls latest from origin/main if script repo has updates
 # Returns 0 if no update needed, 1 if updated (caller should re-source)
 _cw_self_update() {
@@ -88,8 +101,6 @@ _cw_self_update() {
 
   # Now update main
   if git pull --ff-only origin main --quiet 2>/dev/null; then
-    echo "✔ Updated successfully!"
-
     # Switch back to original branch if we switched
     if [[ -n "$switched_branch" ]]; then
       git checkout "$switched_branch" --quiet 2>/dev/null
@@ -100,8 +111,10 @@ _cw_self_update() {
     fi
 
     echo ""
-    echo "⚠️  Please re-source your shell config to use the updated script:"
-    echo "   source ~/.bashrc  # or ~/.zshrc"
+    echo "⚠ cw script updated from remote"
+    echo ""
+    echo "  Run this command to reload:"
+    echo "    source ~/.bashrc"
     echo ""
     cd "$current_dir"
     return 1
@@ -231,7 +244,6 @@ _cw_main() {
   # If we have a target repo, cd to it
   if [[ -n "$target_repo" ]]; then
     cd "$target_repo"
-    echo "Using repo: $target_repo"
   fi
 
   # Adjectives for branch naming
@@ -267,13 +279,11 @@ _cw_main() {
 
   # Check if we're currently in a worktree
   if [[ -f .git ]]; then
-    echo "Currently in a worktree, navigating to parent repository..."
     local gitdir=$(grep "gitdir:" .git | cut -d' ' -f2)
     local parent_repo=$(echo "$gitdir" | sed 's/\.git\/worktrees\/.*//')
 
     if [[ -d "$parent_repo" ]]; then
       cd "$parent_repo"
-      echo "Switched to parent repo: $(pwd)"
     else
       echo "Error: Could not find parent repository at $parent_repo"
       return 1
@@ -284,91 +294,28 @@ _cw_main() {
   local repo_root=$(git rev-parse --show-toplevel)
   local repo_name=$(basename "$repo_root")
   local worktree_base="${HOME}/.claude-worktrees/${repo_name}"
-
-  # Detect remote early (needed for cleanup)
-  local remote=$(git remote | head -1)
-
-  # Validate remote and fetch
-  if [[ -z "$remote" ]]; then
-    echo "Warning: No git remote configured, skipping stale worktree cleanup"
-  else
-    echo "Fetching remote refs from $remote..."
-    git fetch --prune "$remote" 2>/dev/null || echo "Warning: Failed to fetch, cleanup may be incomplete"
-  fi
-
-  # Clean up stale worktrees (branches deleted locally OR on remote)
-  if [[ -d "$worktree_base" ]]; then
-    echo "Checking for stale worktrees..."
-    local stale_count=0
-
-    # Cache remote branches using ls-remote (more reliable than local refs)
-    # Single network call, then check against cached list
-    local remote_branches=""
-    if [[ -n "$remote" ]]; then
-      remote_branches=$(git ls-remote --heads "$remote" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||')
-    fi
-
-    # Parse worktree list in porcelain format
-    local wt_path=""
-    local is_locked=false
-    while IFS= read -r line; do
-      if [[ "$line" == "worktree "* ]]; then
-        wt_path="${line#worktree }"
-        is_locked=false
-      elif [[ "$line" == "locked"* ]]; then
-        is_locked=true
-      elif [[ "$line" == "branch "* ]]; then
-        local branch="${line#branch refs/heads/}"
-
-        # Only clean up claude-* branches in our worktree directory
-        if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
-          # Skip locked worktrees
-          if [[ "$is_locked" == true ]]; then
-            echo "Skipping locked worktree: $branch"
-          else
-            local should_remove=false
-            local reason=""
-
-            # Check if branch still exists locally
-            if ! git show-ref --verify --quiet "refs/heads/$branch"; then
-              should_remove=true
-              reason="local branch deleted"
-            # Check if branch was deleted from remote (using cached ls-remote results)
-            elif [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
-              should_remove=true
-              reason="deleted from $remote"
-            fi
-
-            if [[ "$should_remove" == true ]]; then
-              echo "Removing stale worktree: $branch ($reason)"
-              if git worktree remove --force "$wt_path" 2>/dev/null; then
-                ((stale_count++)) || true
-              else
-                echo "  Warning: Failed to remove worktree at $wt_path"
-              fi
-            fi
-          fi
-        fi
-        wt_path=""
-        is_locked=false
-      elif [[ -z "$line" ]]; then
-        # Empty line separates worktree entries - reset state
-        wt_path=""
-        is_locked=false
-      fi
-    done < <(git worktree list --porcelain)
-
-    # Prune any worktrees with missing directories
-    git worktree prune
-
-    if [[ $stale_count -gt 0 ]]; then
-      echo "Cleaned up $stale_count stale worktree(s)"
-    else
-      echo "No stale worktrees found"
-    fi
-  fi
-
   local worktree_dir="${worktree_base}/${branch_name}"
+
+  # Detect remote
+  local remote=$(git remote | head -1)
+  if [[ -z "$remote" ]]; then
+    echo "Error: No git remote configured"
+    return 1
+  fi
+
+  # Show header
+  echo ""
+  echo "claude-worktree (cw) ${repo_name}"
+  echo "═══════════════════════════════════════"
+
+  # Status checks section
+  _cw_section "Status"
+
+  # Check cw script is up to date (already done in _cw_self_update, just report success)
+  _cw_item "✔" "cw script up to date"
+
+  # Fetch and check main branch sync
+  git fetch --prune "$remote" 2>/dev/null || true
 
   # Detect main branch
   local main_branch=""
@@ -381,140 +328,185 @@ _cw_main() {
     return 1
   fi
 
-  # Fetch latest from remote main branch
-  echo "Fetching latest from ${remote}/${main_branch}..."
-  git fetch "$remote" "$main_branch"
-
-  # Update local main
-  echo "Updating local ${main_branch} from ${remote}/${main_branch}..."
+  # Sync local main with remote
   local current_branch=$(git branch --show-current)
   if [[ "$current_branch" == "$main_branch" ]]; then
-    if ! git pull --ff-only "$remote" "$main_branch"; then
-      echo "Error: Failed to pull ${remote}/${main_branch}"
-      echo "Resolve manually before creating a worktree."
+    if git pull --ff-only "$remote" "$main_branch" 2>/dev/null; then
+      _cw_item "✔" "local ${main_branch} synced with ${remote}/${main_branch}"
+    else
+      _cw_item "⚠" "local ${main_branch} has diverged (resolve manually)"
       return 1
     fi
   else
-    if ! git fetch "$remote" "${main_branch}:${main_branch}"; then
-      echo "Error: Failed to update local ${main_branch}"
-      echo "Resolve manually before creating a worktree."
+    if git fetch "$remote" "${main_branch}:${main_branch}" 2>/dev/null; then
+      _cw_item "✔" "local ${main_branch} synced with ${remote}/${main_branch}"
+    else
+      _cw_item "⚠" "failed to update local ${main_branch}"
       return 1
     fi
   fi
-  echo "Local ${main_branch} updated successfully."
 
-  echo "Creating: $branch_name"
-  echo "From: ${remote}/${main_branch}"
+  # Clean up stale worktrees
+  local stale_count=0
+  if [[ -d "$worktree_base" ]]; then
+    local remote_branches=""
+    remote_branches=$(git ls-remote --heads "$remote" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||')
 
-  # Create worktree
-  git worktree add -b "$branch_name" "$worktree_dir" "${remote}/${main_branch}"
-
-  if [[ $? -eq 0 ]]; then
-    cd "$worktree_dir"
-    echo "Worktree ready at: $worktree_dir"
-
-    # Plugin refresh (non-fatal)
-    set +e
-    local settings_file="${worktree_dir}/.claude/settings.json"
-    local marketplace_file="${worktree_dir}/.claude-plugin/marketplace.json"
-
-    if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
-      # Local marketplace registration (only for plugin repos with marketplace.json)
-      if [[ -f "$marketplace_file" ]]; then
-        # Check if this repo uses local marketplace (constellos-local)
-        local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
-
-        if [[ -n "$has_local_marketplace" ]]; then
-          echo "Registering local marketplace from worktree..."
-
-          # Check current marketplace registration path
-          local current_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
-
-          # Only update if path is different or doesn't exist
-          if [[ -z "$current_path" || "$current_path" != "$worktree_dir" ]]; then
-            if [[ -n "$current_path" ]]; then
-              echo "Updating marketplace from $current_path"
+    local wt_path=""
+    local is_locked=false
+    while IFS= read -r line; do
+      if [[ "$line" == "worktree "* ]]; then
+        wt_path="${line#worktree }"
+        is_locked=false
+      elif [[ "$line" == "locked"* ]]; then
+        is_locked=true
+      elif [[ "$line" == "branch "* ]]; then
+        local branch="${line#branch refs/heads/}"
+        if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
+          if [[ "$is_locked" != true ]]; then
+            local should_remove=false
+            if ! git show-ref --verify --quiet "refs/heads/$branch"; then
+              should_remove=true
+            elif [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
+              should_remove=true
             fi
-
-            # Remove old marketplace registration (may point to different worktree)
-            claude plugin marketplace remove constellos-local 2>&1 || echo "  (Remove returned error - may be expected)"
-
-            # Clear constellos-local cache to ensure fresh plugin install
-            if [[ -d ~/.claude/plugins/cache/constellos-local ]]; then
-              echo "Clearing stale constellos-local cache..."
-              rm -rf ~/.claude/plugins/cache/constellos-local
-            fi
-
-            # Add marketplace from this worktree
-            if claude plugin marketplace add "$worktree_dir"; then
-              # Verify it was updated
-              local new_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
-              if [[ "$new_path" == "$worktree_dir" ]]; then
-                echo "✔ Marketplace constellos-local registered at $worktree_dir"
-              else
-                echo "⚠ Marketplace may not have updated correctly (path: $new_path)"
+            if [[ "$should_remove" == true ]]; then
+              if git worktree remove --force "$wt_path" 2>/dev/null; then
+                ((stale_count++)) || true
               fi
-            else
-              echo "⚠ Failed to add worktree marketplace"
             fi
-          else
-            echo "✔ Marketplace constellos-local already pointing to this worktree"
           fi
         fi
+        wt_path=""
+        is_locked=false
+      elif [[ -z "$line" ]]; then
+        wt_path=""
+        is_locked=false
       fi
+    done < <(git worktree list --porcelain)
+    git worktree prune 2>/dev/null
+  fi
 
-      # Update git-based marketplaces before installing plugins
-      local marketplace_names=$(jq -r '.extraKnownMarketplaces | keys[]' "$settings_file" 2>/dev/null)
-      if [[ -n "$marketplace_names" ]]; then
-        while IFS= read -r marketplace_name; do
-          local marketplace_source=$(jq -r ".extraKnownMarketplaces[\"$marketplace_name\"].source.source" "$settings_file" 2>/dev/null)
-          local marketplace_path="$HOME/.claude/plugins/marketplaces/$marketplace_name"
+  if [[ $stale_count -gt 0 ]]; then
+    _cw_item "✔" "cleaned ${stale_count} stale worktree(s)"
+  fi
 
-          # Update git/github-based marketplaces (skip local/directory sources)
-          if [[ "$marketplace_source" == "github" || "$marketplace_source" == "git" ]] && [[ -d "$marketplace_path/.git" ]]; then
-            echo "Updating marketplace: $marketplace_name..."
-            if git -C "$marketplace_path" fetch origin main --quiet 2>/dev/null && \
-               git -C "$marketplace_path" reset --hard origin/main --quiet 2>/dev/null; then
-              echo "✔ Marketplace $marketplace_name updated"
-            else
-              echo "⚠ Could not update $marketplace_name marketplace (will use cached version)"
-            fi
-          fi
-        done <<< "$marketplace_names"
-      fi
-
-      # Install plugins from worktree settings
-      local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
-      if [[ -n "$plugins" ]]; then
-        echo "Installing plugins..."
-        while IFS= read -r plugin; do
-          local plugin_name="${plugin%@*}"
-          local marketplace="${plugin#*@}"
-
-          # Uninstall (suppress "not installed" message but show other errors)
-          claude plugin uninstall --scope project "$plugin" 2>&1 | grep -v "not installed" || true
-
-          # Clear this plugin's cache
-          rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
-
-          # Reinstall
-          if claude plugin install --scope project "$plugin"; then
-            echo "✔ Installed: ${plugin_name} (scope: project)"
-          else
-            echo "✘ Failed to install: ${plugin_name}"
-          fi
-        done <<< "$plugins"
-      fi
-    fi
-    set -e
-
-    # Launch Claude Code
-    claude "$@"
-    echo "Claude exited. You're in: $(pwd)"
-  else
-    echo "Error: Failed to create worktree"
+  # Create worktree
+  _cw_section "Worktree"
+  if ! git worktree add -b "$branch_name" "$worktree_dir" "${remote}/${main_branch}" 2>/dev/null; then
+    _cw_item "✘" "failed to create worktree"
     return 1
   fi
+  _cw_item "✔" "branch: ${branch_name}"
+  _cw_item "✔" "path: ${worktree_dir/#$HOME/~}"
+
+  cd "$worktree_dir"
+
+  # Plugin refresh (non-fatal)
+  set +e
+  local settings_file="${worktree_dir}/.claude/settings.json"
+  local marketplace_file="${worktree_dir}/.claude-plugin/marketplace.json"
+  local registered_local_marketplace=""
+  local has_marketplace_output=false
+
+  if [[ -f "$settings_file" ]] && command -v jq &>/dev/null; then
+    # Local marketplace registration (only for plugin repos with marketplace.json)
+    if [[ -f "$marketplace_file" ]]; then
+      local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
+
+      if [[ -n "$has_local_marketplace" ]]; then
+        local current_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
+
+        if [[ -z "$current_path" || "$current_path" != "$worktree_dir" ]]; then
+          claude plugin marketplace remove constellos-local &>/dev/null || true
+          rm -rf ~/.claude/plugins/cache/constellos-local 2>/dev/null
+
+          if [[ "$has_marketplace_output" == false ]]; then
+            _cw_section "Marketplace"
+            has_marketplace_output=true
+          fi
+
+          if claude plugin marketplace add "$worktree_dir" &>/dev/null; then
+            _cw_item "✔" "constellos-local registered"
+            registered_local_marketplace="constellos-local"
+          else
+            _cw_item "⚠" "constellos-local failed"
+          fi
+        else
+          registered_local_marketplace="constellos-local"
+        fi
+      fi
+    fi
+
+    # Update git-based marketplaces
+    local marketplace_names=$(jq -r '.extraKnownMarketplaces | keys[]' "$settings_file" 2>/dev/null)
+    if [[ -n "$marketplace_names" ]]; then
+      while IFS= read -r marketplace_name; do
+        local marketplace_source=$(jq -r ".extraKnownMarketplaces[\"$marketplace_name\"].source.source" "$settings_file" 2>/dev/null)
+        local marketplace_path="$HOME/.claude/plugins/marketplaces/$marketplace_name"
+
+        if [[ "$marketplace_source" == "github" || "$marketplace_source" == "git" ]] && [[ -d "$marketplace_path/.git" ]]; then
+          if [[ "$has_marketplace_output" == false ]]; then
+            _cw_section "Marketplace"
+            has_marketplace_output=true
+          fi
+
+          if git -C "$marketplace_path" fetch origin main --quiet 2>/dev/null && \
+             git -C "$marketplace_path" reset --hard origin/main --quiet 2>/dev/null; then
+            _cw_item "✔" "${marketplace_name} updated"
+          else
+            _cw_item "⚠" "${marketplace_name} (cached)"
+          fi
+        fi
+      done <<< "$marketplace_names"
+    fi
+
+    # Install plugins from worktree settings
+    local plugins=$(jq -r '.enabledPlugins | keys[]' "$settings_file" 2>/dev/null)
+    if [[ -n "$plugins" ]]; then
+      _cw_section "Plugins"
+      local plugin_count=0
+      local installed_count=0
+
+      while IFS= read -r plugin; do
+        local plugin_name="${plugin%@*}"
+        local marketplace="${plugin#*@}"
+
+        # Skip plugins from just-registered local marketplace (already installed by marketplace add)
+        if [[ "$marketplace" == "$registered_local_marketplace" ]]; then
+          _cw_item "✔" "${plugin}"
+          ((plugin_count++)) || true
+          ((installed_count++)) || true
+          continue
+        fi
+
+        ((plugin_count++)) || true
+
+        # Uninstall quietly
+        claude plugin uninstall --scope project "$plugin" &>/dev/null || true
+
+        # Clear this plugin's cache
+        rm -rf ~/.claude/plugins/cache/"${marketplace}"/"${plugin_name}" 2>/dev/null || true
+
+        # Reinstall (suppress verbose output)
+        if claude plugin install --scope project "$plugin" &>/dev/null; then
+          _cw_item "✔" "${plugin}"
+          ((installed_count++)) || true
+        else
+          _cw_item "✘" "${plugin}"
+        fi
+      done <<< "$plugins"
+    fi
+  fi
+  set -e
+
+  # Ready message
+  echo ""
+  echo "Ready!"
+
+  # Launch Claude Code
+  claude "$@"
+  echo "Claude exited. You're in: $(pwd)"
 }
 
 # The cw function that users call
