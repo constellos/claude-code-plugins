@@ -285,7 +285,7 @@ ${input.prompt}
 *Issue created automatically on first user prompt.*`;
 
     const result = await execGhWithStdin(
-      ['issue', 'create', '--title', title, '--body-file', '-', '--label', 'session'],
+      ['issue', 'create', '--title', title, '--body-file', '-'],
       body,
       input.cwd
     );
