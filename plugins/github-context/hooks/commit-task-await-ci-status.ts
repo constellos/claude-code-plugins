@@ -32,30 +32,9 @@ import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getTaskEdits } from '../shared/hooks/utils/task-state.js';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { execCommand } from '../shared/hooks/utils/ci-status.js';
 
-const execAsync = promisify(exec);
-
-/**
- * Execute a git command and return the result
- */
-async function gitExec(
-  command: string,
-  cwd: string
-): Promise<{ success: boolean; stdout: string; stderr: string }> {
-  try {
-    const { stdout, stderr } = await execAsync(command, { cwd, timeout: 30000 });
-    return { success: true, stdout: stdout.trim(), stderr: stderr.trim() };
-  } catch (error: unknown) {
-    const err = error as { stdout?: string; stderr?: string; message?: string };
-    return {
-      success: false,
-      stdout: err.stdout?.trim() || '',
-      stderr: err.stderr?.trim() || err.message || '',
-    };
-  }
-}
+// Using shared execCommand from ci-status.ts
 
 /**
  * Format commit message with task prompt and git trailers
@@ -124,7 +103,7 @@ async function handler(
     });
 
     // Check if we're in a git repository
-    const gitCheck = await gitExec('git rev-parse --is-inside-work-tree', input.cwd);
+    const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);
     if (!gitCheck.success) {
       await logger.logOutput({ skipped: true, reason: 'Not a git repository' });
       return {};
@@ -170,7 +149,7 @@ async function handler(
       const isDeleted = agentDeletedFiles.includes(file);
       const cmd = isDeleted ? `git rm "${file}"` : `git add "${file}"`;
 
-      const addResult = await gitExec(cmd, input.cwd);
+      const addResult = await execCommand(cmd, input.cwd);
       if (!addResult.success) {
         // Log warning but continue with other files
         await logger.logOutput({
@@ -181,7 +160,7 @@ async function handler(
     }
 
     // Check if anything was actually staged
-    const statusResult = await gitExec('git diff --cached --name-only', input.cwd);
+    const statusResult = await execCommand('git diff --cached --name-only', input.cwd);
     if (!statusResult.stdout) {
       await logger.logOutput({ skipped: true, reason: 'No changes staged for commit' });
       return {};
@@ -199,7 +178,7 @@ async function handler(
 
     // Create commit with properly escaped message
     const escapedMessage = commitMessage.replace(/'/g, "'\\''");
-    const commitResult = await gitExec(`git commit -m '${escapedMessage}'`, input.cwd);
+    const commitResult = await execCommand(`git commit -m '${escapedMessage}'`, input.cwd);
 
     if (!commitResult.success) {
       // Check if it's just "nothing to commit"
@@ -218,7 +197,7 @@ async function handler(
     }
 
     // Get the commit hash
-    const hashResult = await gitExec('git rev-parse --short HEAD', input.cwd);
+    const hashResult = await execCommand('git rev-parse --short HEAD', input.cwd);
     const commitHash = hashResult.stdout || 'unknown';
 
     await logger.logOutput({

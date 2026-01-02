@@ -125,3 +125,20 @@ export {
   isSubagentType,
   getTranscriptAgentId,
 } from './was-tool-event-main-agent.js';
+
+// ============================================================================
+// Log File Utilities
+// ============================================================================
+// Save hook output to log files and return concise summaries.
+// Used to reduce context injection while preserving full output for debugging.
+
+export {
+  saveOutputToLog,
+  parseEslintCounts,
+  parseTscErrorCount,
+  parseVitestResults,
+  parseCiChecks,
+  formatCiChecksTable,
+  formatErrorSummary,
+  formatSuccessMessage,
+} from './log-file.js';
