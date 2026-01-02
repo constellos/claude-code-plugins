@@ -29,13 +29,14 @@ folder:
 
 | Hook | Event | Blocking | Purpose |
 |------|-------|----------|---------|
-| add-branch-context | SessionStart | No | Displays linked GitHub issue, branch sync status, and outstanding issues |
-| install-review-workflows | SessionStart | No | Copies GitHub Actions workflows to `.github/workflows/` |
-| guide-requirements-check | UserPromptSubmit | No | Adds requirement analysis guidance to user prompts |
+| install-github | SessionStart | No | Installs GitHub CLI on remote environments |
+| add-github-context | SessionStart | No | Displays linked GitHub issue, branch sync status, and outstanding issues |
+| create-issue-on-prompt | UserPromptSubmit | No | Creates GitHub issue on first user prompt for branch tracking |
 | sync-plan-to-issue | PostToolUse[Write\|Edit] | No | Creates GitHub issues from plan files automatically |
-| enhance-commit-message | PostToolUse[Bash] | No | Enhances git commits with task context and issue references |
-| commit-task | SubagentStop | No | Auto-commits subagent work with rich metadata and git trailers |
-| commit-session-check-for-pr | Stop | Yes | Auto-commits changes, validates branch status, progressive PR blocking |
+| enhance-commit-context | PostToolUse[Bash] | No | Enhances git commits with task context and issue references |
+| await-pr-status | PostToolUse[Bash] | No | Waits for CI checks after `gh pr create` command |
+| commit-task-await-ci-status | SubagentStop | No | Auto-commits subagent work, waits for CI if triggered |
+| commit-session-await-ci-status | Stop | Yes | Auto-commits changes, waits for CI, reports status with emoji table |
 
 ## Key Features
 
@@ -53,6 +54,9 @@ Validates branch status (conflicts, sync), auto-commits uncommitted changes, and
 
 ### Auto-commit Workflow
 Commits subagent work automatically with git trailers: Agent-Type, Agent-ID, Files-Edited, Files-New, Files-Deleted. Only stages files modified by the specific agent.
+
+### CI Status Waiting
+All commit hooks wait for CI checks to complete using shared utilities (10 min timeout, 500 char output limit). Extracts Vercel preview URLs from PR comments and formats results with emoji status table.
 
 ## State Files
 
@@ -130,10 +134,10 @@ Add to `.claude/settings.json`:
 ## Debug Logging
 
 ```bash
-DEBUG=* claude                           # All hooks
-DEBUG=add-branch-context claude          # Branch context hook
-DEBUG=enhance-commit-message claude      # Commit enhancement hook
-DEBUG=commit-session-check-for-pr claude # Stop hook
+DEBUG=* claude                              # All hooks
+DEBUG=add-github-context claude             # Branch context hook
+DEBUG=enhance-commit-context claude         # Commit enhancement hook
+DEBUG=commit-session-await-ci-status claude # Stop hook
 ```
 
 Logs written to `.claude/logs/hook-events.json` (JSONL format).

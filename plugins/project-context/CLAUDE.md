@@ -36,6 +36,7 @@ folder:
 | try-markdown-page | PreToolUse[WebFetch] | No | Redirects WebFetch to markdown versions of documentation |
 | log-task-result | PostToolUse[Task] | No | Logs Task tool results after agent completion |
 | create-plan-symlink | PostToolUse[Write\|Edit] | No | Creates PLAN.md symlink when plan files are written |
+| run-rule-checks | PostToolUse[Write\|Edit] | Yes | Runs checks from rule frontmatter (lint, typecheck, vitest) on matching files |
 | add-folder-context | PostToolUse[Read] | No | Discovers and adds CLAUDE.md context when reading files |
 
 ## Skills
@@ -60,6 +61,9 @@ Validates .claude directory structure ensuring proper organization for agents, s
 
 ### Rules Validation
 Ensures rule files have proper structure with "Required Skills:" heading and valid frontmatter. Integrates with existing validation hooks.
+
+### Rule-Based Checks
+Runs checks (lint, typecheck, vitest) defined in `.claude/rules/*.md` frontmatter on files matching the rule's glob patterns. Blocking on failure with 500 char truncated output to prevent context bloat.
 
 ## Installation
 
