@@ -19,8 +19,9 @@
 import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
-import { readdir, access } from 'fs/promises';
+import { readdir, access, readFile, writeFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
+import { existsSync } from 'fs';
 
 /**
  * Check if a file exists at the given path
@@ -45,6 +46,68 @@ async function fileExists(path: string): Promise<boolean> {
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Session state for tracking injected context paths
+ */
+interface InjectedPathsState {
+  [sessionId: string]: {
+    paths: string[];
+    lastUpdated: string;
+  };
+}
+
+/**
+ * Get list of already-injected paths for this session
+ *
+ * @param sessionId - Current session ID
+ * @param cwd - Working directory
+ * @returns Array of paths already injected this session
+ */
+async function getInjectedPaths(sessionId: string, cwd: string): Promise<string[]> {
+  const stateFile = join(cwd, '.claude', 'logs', 'injected-context-paths.json');
+
+  try {
+    if (!existsSync(stateFile)) {
+      return [];
+    }
+    const content = await readFile(stateFile, 'utf-8');
+    const state: InjectedPathsState = JSON.parse(content);
+    return state[sessionId]?.paths || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save injected paths for this session
+ *
+ * @param sessionId - Current session ID
+ * @param cwd - Working directory
+ * @param paths - Paths that have been injected
+ */
+async function saveInjectedPaths(sessionId: string, cwd: string, paths: string[]): Promise<void> {
+  const logsDir = join(cwd, '.claude', 'logs');
+  const stateFile = join(logsDir, 'injected-context-paths.json');
+
+  try {
+    await mkdir(logsDir, { recursive: true });
+
+    let state: InjectedPathsState = {};
+    if (existsSync(stateFile)) {
+      const content = await readFile(stateFile, 'utf-8');
+      state = JSON.parse(content);
+    }
+
+    state[sessionId] = {
+      paths,
+      lastUpdated: new Date().toISOString(),
+    };
+    await writeFile(stateFile, JSON.stringify(state, null, 2));
+  } catch {
+    // Ignore errors - non-critical
   }
 }
 
@@ -166,14 +229,30 @@ async function handler(
       return {};
     }
 
+    // Get already-injected paths for this session
+    const alreadyInjected = await getInjectedPaths(input.session_id, input.cwd);
+    const alreadyInjectedSet = new Set(alreadyInjected);
+
+    // Filter out paths already injected this session
+    const newPaths = uniqueFiles.filter((p) => !alreadyInjectedSet.has(p));
+
+    if (newPaths.length === 0) {
+      await logger.logOutput({ success: true, found: 0, skipped: uniqueFiles.length });
+      return {};
+    }
+
+    // Save combined paths (already injected + new)
+    await saveInjectedPaths(input.session_id, input.cwd, [...alreadyInjected, ...newPaths]);
+
     // Format as markdown links
-    const links = uniqueFiles.map(path => `[${path}](file://${path})`).join('\n');
+    const links = newPaths.map((path) => `[${path}](file://${path})`).join('\n');
     const contextMessage = `Related context:\n${links}`;
 
     await logger.logOutput({
       success: true,
-      found: uniqueFiles.length,
-      files: uniqueFiles,
+      found: newPaths.length,
+      skipped: uniqueFiles.length - newPaths.length,
+      files: newPaths,
     });
 
     return {

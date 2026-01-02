@@ -37,7 +37,7 @@
  * - Detects comments with session ID markers
  * - Discovers linked issues from branch context
  * - Accepts progress documentation as alternative to PR
- * @module commit-session-check-pr-status
+ * @module commit-session-await-pr-checks
  */
 
 import type { StopInput, StopHookOutput } from '../shared/types/types.js';
@@ -45,6 +45,11 @@ import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getSessionStopState, updateSessionStopState, resetSessionStopState } from '../shared/hooks/utils/session-state.js';
 import { hasCommentForSession, getLinkedIssueNumber } from '../shared/hooks/utils/github-comments.js';
+import {
+  saveOutputToLog,
+  parseCiChecks,
+  formatCiChecksTable,
+} from '../../../shared/hooks/utils/log-file.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';
@@ -1223,25 +1228,29 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
       const ciCheckResult = await waitForCIChecks(prCheck.prNumber, input.cwd);
 
-      // If CI failed, block with error message
+      // If CI failed, block with concise error message + log file link
       if (!ciCheckResult.success) {
+        // Save full CI output to log file
+        const logPath = await saveOutputToLog(input.cwd, 'ci', `pr-${prCheck.prNumber}`, ciCheckResult.output);
+
+        // Parse checks into emoji table
+        const checks = parseCiChecks(ciCheckResult.output);
+        const checksTable = formatCiChecksTable(checks, logPath);
+
         await logger.logOutput({
           ci_status: 'failed',
-          ci_output: ciCheckResult.output,
+          log_path: logPath,
           ci_error: ciCheckResult.error
         });
 
         return {
           decision: 'block',
-          reason: `❌ CI checks failed for PR #${prCheck.prNumber}
+          reason: `❌ CI failed for PR #${prCheck.prNumber}
+${ciCheckResult.error ? `\n⏱️ ${ciCheckResult.error}` : ''}
 
-${ciCheckResult.error ? `Error: ${ciCheckResult.error}\n\n` : ''}To view details:
-  • gh pr checks ${prCheck.prNumber}
-  • gh run view
-  • ${prCheck.prUrl}
+${checksTable}
 
-Check output:
-${ciCheckResult.output}`,
+🔗 [PR](${prCheck.prUrl}) | \`gh pr checks ${prCheck.prNumber}\``,
           systemMessage: 'Claude is blocked from stopping due to CI check failures.',
         };
       }

@@ -82,8 +82,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session-check-pr-status.ts",
-            "description": "Auto-commits session changes, checks PR status, and reports CI/preview URLs with progressive blocking"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session-await-pr-checks.ts",
+            "description": "Auto-commits session changes, awaits CI checks, reports status with emoji table"
           }
         ]
       }
