@@ -38,7 +38,16 @@ folder:
 | create-plan-symlink | PostToolUse[Write\|Edit] | No | Creates PLAN.md symlink when plan files are written |
 | add-folder-context | PostToolUse[Read] | No | Discovers and adds CLAUDE.md context when reading files |
 
+## Skills
+
+| Skill | Description | When to Use |
+|-------|-------------|-------------|
+| feature-sliced-design | Feature-Sliced Design architecture for Next.js apps with custom 'views' layer naming | Implementing FSD methodology, organizing project structure, Turborepo monorepos |
+
 ## Key Features
+
+### Feature-Sliced Design Skill
+Comprehensive skill for implementing Feature-Sliced Design (FSD) architecture in Next.js applications. Uses custom 'views' layer naming to avoid conflicts with Next.js App Router. Covers all 7 FSD layers, import rules, Turborepo integration, and migration strategies.
 
 ### Context Discovery
 Automatically finds and links related CLAUDE.md documentation files when reading project files. Search strategy: project root, parent directories (walking up), and child directories (one level deep).
