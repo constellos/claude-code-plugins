@@ -57,25 +57,59 @@ _cw_self_update() {
     return 0
   fi
 
-  # Check if we're behind origin/main
-  local local_hash=$(git rev-parse HEAD 2>/dev/null)
+  # Get current branch and check if main is behind
+  local current_branch=$(git branch --show-current 2>/dev/null)
+  local main_hash=$(git rev-parse main 2>/dev/null || git rev-parse origin/main 2>/dev/null)
   local remote_hash=$(git rev-parse origin/main 2>/dev/null)
 
-  if [[ "$local_hash" != "$remote_hash" ]]; then
-    # Check if we can fast-forward (no local changes)
-    if git merge-base --is-ancestor HEAD origin/main 2>/dev/null; then
-      echo "🔄 Updating cw script from origin/main..."
-      if git pull --ff-only origin main --quiet 2>/dev/null; then
-        echo "✔ Updated successfully!"
-        echo ""
-        echo "⚠️  Please re-source your shell config to use the updated script:"
-        echo "   source ~/.bashrc  # or ~/.zshrc"
-        echo ""
-        cd "$current_dir"
-        return 1
+  # If main is up to date, nothing to do
+  if [[ "$main_hash" == "$remote_hash" ]]; then
+    cd "$current_dir"
+    return 0
+  fi
+
+  echo "🔄 Updating cw script from origin/main..."
+
+  # If we're not on main, switch to it
+  local switched_branch=""
+  if [[ "$current_branch" != "main" ]]; then
+    # Check for uncommitted changes
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
+      echo "⚠️  Uncommitted changes in $current_branch, stashing..."
+      git stash push -m "cw-auto-update: stashed from $current_branch" --quiet 2>/dev/null
+    fi
+    switched_branch="$current_branch"
+    if ! git checkout main --quiet 2>/dev/null; then
+      echo "⚠️  Could not checkout main, skipping update"
+      cd "$current_dir"
+      return 0
+    fi
+  fi
+
+  # Now update main
+  if git pull --ff-only origin main --quiet 2>/dev/null; then
+    echo "✔ Updated successfully!"
+
+    # Switch back to original branch if we switched
+    if [[ -n "$switched_branch" ]]; then
+      git checkout "$switched_branch" --quiet 2>/dev/null
+      # Restore stash if we created one
+      if git stash list 2>/dev/null | grep -q "cw-auto-update: stashed from $switched_branch"; then
+        git stash pop --quiet 2>/dev/null
       fi
-    else
-      echo "⚠️  cw script has local changes, skipping auto-update"
+    fi
+
+    echo ""
+    echo "⚠️  Please re-source your shell config to use the updated script:"
+    echo "   source ~/.bashrc  # or ~/.zshrc"
+    echo ""
+    cd "$current_dir"
+    return 1
+  else
+    echo "⚠️  Could not fast-forward main (local changes?), skipping update"
+    # Switch back if we switched
+    if [[ -n "$switched_branch" ]]; then
+      git checkout "$switched_branch" --quiet 2>/dev/null
     fi
   fi
 
