@@ -60,7 +60,7 @@
           },
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-checks.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-status.ts",
             "description": "Waits for CI checks to complete after PR creation (gh pr create)"
           }
         ]
@@ -71,8 +71,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task.ts",
-            "description": "Auto-commits agent work with task context and git trailers"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task-await-ci-status.ts",
+            "description": "Auto-commits agent work with task context and waits for CI if triggered"
           }
         ]
       }
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session-await-status.ts",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-session-await-ci-status.ts",
             "description": "Auto-commits session changes, awaits CI checks, reports status with emoji table"
           }
         ]
