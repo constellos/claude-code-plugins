@@ -1,8 +1,7 @@
 ---
 title: Next.js Supabase AI SDK Dev Plugin
-description: Development quality checks plugin for Next.js, Supabase, and AI SDK projects
+description: Development tooling for Next.js, Supabase, and AI SDK projects
 version: 0.1.1
-tags: [nextjs, next, supabase, ai-sdk, typescript, eslint, vitest, test, lint, typecheck, ui, react]
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks, agents, skills, shared, output-styles, templates]
@@ -14,85 +13,35 @@ folder:
 
 # Next.js Supabase AI SDK Dev Plugin
 
-## Quick Reference
-
-**Purpose**: Ensures code quality through automated checks at both file and project levels. Runs per-file quality checks on edits (ESLint, TypeScript, TSDoc, Vitest) and provides UI development system with 5 progressive skills.
-
-**When to use**:
-- Next.js application development with TypeScript
-- Projects requiring strict type safety and code quality
-- UI development with systematic wireframe → design → interaction → integration → AI workflow
-- Supabase backend integration with defense-in-depth security
-- Vercel AI SDK streaming UI features
+CLI installation for Vercel/Supabase and systematic UI development with 5 progressive skills and 4 specialized agents.
 
 ## Hook Summary
 
 | Hook | Event | Blocking | Purpose |
 |------|-------|----------|---------|
-| install-vercel | SessionStart | No | Installs Vercel CLI on remote environments |
-| install-supabase | SessionStart | No | Installs Supabase CLI on remote environments |
-| log-task-call | PreToolUse[Task] | No | Logs Task tool calls and saves context |
-| log-task-result | PostToolUse[Task] | No | Logs Task tool results after completion |
-| encourage-ui-review | PostToolUse[Task] | No | Encourages ui-reviewer after ui-developer completes |
-| check-file-eslint | PostToolUse[Write\|Edit] | No | Runs ESLint on project after file edits (informational) |
-| check-file-types | PostToolUse[Write\|Edit] | No | Runs TypeScript type checking after file edits (informational) |
-| check-file-tsdoc | PostToolUse[Write\|Edit] | No | Validates TSDoc documentation on .ts files (informational) |
-| check-file-vitest-results | PostToolUse[Write\|Edit] | No | Runs Vitest on test files after edits (informational) |
-| encourage-ui-testing | SubagentStop | No | Encourages ui-tester after ui-developer/ui-reviewer completes |
-
-**Note**: All hooks are non-blocking during development. File-level checks provide immediate feedback but don't prevent edits.
-
-## Key Features
-
-### Automated Quality Checks
-Runs ESLint, TypeScript type checking, and Vitest automatically after file edits. Provides immediate feedback without blocking development. All checks have timeouts (30s lint/typecheck, 60s tests).
-
-### UI Development System
-Five progressive skills for systematic UI development: ui-wireframing (ASCII wireframes), ui-design (compound components), ui-interaction (client state), ui-integration (server actions + Supabase), ai-sdk-ui (streaming UI). Follows mobile-first, contract-first approach.
-
-### MCP Integration
-Bundled MCP servers for local development: ai-elements (component library), shadcn (component installation), next-devtools (live preview without Playwright).
-
-### TSDoc Validation
-Enforces TSDoc 2025 standards: @module tags, multi-line format, @param/@returns descriptions, @example blocks. Non-blocking guidance encourages comprehensive documentation.
-
-### Technology Stack
-Shadcn/AI Elements/Radix components, Tailwind CSS, Server Components (default), Zod validation, Supabase with RLS, Vercel AI SDK streaming.
+| install-vercel | SessionStart | No | Installs Vercel CLI |
+| install-supabase | SessionStart | No | Installs Supabase CLI |
+| log-task-call | PreToolUse[Task] | No | Saves task context |
+| log-task-result | PostToolUse[Task] | No | Logs task results |
 
 ## Agents
 
-| Agent | Skills | Color | Purpose |
-|-------|--------|-------|---------|
-| ui-developer | All 5 UI skills | #3B82F6 (blue) | Full UI implementation workflow |
-| ui-reviewer | None | #8B5CF6 (purple) | Visual inspection and quality review |
-| ui-tester | None | #10B981 (green) | Mobile (375px) and desktop (1440px) viewport testing |
-| ui-researcher | None | #F59E0B (amber) | Screenshot capture and design research |
-
-**Workflow:** ui-developer -> ui-reviewer -> ui-tester (hooks encourage this progression)
+| Agent | Purpose |
+|-------|---------|
+| ui-developer | Full UI implementation (all 5 skills) |
+| ui-reviewer | Visual quality review |
+| ui-tester | Mobile/desktop viewport testing |
+| ui-researcher | Design research and screenshots |
 
 ## Skills
 
-Progressive UI development workflow:
-
-| Order | Skill | Purpose |
-|-------|-------|---------|
-| 1 | ui-wireframing | Mobile-first ASCII wireframes in WIREFRAME.md |
-| 2 | ui-design | Contract-first static UI, compound components |
-| 3 | ui-interaction | Client events, local state, Zod validation |
-| 4 | ui-integration | Server actions, Supabase, backend integration |
-| 5 | ai-sdk-ui | Vercel AI SDK streaming UI features |
-
-## Output Styles
-
-| Style | Purpose |
+| Skill | Purpose |
 |-------|---------|
-| nextjs-lead-dev | Lead developer delegation patterns for UI workflow |
-
-## Templates
-
-| Template | Location | Purpose |
-|----------|----------|---------|
-| Design Library | templates/design/ | Visual patterns and competitor analysis storage |
+| ui-wireframing | ASCII wireframes (mobile-first) |
+| ui-design | Static UI, compound components |
+| ui-interaction | Client state, Zod validation |
+| ui-integration | Server actions, Supabase |
+| ai-sdk-ui | AI SDK streaming UI |
 
 ## Installation
 
@@ -100,53 +49,7 @@ Progressive UI development workflow:
 claude plugin install nextjs-supabase-ai-sdk-dev@constellos
 ```
 
-Add to `.claude/settings.json`:
-
-```json
-{
-  "enabledPlugins": {
-    "nextjs-supabase-ai-sdk-dev@constellos": true
-  }
-}
-```
-
-## Requirements
-
-**Package.json scripts:**
-
-```json
-{
-  "scripts": {
-    "lint": "eslint .",
-    "test": "vitest"
-  }
-}
-```
-
-**Dependencies:**
-- Node.js ≥18.0.0
-- TypeScript configured (`tsc` available)
-- ESLint configured with `lint` script
-- Vitest configured with `test` script
-- Supported package managers: npm, yarn, pnpm, bun
-
-## Debug Logging
-
-```bash
-DEBUG=* claude                    # All hooks
-DEBUG=lint-file claude            # ESLint hook only
-DEBUG=typecheck-file claude       # TypeScript hook only
-DEBUG=tsdoc-validate claude       # TSDoc validation hook only
-DEBUG=vitest-file claude          # Vitest hook only
-```
-
-Logs written to `.claude/logs/hook-events.json` (JSONL format).
-
 ## See Also
 
-- [Full Documentation](./README.md) - Comprehensive plugin guide with hook details
-- [Marketplace](../../CLAUDE.md) - All available plugins and architecture
-- [UI Skills](./skills/) - UI development skill documentation (ui-wireframing, ui-design, etc.)
-- [Agents](./agents/) - Agent definitions (ui-developer, ui-reviewer, ui-tester, ui-researcher)
-- [Output Styles](./output-styles/) - Delegation patterns (nextjs-lead-dev)
-- [Design Templates](./templates/design/) - Visual patterns and competitor analysis
+- [README.md](./README.md)
+- [Marketplace](../../CLAUDE.md)
