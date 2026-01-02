@@ -20,8 +20,9 @@
  * @module guide-requirements-check
  */
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { existsSync } from 'node:fs';
 import type {
   UserPromptSubmitInput,
   UserPromptSubmitHookOutput,
@@ -29,6 +30,63 @@ import type {
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { parseFrontmatter } from '../shared/hooks/utils/frontmatter.js';
+
+/**
+ * Session state for tracking guidance injection
+ */
+interface GuidanceState {
+  [sessionId: string]: {
+    injectedAt: string;
+  };
+}
+
+/**
+ * Check if guidance has already been injected for this session
+ *
+ * @param sessionId - Current session ID
+ * @param cwd - Working directory
+ * @returns True if guidance already injected
+ */
+async function hasGuidanceBeenInjected(sessionId: string, cwd: string): Promise<boolean> {
+  const stateFile = join(cwd, '.claude', 'logs', 'guidance-state.json');
+
+  try {
+    if (!existsSync(stateFile)) {
+      return false;
+    }
+    const content = await readFile(stateFile, 'utf-8');
+    const state: GuidanceState = JSON.parse(content);
+    return !!state[sessionId];
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Mark guidance as injected for this session
+ *
+ * @param sessionId - Current session ID
+ * @param cwd - Working directory
+ */
+async function markGuidanceInjected(sessionId: string, cwd: string): Promise<void> {
+  const logsDir = join(cwd, '.claude', 'logs');
+  const stateFile = join(logsDir, 'guidance-state.json');
+
+  try {
+    await mkdir(logsDir, { recursive: true });
+
+    let state: GuidanceState = {};
+    if (existsSync(stateFile)) {
+      const content = await readFile(stateFile, 'utf-8');
+      state = JSON.parse(content);
+    }
+
+    state[sessionId] = { injectedAt: new Date().toISOString() };
+    await writeFile(stateFile, JSON.stringify(state, null, 2));
+  } catch {
+    // Ignore errors - non-critical
+  }
+}
 
 /**
  * Context match result from tag matching
@@ -167,6 +225,12 @@ async function handler(input: UserPromptSubmitInput): Promise<UserPromptSubmitHo
       prompt_length: input.prompt.length,
     });
 
+    // Check if guidance has already been injected this session
+    if (await hasGuidanceBeenInjected(input.session_id, input.cwd)) {
+      await logger.logOutput({ skipped: true, reason: 'already_injected' });
+      return {};
+    }
+
     // Find matching context files based on user prompt
     const matchedContexts = await findMatchingContexts(input.cwd, input.prompt);
 
@@ -195,6 +259,9 @@ async function handler(input: UserPromptSubmitInput): Promise<UserPromptSubmitHo
    - Ensure the plan includes Intent, Plan steps, and Success Criteria sections
 
 3. **Proceed**: After documenting requirements and plan considerations, proceed with the implementation.${contextSection}`;
+
+    // Mark guidance as injected for this session
+    await markGuidanceInjected(input.session_id, input.cwd);
 
     await logger.logOutput({
       added_guidance: true,

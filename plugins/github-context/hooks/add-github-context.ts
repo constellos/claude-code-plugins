@@ -1,12 +1,11 @@
 /**
  * Branch context and issue discovery hook
  *
- * SessionStart hook that displays context about the current branch's work when
- * starting a new session. Provides full details of linked issues and awareness
- * of outstanding unlinked issues.
+ * SessionStart hook that displays concise context about the current branch's work.
+ * Shows linked issue summary with link (not full content) to minimize context injection.
  *
  * This hook provides:
- * - **Full linked issue display** - Shows complete issue content (title, body, comments) for current branch
+ * - **Concise linked issue display** - Shows issue number, title, and link (NOT full body/comments)
  * - **Outstanding issue awareness** - Lists titles of open issues not linked to any branch
  * - **Context discovery** - Cascading search through state file, GitHub search, and issue body markers
  * - **Non-blocking** - All errors are gracefully handled without stopping session start
@@ -342,25 +341,6 @@ async function findUnlinkedIssues(
 }
 
 /**
- * Format issue comments for display
- */
-function formatComments(comments: GitHubIssue['comments']): string[] {
-  if (!comments || comments.length === 0) {
-    return [];
-  }
-
-  const formatted: string[] = ['', '### Comments'];
-
-  for (const comment of comments) {
-    formatted.push('');
-    formatted.push(`**@${comment.author.login}** commented ${comment.createdAt}:`);
-    formatted.push(comment.body);
-  }
-
-  return formatted;
-}
-
-/**
  * SessionStart hook handler
  *
  * Executes at session start to display context about current branch work and
@@ -445,14 +425,18 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     sections.push(`- Main: ${mainSync}`);
 
     if (branchIssue?.fullIssue) {
-      sections.push(`**Issue:** #${branchIssue.issueNumber} - ${branchIssue.fullIssue.title}`);
-      sections.push('');
-      sections.push('### Issue Description');
-      sections.push(branchIssue.fullIssue.body || '(no description)');
+      // Concise issue summary - link to full content instead of injecting it
+      const repoResult = await execCommand('gh repo view --json nameWithOwner -q .nameWithOwner', input.cwd);
+      const repoName = repoResult.success ? repoResult.stdout : '';
+      const issueUrl = repoName
+        ? `https://github.com/${repoName}/issues/${branchIssue.issueNumber}`
+        : `#${branchIssue.issueNumber}`;
 
-      // Include comments if any
-      const commentLines = formatComments(branchIssue.fullIssue.comments);
-      sections.push(...commentLines);
+      sections.push(`**Issue:** [#${branchIssue.issueNumber} - ${branchIssue.fullIssue.title}](${issueUrl})`);
+      const commentCount = branchIssue.fullIssue.comments?.length || 0;
+      if (commentCount > 0) {
+        sections.push(`💬 ${commentCount} comment${commentCount > 1 ? 's' : ''}`);
+      }
     } else {
       sections.push('**Issue:** No linked issue found');
       sections.push('');

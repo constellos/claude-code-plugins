@@ -22,6 +22,11 @@ import type {
 } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import {
+  saveOutputToLog,
+  parseCiChecks,
+  formatCiChecksTable,
+} from '../../../shared/hooks/utils/log-file.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -271,34 +276,43 @@ async function handler(
     // Get Vercel preview URLs
     const vercelUrls = await getVercelPreviewUrls(prNumber, input.cwd);
 
-    // Build status message
-    let statusMessage = `\n## PR Created: #${prNumber}\n\n`;
-
-    if (ciCheckResult.success) {
-      statusMessage += `✅ **All CI checks passed**\n\n`;
-    } else if (ciCheckResult.error) {
-      statusMessage += `⏱️ **CI checks timeout or error**: ${ciCheckResult.error}\n\n`;
-    } else {
-      statusMessage += `❌ **CI checks failed**\n\n`;
+    // Save full CI output to log file if there's output
+    let logPath: string | undefined;
+    if (ciCheckResult.output) {
+      logPath = await saveOutputToLog(input.cwd, 'ci', `pr-${prNumber}`, ciCheckResult.output);
     }
 
-    // Add CI output
-    if (ciCheckResult.output) {
-      statusMessage += `**CI Status:**\n\`\`\`\n${ciCheckResult.output}\n\`\`\`\n\n`;
+    // Parse CI checks into emoji table
+    const checks = parseCiChecks(ciCheckResult.output);
+    const checksTable = formatCiChecksTable(checks, logPath);
+
+    // Build concise status message
+    let statusMessage = `**PR #${prNumber}**\n`;
+
+    if (ciCheckResult.success) {
+      statusMessage += `✅ All CI checks passed\n`;
+    } else if (ciCheckResult.error) {
+      statusMessage += `⏱️ ${ciCheckResult.error}\n`;
+    } else {
+      statusMessage += `❌ CI checks failed\n`;
+    }
+
+    // Add emoji status table
+    if (checksTable) {
+      statusMessage += `\n${checksTable}\n`;
     }
 
     // Add CI run link
     if (ciRun?.url) {
-      statusMessage += `**CI Run:** ${ciRun.url}\n\n`;
+      statusMessage += `\n🔗 [CI Run](${ciRun.url})`;
     }
 
-    // Add Vercel preview URLs
+    // Add Vercel preview URLs (concise)
     if (vercelUrls.length > 0) {
-      statusMessage += `**Vercel Preview URLs:**\n`;
-      for (const url of vercelUrls) {
-        statusMessage += `- ${url}\n`;
+      statusMessage += `\n🔗 Preview: ${vercelUrls[0]}`;
+      if (vercelUrls.length > 1) {
+        statusMessage += ` (+${vercelUrls.length - 1} more)`;
       }
-      statusMessage += `\n`;
     }
 
     await logger.logOutput({
