@@ -94,7 +94,7 @@ function parseSimpleYaml(yaml: string): Record<string, unknown> {
     // Handle inline array: [item1, item2]
     if (value.startsWith('[') && value.endsWith(']')) {
       const arrayContent = value.slice(1, -1);
-      data[key] = arrayContent.split(',').map(item => item.trim());
+      data[key] = arrayContent.split(',').map(item => parseValue(item.trim()));
       i++;
       continue;
     }
