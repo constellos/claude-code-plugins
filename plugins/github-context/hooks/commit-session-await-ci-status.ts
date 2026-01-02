@@ -50,6 +50,11 @@ import {
   parseCiChecks,
   formatCiChecksTable,
 } from '../shared/hooks/utils/log-file.js';
+import {
+  awaitCIWithFailFast,
+  getLatestCIRun as getCIRunDetails,
+  extractPreviewUrls,
+} from '../shared/hooks/utils/ci-status.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync } from 'fs';
@@ -383,168 +388,10 @@ async function checkPRExists(
   }
 }
 
-/**
- * Get the latest CI workflow run
- * @param prNumber - PR number
- * @param cwd - Working directory
- * @returns Object with CI run details or error
- * @example
- */
-async function getLatestCIRun(
-  prNumber: number,
-  cwd: string
-): Promise<{
-  url?: string;
-  status?: string;
-  conclusion?: string;
-  name?: string;
-  error?: string;
-}> {
-  const runListResult = await execCommand(
-    `gh run list --limit 1 --json databaseId,displayTitle,status,conclusion,url`,
-    cwd
-  );
-
-  if (!runListResult.success) {
-    return {};
-  }
-
-  try {
-    const runs = JSON.parse(runListResult.stdout);
-    if (Array.isArray(runs) && runs.length > 0) {
-      const run = runs[0];
-      return {
-        url: run.url,
-        status: run.status,
-        conclusion: run.conclusion,
-        name: run.displayTitle,
-      };
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-/**
- * Extract Vercel preview URLs from PR comments
- * @param prNumber - PR number
- * @param cwd - Working directory
- * @returns Object with web/marketing URLs and all found URLs
- * @example
- */
-async function getVercelPreviewUrls(
-  prNumber: number,
-  cwd: string
-): Promise<{
-  webUrl?: string;
-  marketingUrl?: string;
-  allUrls: string[];
-}> {
-  const commentsResult = await execCommand(
-    `gh pr view ${prNumber} --json comments`,
-    cwd
-  );
-
-  if (!commentsResult.success) {
-    return { allUrls: [] };
-  }
-
-  try {
-    const data = JSON.parse(commentsResult.stdout);
-    const comments = data.comments || [];
-
-    // Extract all Vercel URLs from comment bodies
-    const vercelUrlPattern = /https:\/\/[a-z0-9-]+\.vercel\.app/g;
-    const allUrls: string[] = [];
-
-    for (const comment of comments) {
-      const matches = comment.body?.match(vercelUrlPattern) || [];
-      allUrls.push(...matches);
-    }
-
-    // Deduplicate URLs
-    const uniqueUrls = [...new Set(allUrls)];
-
-    // Identify web and marketing apps by URL pattern
-    const webUrl = uniqueUrls.find(url =>
-      url.includes('-web-') || url.includes('web-') || url.match(/web\.vercel\.app/)
-    );
-    const marketingUrl = uniqueUrls.find(url =>
-      url.includes('-marketing-') || url.includes('marketing-') || url.match(/marketing\.vercel\.app/)
-    );
-
-    return {
-      webUrl,
-      marketingUrl,
-      allUrls: uniqueUrls,
-    };
-  } catch {
-    return { allUrls: [] };
-  }
-}
-
-/**
- * Wait for CI checks to complete on a PR
- *
- * Uses `gh pr checks --watch` to wait for all CI checks to finish.
- * Returns success/failure status and combined output.
- *
- * @param prNumber - PR number
- * @param cwd - Working directory
- * @returns Object with success status, combined output, and optional error
- * @example
- */
-async function waitForCIChecks(
-  prNumber: number,
-  cwd: string
-): Promise<{
-  success: boolean;
-  output: string;
-  error?: string;
-}> {
-  try {
-    // Wait for CI checks to complete using gh pr checks --watch
-    // Use a 10-minute timeout (600000ms) for CI to complete
-    const { stdout: watchOutput, stderr: watchStderr } = await execAsync(
-      `gh pr checks ${prNumber} --watch`,
-      {
-        cwd,
-        timeout: 600000, // 10 minute timeout
-      }
-    );
-
-    const combinedOutput = `${watchOutput}\n${watchStderr}`.trim();
-
-    // Check if all checks passed
-    const hasFailures = combinedOutput.includes('fail') ||
-                        combinedOutput.includes('X ') ||
-                        combinedOutput.includes('cancelled');
-
-    return {
-      success: !hasFailures,
-      output: combinedOutput,
-    };
-  } catch (watchError: unknown) {
-    const err = watchError as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
-    const errorOutput = err.stdout || err.stderr || err.message || 'Unknown error';
-
-    // Check if timeout
-    if (err.killed) {
-      return {
-        success: false,
-        output: errorOutput,
-        error: 'CI check timeout (10 minutes)',
-      };
-    }
-
-    return {
-      success: false,
-      output: errorOutput,
-      error: 'Failed to watch CI checks',
-    };
-  }
-}
+// Local CI functions removed - using shared utilities from ci-status.ts:
+// - getLatestCIRun -> getCIRunDetails
+// - getVercelPreviewUrls -> extractPreviewUrls
+// - waitForCIChecks -> awaitCIWithFailFast
 
 // ============================================================================
 // Subagent Activity Detection
@@ -1219,34 +1066,41 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
     // Check if PR created since last block
     if (prCheck.exists && prCheck.prNumber && prCheck.prUrl) {
-      // PR exists - wait for CI checks to complete
+      // PR exists - wait for CI checks with fail-fast behavior
       await logger.logOutput({
         pr_exists: true,
         pr_number: prCheck.prNumber,
         waiting_for_ci: true
       });
 
-      const ciCheckResult = await waitForCIChecks(prCheck.prNumber, input.cwd);
+      const ciResult = await awaitCIWithFailFast({ prNumber: prCheck.prNumber }, input.cwd);
 
       // If CI failed, block with concise error message + log file link
-      if (!ciCheckResult.success) {
-        // Save full CI output to log file
-        const logPath = await saveOutputToLog(input.cwd, 'ci', `pr-${prCheck.prNumber}`, ciCheckResult.output);
+      if (!ciResult.success) {
+        // Format checks output for logging
+        const checksOutput = ciResult.checks.map(c => `${c.emoji} ${c.name}: ${c.status}`).join('\n');
+        const logPath = await saveOutputToLog(input.cwd, 'ci', `pr-${prCheck.prNumber}`, checksOutput);
 
-        // Parse checks into emoji table
-        const checks = parseCiChecks(ciCheckResult.output);
-        const checksTable = formatCiChecksTable(checks, logPath);
+        // Map ci-status CheckStatus to log-file format
+        const mappedChecks = ciResult.checks.map(c => ({
+          name: c.name,
+          status: (c.status === 'success' ? 'pass' :
+                   c.status === 'failure' ? 'fail' :
+                   c.status === 'cancelled' ? 'skipped' : 'pending') as 'pass' | 'fail' | 'pending' | 'skipped',
+          duration: '',
+        }));
+        const checksTable = formatCiChecksTable(mappedChecks, logPath);
 
         await logger.logOutput({
           ci_status: 'failed',
           log_path: logPath,
-          ci_error: ciCheckResult.error
+          ci_error: ciResult.error,
+          failed_check: ciResult.failedCheck
         });
 
         return {
           decision: 'block',
-          reason: `❌ CI failed for PR #${prCheck.prNumber}
-${ciCheckResult.error ? `\n⏱️ ${ciCheckResult.error}` : ''}
+          reason: `${ciResult.blockReason || `❌ CI failed for PR #${prCheck.prNumber}`}
 
 ${checksTable}
 
@@ -1259,12 +1113,12 @@ ${checksTable}
       await resetSessionStopState(input.session_id, input.cwd);
       await logger.logOutput({
         ci_status: 'passed',
-        ci_output: ciCheckResult.output
+        checks: ciResult.checks
       });
 
       // Fetch PR details
-      const ciRun = await getLatestCIRun(prCheck.prNumber, input.cwd);
-      const vercelUrls = await getVercelPreviewUrls(prCheck.prNumber, input.cwd);
+      const ciRun = await getCIRunDetails(prCheck.prNumber, input.cwd);
+      const vercelUrls = await extractPreviewUrls(prCheck.prNumber, input.cwd);
 
       if (commitMade) {
         // Block with PR status after commit

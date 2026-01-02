@@ -129,8 +129,8 @@ export {
 // ============================================================================
 // Log File Utilities
 // ============================================================================
-// Functions for saving hook output to log files and parsing tool output
-// (ESLint, TypeScript, Vitest, CI checks).
+// Save hook output to log files and return concise summaries.
+// Used to reduce context injection while preserving full output for debugging.
 
 export {
   saveOutputToLog,
