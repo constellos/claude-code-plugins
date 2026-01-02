@@ -5,7 +5,7 @@ version: 0.1.1
 tags: [nextjs, next, supabase, ai-sdk, typescript, eslint, vitest, test, lint, typecheck, ui, react]
 folder:
   subfolders:
-    allowed: [.claude-plugin, hooks, agents, skills, shared]
+    allowed: [.claude-plugin, hooks, agents, skills, shared, output-styles, templates]
     required: [.claude-plugin, hooks]
   files:
     allowed: [CLAUDE.md, README.md, .gitignore]
@@ -29,10 +29,16 @@ folder:
 
 | Hook | Event | Blocking | Purpose |
 |------|-------|----------|---------|
-| lint-file | PostToolUse[Write\|Edit] | No | Runs ESLint on project after file edits (informational) |
-| typecheck-file | PostToolUse[Write\|Edit] | No | Runs TypeScript type checking after file edits (informational) |
-| tsdoc-validate | PostToolUse[Write\|Edit] | No | Validates TSDoc documentation on .ts files (informational) |
-| vitest-file | PostToolUse[Write\|Edit] | No | Runs Vitest on test files after edits (informational) |
+| install-vercel | SessionStart | No | Installs Vercel CLI on remote environments |
+| install-supabase | SessionStart | No | Installs Supabase CLI on remote environments |
+| log-task-call | PreToolUse[Task] | No | Logs Task tool calls and saves context |
+| log-task-result | PostToolUse[Task] | No | Logs Task tool results after completion |
+| encourage-ui-review | PostToolUse[Task] | No | Encourages ui-reviewer after ui-developer completes |
+| check-file-eslint | PostToolUse[Write\|Edit] | No | Runs ESLint on project after file edits (informational) |
+| check-file-types | PostToolUse[Write\|Edit] | No | Runs TypeScript type checking after file edits (informational) |
+| check-file-tsdoc | PostToolUse[Write\|Edit] | No | Validates TSDoc documentation on .ts files (informational) |
+| check-file-vitest-results | PostToolUse[Write\|Edit] | No | Runs Vitest on test files after edits (informational) |
+| encourage-ui-testing | SubagentStop | No | Encourages ui-tester after ui-developer/ui-reviewer completes |
 
 **Note**: All hooks are non-blocking during development. File-level checks provide immediate feedback but don't prevent edits.
 
@@ -52,6 +58,41 @@ Enforces TSDoc 2025 standards: @module tags, multi-line format, @param/@returns 
 
 ### Technology Stack
 Shadcn/AI Elements/Radix components, Tailwind CSS, Server Components (default), Zod validation, Supabase with RLS, Vercel AI SDK streaming.
+
+## Agents
+
+| Agent | Skills | Color | Purpose |
+|-------|--------|-------|---------|
+| ui-developer | All 5 UI skills | #3B82F6 (blue) | Full UI implementation workflow |
+| ui-reviewer | None | #8B5CF6 (purple) | Visual inspection and quality review |
+| ui-tester | None | #10B981 (green) | Mobile (375px) and desktop (1440px) viewport testing |
+| ui-researcher | None | #F59E0B (amber) | Screenshot capture and design research |
+
+**Workflow:** ui-developer -> ui-reviewer -> ui-tester (hooks encourage this progression)
+
+## Skills
+
+Progressive UI development workflow:
+
+| Order | Skill | Purpose |
+|-------|-------|---------|
+| 1 | ui-wireframing | Mobile-first ASCII wireframes in WIREFRAME.md |
+| 2 | ui-design | Contract-first static UI, compound components |
+| 3 | ui-interaction | Client events, local state, Zod validation |
+| 4 | ui-integration | Server actions, Supabase, backend integration |
+| 5 | ai-sdk-ui | Vercel AI SDK streaming UI features |
+
+## Output Styles
+
+| Style | Purpose |
+|-------|---------|
+| nextjs-lead-dev | Lead developer delegation patterns for UI workflow |
+
+## Templates
+
+| Template | Location | Purpose |
+|----------|----------|---------|
+| Design Library | templates/design/ | Visual patterns and competitor analysis storage |
 
 ## Installation
 
@@ -105,4 +146,7 @@ Logs written to `.claude/logs/hook-events.json` (JSONL format).
 
 - [Full Documentation](./README.md) - Comprehensive plugin guide with hook details
 - [Marketplace](../../CLAUDE.md) - All available plugins and architecture
-- [UI Skills](../../shared/skills/) - UI development skill documentation
+- [UI Skills](./skills/) - UI development skill documentation (ui-wireframing, ui-design, etc.)
+- [Agents](./agents/) - Agent definitions (ui-developer, ui-reviewer, ui-tester, ui-researcher)
+- [Output Styles](./output-styles/) - Delegation patterns (nextjs-lead-dev)
+- [Design Templates](./templates/design/) - Visual patterns and competitor analysis
