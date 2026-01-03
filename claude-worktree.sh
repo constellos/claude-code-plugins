@@ -512,7 +512,8 @@ _cw_main() {
   echo "Ready!"
 
   # Launch Claude Code
-  claude "$@"
+  claude "$@" || true  # Ignore exit code to prevent set -e from terminating shell
+  echo ""
   echo "Claude exited. You're in: $(pwd)"
 }
 
