@@ -20,6 +20,7 @@ Provides comprehensive GitHub integration for Claude Code sessions. Automaticall
 | add-github-context | SessionStart | Displays linked issue, branch sync status, outstanding issues |
 | create-issue-on-prompt | UserPromptSubmit | Creates GitHub issue on first user prompt |
 | sync-plan-to-issue | PostToolUse[Write\|Edit] | Creates/updates GitHub issues from plan files |
+| sync-task-to-subissue | PostToolUse[Task] | Creates GitHub subissues from Task prompts (excludes Plan/Explore) |
 | enhance-commit-context | PostToolUse[Bash] | Enriches git commits with task context |
 | await-pr-status | PostToolUse[Bash] | Waits for CI after `gh pr create` |
 | commit-task-await-ci-status | SubagentStop | Auto-commits subagent work, waits for CI |

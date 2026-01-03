@@ -23,6 +23,7 @@ GitHub integration for Claude Code sessions with branch context discovery, commi
 | add-github-context | SessionStart | No | Shows linked issue, sync status |
 | create-issue-on-prompt | UserPromptSubmit | No | Creates issue on first prompt |
 | sync-plan-to-issue | PostToolUse[Write\|Edit] | No | Syncs plans to GitHub issues |
+| sync-task-to-subissue | PostToolUse[Task] | No | Creates subissues from Task prompts |
 | enhance-commit-context | PostToolUse[Bash] | No | Enriches commits with context |
 | await-pr-status | PostToolUse[Bash] | No | Waits for CI after PR create |
 | commit-task-await-ci-status | SubagentStop | No | Auto-commits agent work |
