@@ -41,6 +41,7 @@ export interface SessionStopState {
   sessionId: string;
   /**
    * Number of times Stop hook has blocked (0-3)
+   * @deprecated Use lastSeenCommitSha for tracking instead
    */
   blockCount: number;
   /**
@@ -59,6 +60,11 @@ export interface SessionStopState {
    * Whether a PR has been created
    */
   prCreated?: boolean;
+  /**
+   * Last seen HEAD commit SHA - used to detect new commits
+   * When current HEAD matches this, we've already seen these commits
+   */
+  lastSeenCommitSha?: string;
 }
 
 /**

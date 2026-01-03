@@ -12,12 +12,12 @@
  * 2. **Auto-commit** - Preserves work in progress:
  * - Automatically commits any uncommitted changes
  * - Adds session metadata to commit message
- * - Increments block count for progressive blocking
+ * - Tracks commit SHA for one-time blocking
  *
- * 3. **Agent communication** - Progressive blocking behavior:
- * - Block 1: Instructions to create PR or post GitHub comment
- * - Block 2: Second reminder with attempt counter
- * - Block 3: Warning that limit has been reached
+ * 3. **Agent communication** - First-time blocking on new commits:
+ * - Blocks ONCE when new commits are detected without a PR
+ * - Tracks lastSeenCommitSha to only block on first sight of commits
+ * - Subsequent stops show informational message but don't block
  * - Resets when PR created or progress documented via comment
  *
  * 4. **PR status reporting and CI waiting** - Provides PR visibility and ensures quality:
@@ -216,6 +216,17 @@ async function getNonIgnoredChanges(cwd: string): Promise<string[]> {
  */
 async function getCurrentBranch(cwd: string): Promise<string | null> {
   const result = await execCommand('git rev-parse --abbrev-ref HEAD', cwd);
+  return result.success ? result.stdout : null;
+}
+
+/**
+ * Get current HEAD commit SHA
+ * @param cwd - Working directory
+ * @returns Full commit SHA or null if not in git repo
+ * @example
+ */
+async function getCurrentHeadSha(cwd: string): Promise<string | null> {
+  const result = await execCommand('git rev-parse HEAD', cwd);
   return result.success ? result.stdout : null;
 }
 
@@ -1041,15 +1052,17 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
         if (commitResult.success) {
           const shaResult = await execCommand('git rev-parse HEAD', input.cwd);
-          commitSha = shaResult.success ? shaResult.stdout.substring(0, 7) : 'unknown';
+          const fullSha = shaResult.success ? shaResult.stdout : null;
+          commitSha = fullSha ? fullSha.substring(0, 7) : 'unknown';
           commitMade = true;
 
           await logger.logOutput({ commit_made: true, commit_sha: commitSha });
 
-          // Increment block count for progressive blocking
+          // Update state with new commit SHA for tracking
           await updateSessionStopState(input.session_id, {
             blockCount: sessionState.blockCount + 1,
-            lastBlockTimestamp: new Date().toISOString()
+            lastBlockTimestamp: new Date().toISOString(),
+            lastSeenCommitSha: fullSha || undefined,
           }, input.cwd);
 
           // Re-check branch sync after commit
@@ -1170,37 +1183,37 @@ ${checksTable}
       };
     }
 
-    // No PR and no comment - determine blocking behavior
-    // Only progressively block if THIS session made commits
-    if (commitMade) {
-      // Get updated state (includes incremented block count)
-      const updatedState = await getSessionStopState(input.session_id, input.cwd);
+    // No PR and no comment - determine blocking behavior based on commit tracking
+    // Get current HEAD to compare with last seen commit
+    const currentHeadSha = await getCurrentHeadSha(input.cwd);
+    const sawNewCommits = currentHeadSha !== sessionState.lastSeenCommitSha;
 
-      // Check 3-block limit
-      if (updatedState.blockCount >= 3) {
-        return {
-          decision: 'block',
-          reason: formatBlockLimitReached(input.session_id, currentBranch, issueNumber),
-          systemMessage: 'Claude is blocked from stopping - block limit reached.',
-        };
-      }
+    // If we saw new commits (either just made or from previous session without PR)
+    if (sawNewCommits && syncCheck.aheadBy > 0) {
+      // Update lastSeenCommitSha so we only block ONCE for these commits
+      await updateSessionStopState(input.session_id, {
+        lastSeenCommitSha: currentHeadSha || undefined,
+        lastBlockTimestamp: new Date().toISOString(),
+      }, input.cwd);
 
-      // Block with agent instructions (first or second block)
+      // Block with agent instructions - first time seeing these commits
       return {
         decision: 'block',
-        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, issueUrl, updatedState.blockCount, hasSubagentActivity),
+        reason: formatAgentInstructions(input.session_id, currentBranch, issueNumber, issueUrl, 1, hasSubagentActivity),
         systemMessage: 'Claude is blocked from stopping - PR or issue comment required.',
       };
     }
 
-    // Branch is ahead but no new commits this session - show info, don't block
+    // Already saw these commits (lastSeenCommitSha matches current HEAD)
+    // Branch is ahead but we've already blocked once for these commits
     if (syncCheck.aheadBy > 0) {
       return {
-        systemMessage: `ℹ️ Branch is ${syncCheck.aheadBy} commit(s) ahead of remote. Consider creating a PR before ending session.`,
+        decision: 'approve',
+        systemMessage: `ℹ️ Branch has ${syncCheck.aheadBy} commit(s) without a PR. Agent chose to stop without creating one.`,
       };
     }
 
-    // No commits made this session and branch is in sync - nothing to do
+    // No commits on branch (in sync with remote) - nothing to do
     return {
       decision: 'approve',
       systemMessage: 'No commits were made this session. PR not needed.'
