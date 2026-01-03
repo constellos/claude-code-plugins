@@ -913,36 +913,6 @@ ${issueSection}
 The comment will auto-include your session ID for tracking.`;
 }
 
-/**
- * Format 3-block limit warning message
- * @param sessionId - Session ID
- * @param branch - Current branch name
- * @param issueNumber - Linked issue number (or null)
- * @returns Formatted warning message
- * @example
- */
-function formatBlockLimitReached(
-  sessionId: string,
-  branch: string,
-  issueNumber: number | null
-): string {
-  return `⚠️  SESSION CHECKPOINT LIMIT REACHED
-
-Session ID: ${sessionId}
-Branch: ${branch}
-
-This is the 3rd time you've been asked to create a PR or document progress.
-
-There may be an issue preventing you from completing this task.
-
-Consider:
-- Creating a PR manually: gh pr create
-- Posting a comment to issue #${issueNumber || 'N/A'}
-- Reviewing if there's a blocker preventing PR creation
-
-Please resolve this before ending the session.`;
-}
-
 // ============================================================================
 // Main Handler
 // ============================================================================
