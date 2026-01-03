@@ -26,8 +26,11 @@ Automatic CLAUDE.md discovery, .claude structure validation, and rule-based chec
 | validate-folder-structure-mkdir | PreToolUse[Bash] | Yes | Validates mkdir commands |
 | try-markdown-page | PreToolUse[WebFetch] | No | Redirects to .md URLs |
 | log-task-result | PostToolUse[Task] | No | Logs task results |
-| run-rule-checks | PostToolUse[Write\|Edit] | Yes | Runs lint/typecheck/vitest |
+| run-file-eslint | PostToolUse[Write\|Edit] | Yes | Runs ESLint on edited files |
+| run-file-vitests | PostToolUse[Write\|Edit] | No | Runs related tests (warns only) |
 | add-folder-context | PostToolUse[Read] | No | Discovers CLAUDE.md files |
+| run-task-vitests | SubagentStop | Yes | Runs tests for all task edits |
+| run-task-typechecks | SubagentStop | Yes | Runs tsc --noEmit after task |
 
 ## Skills
 
