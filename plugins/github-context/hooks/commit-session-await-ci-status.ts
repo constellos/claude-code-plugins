@@ -696,30 +696,33 @@ function formatPRStatusWithCommit(
   ciRun: { url?: string; status?: string; conclusion?: string; name?: string },
   vercelUrls: { webUrl?: string; marketingUrl?: string }
 ): string {
-  let message = `✅ Auto-committed session work: ${commitSha}\n\n`;
-  message += `📋 **PR #${prCheck.prNumber}**\n`;
-  message += `🔗 ${prCheck.prUrl}\n\n`;
+  const ciPassed = ciRun.conclusion === 'success';
+  const ciFailed = ciRun.conclusion === 'failure';
 
+  let message = `✅ Auto-committed: ${commitSha}\n\n`;
+
+  // PR link (prominently displayed)
+  message += `📋 PR: ${prCheck.prUrl}\n`;
+
+  // CI run link (prominently displayed)
   if (ciRun.url) {
-    const statusIcon = ciRun.conclusion === 'success' ? '✓' : ciRun.conclusion === 'failure' ? '❌' : '⏳';
-    message += `🔄 **Latest CI:** ${ciRun.name || 'Workflow'}\n`;
-    message += `   ${statusIcon} Status: ${ciRun.status} ${ciRun.conclusion ? `(${ciRun.conclusion})` : ''}\n`;
-    message += `   ${ciRun.url}\n\n`;
+    const statusIcon = ciPassed ? '✅' : ciFailed ? '❌' : '⏳';
+    message += `🔄 CI: ${ciRun.url} ${statusIcon} ${ciRun.conclusion || ciRun.status || 'pending'}\n`;
   }
 
+  // Preview URLs
   if (vercelUrls.webUrl || vercelUrls.marketingUrl) {
-    message += `🌐 **Preview URLs:**\n`;
-    if (vercelUrls.webUrl) message += `   • Web: ${vercelUrls.webUrl}\n`;
-    if (vercelUrls.marketingUrl) message += `   • Marketing: ${vercelUrls.marketingUrl}\n`;
-    message += '\n';
+    message += '\n🌐 Previews:\n';
+    if (vercelUrls.webUrl) message += `   • ${vercelUrls.webUrl}\n`;
+    if (vercelUrls.marketingUrl) message += `   • ${vercelUrls.marketingUrl}\n`;
   }
 
-  message += 'Press enter to continue.';
+  message += '\nPress enter to continue.';
   return message;
 }
 
 /**
- * Format PR status info message (non-blocking)
+ * Format PR status info message
  * @param prCheck - PR details
  * @param prCheck.prNumber - PR number
  * @param prCheck.prUrl - PR URL
@@ -739,22 +742,33 @@ function formatPRStatusInfo(
   ciRun: { url?: string; status?: string; conclusion?: string; name?: string },
   vercelUrls: { webUrl?: string; marketingUrl?: string }
 ): string {
-  let message = `📋 **PR #${prCheck.prNumber}**\n`;
-  message += `🔗 ${prCheck.prUrl}\n\n`;
+  const ciPassed = ciRun.conclusion === 'success';
+  const ciFailed = ciRun.conclusion === 'failure';
 
+  // Header based on CI status
+  let message = ciPassed
+    ? '✅ PR Ready for Review\n\n'
+    : ciFailed
+      ? '❌ PR Has CI Failures\n\n'
+      : '⏳ PR Status\n\n';
+
+  // PR link (prominently displayed)
+  message += `📋 PR: ${prCheck.prUrl}\n`;
+
+  // CI run link (prominently displayed)
   if (ciRun.url) {
-    const statusIcon = ciRun.conclusion === 'success' ? '✓' : ciRun.conclusion === 'failure' ? '❌' : '⏳';
-    message += `🔄 **Latest CI:** ${ciRun.name || 'Workflow'}\n`;
-    message += `   ${statusIcon} ${ciRun.status} ${ciRun.conclusion ? `(${ciRun.conclusion})` : ''}\n`;
-    message += `   ${ciRun.url}\n\n`;
+    const statusIcon = ciPassed ? '✅' : ciFailed ? '❌' : '⏳';
+    message += `🔄 CI: ${ciRun.url} ${statusIcon} ${ciRun.conclusion || ciRun.status || 'pending'}\n`;
   }
 
+  // Preview URLs
   if (vercelUrls.webUrl || vercelUrls.marketingUrl) {
-    message += `🌐 **Preview URLs:**\n`;
-    if (vercelUrls.webUrl) message += `   • Web: ${vercelUrls.webUrl}\n`;
-    if (vercelUrls.marketingUrl) message += `   • Marketing: ${vercelUrls.marketingUrl}\n`;
+    message += '\n🌐 Previews:\n';
+    if (vercelUrls.webUrl) message += `   • ${vercelUrls.webUrl}\n`;
+    if (vercelUrls.marketingUrl) message += `   • ${vercelUrls.marketingUrl}\n`;
   }
 
+  message += '\nPress enter to continue.';
   return message;
 }
 
@@ -1124,12 +1138,12 @@ ${checksTable}
         return {
           decision: 'block',
           reason: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
-          systemMessage: 'Session work committed with PR status.',
         };
       } else if (syncCheck.aheadBy > 0) {
-        // Show PR status (non-blocking)
+        // Show PR status to user (block briefly to display info)
         return {
-          systemMessage: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls)
+          decision: 'block',
+          reason: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
       }
     }
