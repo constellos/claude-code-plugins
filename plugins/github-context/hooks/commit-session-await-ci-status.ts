@@ -160,8 +160,11 @@ async function hasUncommittedChanges(cwd: string): Promise<boolean> {
   // Filter out gitignored files
   const lines = result.stdout.split('\n').filter(Boolean);
   for (const line of lines) {
-    // Extract file path from status line (format: "XY filename" or "XY  filename -> newname")
-    const filePath = line.slice(3).split(' -> ')[0];
+    // Git porcelain format: XY<space>filename (XY = 2 status chars)
+    // But stdout.trim() may have removed a leading space from " M filename"
+    // Detect by checking if position 2 is a space (not trimmed) or not (trimmed)
+    const pathStart = (line.length >= 3 && line[2] === ' ') ? 3 : 2;
+    const filePath = line.slice(pathStart).split(' -> ')[0];
 
     // Check if file is gitignored
     const ignoreCheck = await execCommand(`git check-ignore -q "${filePath}"`, cwd);
@@ -191,7 +194,11 @@ async function getNonIgnoredChanges(cwd: string): Promise<string[]> {
   const lines = result.stdout.split('\n').filter(Boolean);
 
   for (const line of lines) {
-    const filePath = line.slice(3).split(' -> ')[0];
+    // Git porcelain format: XY<space>filename (XY = 2 status chars)
+    // But stdout.trim() may have removed a leading space from " M filename"
+    // Detect by checking if position 2 is a space (not trimmed) or not (trimmed)
+    const pathStart = (line.length >= 3 && line[2] === ' ') ? 3 : 2;
+    const filePath = line.slice(pathStart).split(' -> ')[0];
     const ignoreCheck = await execCommand(`git check-ignore -q "${filePath}"`, cwd);
     if (!ignoreCheck.success) {
       nonIgnoredFiles.push(filePath);
@@ -1193,7 +1200,11 @@ ${checksTable}
       };
     }
 
-    return { decision: 'approve' };
+    // No commits made this session and branch is in sync - nothing to do
+    return {
+      decision: 'approve',
+      systemMessage: 'No commits were made this session. PR not needed.'
+    };
   } catch (error) {
     await logger.logError(error as Error);
 
