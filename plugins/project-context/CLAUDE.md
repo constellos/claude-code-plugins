@@ -26,7 +26,6 @@ Automatic CLAUDE.md discovery, .claude structure validation, and rule-based chec
 | validate-folder-structure-mkdir | PreToolUse[Bash] | Yes | Validates mkdir commands |
 | try-markdown-page | PreToolUse[WebFetch] | No | Redirects to .md URLs |
 | log-task-result | PostToolUse[Task] | No | Logs task results |
-| create-plan-symlink | PostToolUse[Write\|Edit] | No | Creates PLAN.md symlink |
 | run-rule-checks | PostToolUse[Write\|Edit] | Yes | Runs lint/typecheck/vitest |
 | add-folder-context | PostToolUse[Read] | No | Discovers CLAUDE.md files |
 

@@ -23,7 +23,6 @@ Provides automatic context discovery and project structure validation. Discovers
 | validate-folder-structure-mkdir | PreToolUse[Bash] | Validates mkdir for .claude dirs |
 | try-markdown-page | PreToolUse[WebFetch] | Redirects to .md versions of docs |
 | log-task-result | PostToolUse[Task] | Logs task results |
-| create-plan-symlink | PostToolUse[Write\|Edit] | Creates PLAN.md symlink |
 | run-rule-checks | PostToolUse[Write\|Edit] | Runs checks from rule frontmatter |
 | add-folder-context | PostToolUse[Read] | Discovers CLAUDE.md context |
 
