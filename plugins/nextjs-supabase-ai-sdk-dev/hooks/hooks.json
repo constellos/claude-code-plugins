@@ -1,11 +1,12 @@
 {
-  "_comment": "Next.js Supabase AI SDK Dev Plugin - CLI setup for Vercel/Supabase",
+  "_comment": "Next.js Supabase AI SDK Dev Plugin - Local dev environment setup",
   "_notes": [
-    "Installs Vercel and Supabase CLIs on remote, warns on local",
+    "Installs Vercel CLI on remote, warns on local",
+    "Sets up Supabase local dev: CLI, Docker, server, env vars, dev server",
     "Tracks task/agent calls for context",
     "Check hooks moved to rule-based system in project-context plugin"
   ],
-  "description": "CLI setup for Next.js, Supabase, and AI SDK projects",
+  "description": "Local development environment setup for Next.js, Supabase, and AI SDK projects",
   "hooks": {
     "SessionStart": [
       {
@@ -17,8 +18,8 @@
           },
           {
             "type": "command",
-            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-supabase.ts",
-            "description": "Installs Supabase CLI on remote, warns if missing on local"
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-start-supabase-next.ts",
+            "description": "Sets up Supabase local dev: installs CLI, starts Docker, starts Supabase, exports env vars, starts dev server"
           }
         ]
       }

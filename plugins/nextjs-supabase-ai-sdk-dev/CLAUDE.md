@@ -1,7 +1,7 @@
 ---
 title: Next.js Supabase AI SDK Dev Plugin
 description: Development tooling for Next.js, Supabase, and AI SDK projects
-version: 0.1.1
+version: 0.1.2
 folder:
   subfolders:
     allowed: [.claude-plugin, hooks, agents, skills, shared, output-styles, templates]
@@ -13,14 +13,14 @@ folder:
 
 # Next.js Supabase AI SDK Dev Plugin
 
-CLI installation for Vercel/Supabase and systematic UI development with 5 progressive skills and 4 specialized agents.
+Local dev environment setup for Vercel/Supabase and systematic UI development with 6 progressive skills and 4 specialized agents.
 
 ## Hook Summary
 
 | Hook | Event | Blocking | Purpose |
 |------|-------|----------|---------|
 | install-vercel | SessionStart | No | Installs Vercel CLI |
-| install-supabase | SessionStart | No | Installs Supabase CLI |
+| install-start-supabase-next | SessionStart | No | Sets up Supabase local dev: CLI, Docker, server, env vars, dev server |
 | log-task-call | PreToolUse[Task] | No | Saves task context |
 | log-task-result | PostToolUse[Task] | No | Logs task results |
 
@@ -28,7 +28,7 @@ CLI installation for Vercel/Supabase and systematic UI development with 5 progre
 
 | Agent | Purpose |
 |-------|---------|
-| ui-developer | Full UI implementation (all 5 skills) |
+| ui-developer | Full UI implementation (all 6 skills) |
 | ui-reviewer | Visual quality review |
 | ui-tester | Mobile/desktop viewport testing |
 | ui-researcher | Design research and screenshots |
@@ -37,6 +37,7 @@ CLI installation for Vercel/Supabase and systematic UI development with 5 progre
 
 | Skill | Purpose |
 |-------|---------|
+| supabase-local-dev | Supabase local dev setup, Docker, migrations, types |
 | ui-wireframing | ASCII wireframes (mobile-first) |
 | ui-design | Static UI, compound components |
 | ui-interaction | Client state, Zod validation |
