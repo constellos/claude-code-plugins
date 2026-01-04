@@ -1124,22 +1124,22 @@ ${checksTable}
       const vercelUrls = await extractPreviewUrls(prCheck.prNumber, input.cwd);
 
       if (commitMade) {
-        // Block with PR status after commit
+        // Show PR status after commit (non-blocking)
         return {
-          decision: 'block',
-          reason: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
+          decision: 'approve',
+          systemMessage: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
       } else if (syncCheck.aheadBy > 0) {
-        // Show PR status to user (block briefly to display info)
+        // Show PR status to user (non-blocking)
         return {
-          decision: 'block',
-          reason: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
+          decision: 'approve',
+          systemMessage: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
       } else {
-        // Always show PR status when PR exists, even if no new commits this session
+        // Always show PR status when PR exists, even if no new commits this session (non-blocking)
         return {
-          decision: 'block',
-          reason: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
+          decision: 'approve',
+          systemMessage: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
       }
     }
