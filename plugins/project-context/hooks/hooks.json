@@ -56,6 +56,11 @@
           "type": "command",
           "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/shared/hooks/validate-folder-structure-mkdir.ts",
           "description": "Validates mkdir commands for .claude directories. Prevents creation of invalid or non-standard directory structures."
+        },
+        {
+          "type": "command",
+          "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/shared/hooks/use-correct-package-manager.ts",
+          "description": "Enforces correct package manager based on lockfiles. Blocks npm/yarn/pnpm/bun commands if wrong package manager detected."
         }
       ]
     },
