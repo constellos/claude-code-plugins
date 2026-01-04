@@ -34,6 +34,16 @@
             "description": "Logs Task tool calls before agent execution. Saves context for later retrieval in SubagentStop hooks."
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/validate-supabase-env.ts",
+            "description": "Validates Supabase environment variables in .env.local and dev.vars files. Blocks deprecated names (SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY) and incorrect prefixes."
+          }
+        ]
       }
     ],
     "PostToolUse": [
