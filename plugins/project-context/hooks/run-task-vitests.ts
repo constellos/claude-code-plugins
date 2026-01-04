@@ -10,8 +10,10 @@
 import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getAgentEdits } from '../shared/hooks/utils/subagent-state.js';
+import { findConfigFile } from '../../../shared/hooks/utils/config-resolver.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import * as path from 'path';
 
 const execAsync = promisify(exec);
 
@@ -79,17 +81,44 @@ async function handler(input: SubagentStopInput): Promise<SubagentStopHookOutput
       return {};
     }
 
+    // Find vitest config
+    let vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.ts');
+
+    // Try alternative config formats
+    if (!vitestConfigDir) {
+      vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.js');
+    }
+    if (!vitestConfigDir) {
+      vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.mjs');
+    }
+
+    // Fallback to input.cwd if no config found (Vitest has defaults)
+    const runDir = vitestConfigDir || input.cwd;
+
+    if (!vitestConfigDir && DEBUG) {
+      console.warn(`[run-task-vitests] No vitest config found (searched from ${input.cwd}). Running with defaults.`);
+    }
+
+    // Make file paths relative to run directory
+    const relativeFiles = testableFiles.map(f => {
+      if (path.isAbsolute(f)) {
+        return path.relative(runDir, f);
+      }
+      return f;
+    });
+
     // Run vitest related for all edited files
-    const filesArg = testableFiles.map((f) => `"${f}"`).join(' ');
+    const filesArg = relativeFiles.map((f) => `"${f}"`).join(' ');
     const command = `npx vitest related ${filesArg} --run --reporter=verbose`;
 
     if (DEBUG) {
       console.log('[run-task-vitests] Running:', command);
+      console.log('[run-task-vitests] Config dir:', runDir);
     }
 
     try {
       await execAsync(command, {
-        cwd: input.cwd,
+        cwd: runDir,
         timeout: TIMEOUT_MS,
       });
 

@@ -10,10 +10,11 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import { findConfigFile } from '../../../shared/hooks/utils/config-resolver.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { access } from 'fs/promises';
-import { basename, dirname, join } from 'path';
+import { basename, dirname, join, relative, isAbsolute } from 'path';
 
 const execAsync = promisify(exec);
 
@@ -105,12 +106,31 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
     return {};
   }
 
+  // Find vitest config
+  let vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.ts');
+
+  // Try alternative configs
+  if (!vitestConfigDir) {
+    vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.js');
+  }
+  if (!vitestConfigDir) {
+    vitestConfigDir = await findConfigFile(input.cwd, 'vitest.config.mjs');
+  }
+
+  // Fallback to input.cwd if no config found
+  const runDir = vitestConfigDir || input.cwd;
+
+  // Make test file path relative to run directory
+  const relativeTestFile = isAbsolute(testFile)
+    ? relative(runDir, testFile)
+    : testFile;
+
   // Run vitest for the test file
-  const command = `npx vitest run "${testFile}" --reporter=verbose`;
+  const command = `npx vitest run "${relativeTestFile}" --reporter=verbose`;
 
   try {
     await execAsync(command, {
-      cwd: input.cwd,
+      cwd: runDir,
       timeout: TIMEOUT_MS,
     });
 

@@ -107,6 +107,14 @@ export {
 export { detectPackageManager, getScriptCommand } from './package-manager.js';
 
 // ============================================================================
+// Configuration File Resolution
+// ============================================================================
+// Find configuration files by traversing parent directories.
+// Supports monorepo and Turborepo patterns with closest-first resolution.
+
+export { findConfigFile } from './config-resolver.js';
+
+// ============================================================================
 // TOML Parsing
 // ============================================================================
 // Simple TOML parser for reading configuration files like supabase/config.toml.

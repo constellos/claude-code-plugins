@@ -9,6 +9,7 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import { findConfigFile } from '../../../shared/hooks/utils/config-resolver.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -62,12 +63,30 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
     return {};
   }
 
+  // Find eslint config directory
+  let eslintConfigDir = await findConfigFile(input.cwd, 'eslint.config.mjs');
+
+  // Try alternative flat config format
+  if (!eslintConfigDir) {
+    eslintConfigDir = await findConfigFile(input.cwd, 'eslint.config.js');
+  }
+
+  if (!eslintConfigDir) {
+    // No ESLint flat config found - skip validation with warning
+    return {
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: `⚠️ ESLint config not found (searched from ${input.cwd} to git root). Skipping lint check. Expected: eslint.config.mjs or eslint.config.js`,
+      },
+    };
+  }
+
   // Run eslint
   const command = `npx eslint --max-warnings 0 "${filePath}"`;
 
   try {
     await execAsync(command, {
-      cwd: input.cwd,
+      cwd: eslintConfigDir,
       timeout: TIMEOUT_MS,
     });
 
