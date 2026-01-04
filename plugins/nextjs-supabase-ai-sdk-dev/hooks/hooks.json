@@ -42,6 +42,11 @@
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/validate-supabase-env.ts",
             "description": "Validates Supabase environment variables in .env.local and dev.vars files. Blocks deprecated names (SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY) and incorrect prefixes."
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/use-proxy-nextjs-16.ts",
+            "description": "Blocks middleware.ts creation in Next.js 16+ projects. Requires proxy.ts instead. Exception: Supabase middleware allowed."
           }
         ]
       }
