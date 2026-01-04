@@ -711,7 +711,7 @@ export async function checkBranchSyncStatus(cwd: string): Promise<BranchSyncResu
  */
 async function getCurrentCIChecks(prNumber: number, cwd: string): Promise<CheckStatus[]> {
   const result = await execCommand(
-    `gh pr checks ${prNumber} --json name,state,conclusion`,
+    `gh pr checks ${prNumber} --json name,state`,
     cwd
   );
 
@@ -721,27 +721,31 @@ async function getCurrentCIChecks(prNumber: number, cwd: string): Promise<CheckS
 
   try {
     const checks = JSON.parse(result.stdout);
-    return checks.map((check: { name: string; state: string; conclusion: string }) => {
+    return checks.map((check: { name: string; state: string }) => {
       let emoji = '⏳';
       let status = 'pending';
 
-      if (check.state === 'COMPLETED') {
-        if (check.conclusion === 'SUCCESS') {
-          emoji = '✅';
-          status = 'success';
-        } else if (check.conclusion === 'FAILURE') {
-          emoji = '❌';
-          status = 'failure';
-        } else if (check.conclusion === 'CANCELLED') {
-          emoji = '⚪';
-          status = 'cancelled';
-        } else if (check.conclusion === 'SKIPPED') {
-          emoji = '⏭️';
-          status = 'skipped';
-        }
-      } else if (check.state === 'IN_PROGRESS') {
+      // gh pr checks returns state directly as SUCCESS, FAILURE, SKIPPED, PENDING, IN_PROGRESS
+      const checkState = check.state.toUpperCase();
+
+      if (checkState === 'SUCCESS') {
+        emoji = '✅';
+        status = 'success';
+      } else if (checkState === 'FAILURE') {
+        emoji = '❌';
+        status = 'failure';
+      } else if (checkState === 'CANCELLED') {
+        emoji = '⚪';
+        status = 'cancelled';
+      } else if (checkState === 'SKIPPED') {
+        emoji = '⏭️';
+        status = 'skipped';
+      } else if (checkState === 'IN_PROGRESS') {
         emoji = '🔄';
         status = 'in_progress';
+      } else if (checkState === 'PENDING' || checkState === 'QUEUED') {
+        emoji = '⏳';
+        status = 'pending';
       }
 
       return { name: check.name, emoji, status };
