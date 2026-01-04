@@ -10,6 +10,7 @@
 import type { SubagentStopInput, SubagentStopHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getAgentEdits } from '../shared/hooks/utils/subagent-state.js';
+import { findConfigFile } from '../../../shared/hooks/utils/config-resolver.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -76,16 +77,28 @@ async function handler(input: SubagentStopInput): Promise<SubagentStopHookOutput
       return {};
     }
 
+    // Find tsconfig.json
+    const tsconfigDir = await findConfigFile(input.cwd, 'tsconfig.json');
+
+    if (!tsconfigDir) {
+      // No tsconfig.json found - skip with warning (per user preference)
+      if (DEBUG) {
+        console.warn(`[run-task-typechecks] TypeScript configuration (tsconfig.json) not found. Searched from ${input.cwd} to git root. Skipping type check.`);
+      }
+      return {};
+    }
+
     // Run tsc --noEmit on the project
     const command = 'npx tsc --noEmit';
 
     if (DEBUG) {
       console.log('[run-task-typechecks] Running:', command);
+      console.log('[run-task-typechecks] Config dir:', tsconfigDir);
     }
 
     try {
       await execAsync(command, {
-        cwd: input.cwd,
+        cwd: tsconfigDir,
         timeout: TIMEOUT_MS,
       });
 

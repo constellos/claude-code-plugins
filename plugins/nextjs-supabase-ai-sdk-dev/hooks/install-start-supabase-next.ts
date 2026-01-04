@@ -15,7 +15,7 @@ import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 import { platform } from 'os';
 
@@ -159,10 +159,31 @@ function isSupabaseInitialized(cwd: string): boolean {
 }
 
 /**
+ * Read project_id from supabase/config.toml
+ * Uses regex for lightweight parsing (avoids importing TOML parser)
+ */
+function getSupabaseProjectId(cwd: string): string | null {
+  const configPath = join(cwd, 'supabase', 'config.toml');
+  if (!existsSync(configPath)) {
+    return null;
+  }
+
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    const match = content.match(/^\s*project_id\s*=\s*"([^"]+)"/m);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Check if Supabase is already running
  */
-async function isSupabaseRunning(cwd: string): Promise<boolean> {
-  const result = await execCommand('supabase status', { cwd, timeout: 10000 });
+async function isSupabaseRunning(cwd: string, projectId: string | null): Promise<boolean> {
+  const cmd = projectId ? `supabase status --project-id ${projectId}` : 'supabase status';
+
+  const result = await execCommand(cmd, { cwd, timeout: 10000 });
   // If status returns successfully and contains service info, it's running
   return result.success && result.stdout.includes('API URL');
 }
@@ -170,107 +191,177 @@ async function isSupabaseRunning(cwd: string): Promise<boolean> {
 /**
  * Start Supabase local server
  */
-async function startSupabase(cwd: string): Promise<ExecResult> {
+async function startSupabase(cwd: string, projectId: string | null): Promise<ExecResult> {
+  const cmd = projectId ? `supabase start --project-id ${projectId}` : 'supabase start';
+
   // 5 minute timeout for first run (downloads containers)
-  return await execCommand('supabase start', { cwd, timeout: 300000 });
+  return await execCommand(cmd, { cwd, timeout: 300000 });
 }
 
 /**
- * Get Supabase environment variables
+ * Export Supabase env vars to .env.local and dev.vars
+ * Only saves 3 critical variables with correct prefixes
+ * Maps deprecated variable names to modern ones
  */
-async function getSupabaseEnvVars(cwd: string): Promise<Record<string, string>> {
-  const result = await execCommand('supabase status -o env', { cwd, timeout: 10000 });
+async function exportSupabaseEnvVars(
+  cwd: string,
+  projectId: string | null
+): Promise<{ nextjs: boolean; cloudflare: boolean }> {
+  // Get raw env output
+  const cmd = projectId ? `supabase status -o env --project-id ${projectId}` : 'supabase status -o env';
+
+  const result = await execCommand(cmd, { cwd, timeout: 10000 });
   if (!result.success) {
-    return {};
+    return { nextjs: false, cloudflare: false };
   }
 
-  const vars: Record<string, string> = {};
-  const lines = result.stdout.split('\n');
-  for (const line of lines) {
-    const match = line.match(/^([A-Z_]+)=(.+)$/);
-    if (match) {
-      vars[match[1]] = match[2];
+  // Parse only the 3 variables we need, mapping deprecated names
+  const envVars: Record<string, string> = {};
+  for (const line of result.stdout.split('\n')) {
+    // Map deprecated names to new ones
+    const urlMatch = line.match(/^SUPABASE_URL=(.+)$/);
+    const anonMatch = line.match(/^SUPABASE_ANON_KEY=(.+)$/);
+    const serviceMatch = line.match(/^SUPABASE_SERVICE_ROLE_KEY=(.+)$/);
+
+    if (urlMatch) {
+      envVars.SUPABASE_URL = urlMatch[1];
+    } else if (anonMatch) {
+      envVars.SUPABASE_PUBLISHABLE_KEY = anonMatch[1]; // Map anon key to publishable key
+    } else if (serviceMatch) {
+      envVars.SUPABASE_SECRET_KEY = serviceMatch[1]; // Map service role to secret key
     }
   }
 
-  return vars;
-}
+  let nextjsWritten = false;
+  let cloudflareWritten = false;
 
-// ==================== Environment File Management ====================
+  // Write to .env.local (always try for Next.js projects)
+  const envLocalPath = join(cwd, '.env.local');
+  if (envVars.SUPABASE_URL && envVars.SUPABASE_PUBLISHABLE_KEY) {
+    const nextjsEnv = [
+      '',
+      '# Supabase Local Development (auto-generated)',
+      `NEXT_PUBLIC_SUPABASE_URL=${envVars.SUPABASE_URL}`,
+      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${envVars.SUPABASE_PUBLISHABLE_KEY}`,
+      envVars.SUPABASE_SECRET_KEY ? `SUPABASE_SECRET_KEY=${envVars.SUPABASE_SECRET_KEY}` : '',
+      '',
+    ].filter(Boolean);
 
-/**
- * Detect the correct env file to use
- */
-function detectEnvFile(cwd: string): string {
-  // Priority order based on project type
-  if (existsSync(join(cwd, 'wrangler.toml')) || existsSync(join(cwd, 'wrangler.jsonc'))) {
-    return 'dev.vars';
-  }
-  if (existsSync(join(cwd, '.env.local'))) {
-    return '.env.local';
-  }
-  if (existsSync(join(cwd, '.env.development.local'))) {
-    return '.env.development.local';
-  }
-  // Default for Next.js projects
-  return '.env.local';
-}
-
-/**
- * Write environment variables to file
- */
-function writeEnvVars(cwd: string, envFile: string, vars: Record<string, string>): void {
-  const envPath = join(cwd, envFile);
-  const isCloudflare = envFile === 'dev.vars';
-
-  // Build new env content
-  const lines: string[] = [];
-  lines.push('');
-  lines.push('# Supabase Local Development (auto-generated)');
-
-  for (const [key, value] of Object.entries(vars)) {
-    if (key === 'SUPABASE_URL') {
-      if (isCloudflare) {
-        lines.push(`SUPABASE_URL=${value}`);
+    // Update or append to .env.local
+    if (existsSync(envLocalPath)) {
+      const existing = readFileSync(envLocalPath, 'utf-8');
+      if (existing.includes('# Supabase Local Development')) {
+        const updated = existing.replace(
+          /\n# Supabase Local Development \(auto-generated\)[\s\S]*?(?=\n[^#\n]|\n\n[^#]|$)/,
+          nextjsEnv.join('\n')
+        );
+        writeFileSync(envLocalPath, updated);
       } else {
-        lines.push(`NEXT_PUBLIC_SUPABASE_URL=${value}`);
+        appendFileSync(envLocalPath, nextjsEnv.join('\n'));
       }
-    } else if (key === 'SUPABASE_ANON_KEY') {
-      if (isCloudflare) {
-        lines.push(`SUPABASE_ANON_KEY=${value}`);
-      } else {
-        lines.push(`NEXT_PUBLIC_SUPABASE_ANON_KEY=${value}`);
-      }
-    } else if (key === 'SUPABASE_SERVICE_ROLE_KEY') {
-      lines.push(`SUPABASE_SERVICE_ROLE_KEY=${value}`);
-    } else if (key === 'SUPABASE_DB_URL') {
-      lines.push(`SUPABASE_DB_URL=${value}`);
-    }
-  }
-
-  const newContent = lines.join('\n') + '\n';
-
-  // Read existing content and check if already has Supabase vars
-  if (existsSync(envPath)) {
-    const existing = readFileSync(envPath, 'utf-8');
-    if (existing.includes('# Supabase Local Development')) {
-      // Replace existing Supabase section
-      const updatedContent = existing.replace(
-        /\n# Supabase Local Development \(auto-generated\)[\s\S]*?(?=\n[^#\n]|\n\n[^#]|$)/,
-        newContent
-      );
-      writeFileSync(envPath, updatedContent);
     } else {
-      // Append to file
-      appendFileSync(envPath, newContent);
+      writeFileSync(envLocalPath, nextjsEnv.join('\n'));
     }
-  } else {
-    // Create new file
-    writeFileSync(envPath, newContent.trim() + '\n');
+    nextjsWritten = true;
   }
+
+  // Write to dev.vars (for Cloudflare Workers)
+  const devVarsPath = join(cwd, 'dev.vars');
+  const hasWrangler = existsSync(join(cwd, 'wrangler.toml')) || existsSync(join(cwd, 'wrangler.jsonc'));
+
+  if (
+    (existsSync(devVarsPath) || hasWrangler) &&
+    envVars.SUPABASE_URL &&
+    envVars.SUPABASE_PUBLISHABLE_KEY
+  ) {
+    const cloudflareEnv = [
+      '',
+      '# Supabase Local Development (auto-generated)',
+      `SUPABASE_URL=${envVars.SUPABASE_URL}`, // No NEXT_PUBLIC_ prefix!
+      `SUPABASE_PUBLISHABLE_KEY=${envVars.SUPABASE_PUBLISHABLE_KEY}`, // No prefix!
+      envVars.SUPABASE_SECRET_KEY ? `SUPABASE_SECRET_KEY=${envVars.SUPABASE_SECRET_KEY}` : '',
+      '',
+    ].filter(Boolean);
+
+    if (existsSync(devVarsPath)) {
+      const existing = readFileSync(devVarsPath, 'utf-8');
+      if (existing.includes('# Supabase Local Development')) {
+        const updated = existing.replace(
+          /\n# Supabase Local Development \(auto-generated\)[\s\S]*?(?=\n[^#\n]|\n\n[^#]|$)/,
+          cloudflareEnv.join('\n')
+        );
+        writeFileSync(devVarsPath, updated);
+      } else {
+        appendFileSync(devVarsPath, cloudflareEnv.join('\n'));
+      }
+    } else {
+      writeFileSync(devVarsPath, cloudflareEnv.join('\n'));
+    }
+    cloudflareWritten = true;
+  }
+
+  return { nextjs: nextjsWritten, cloudflare: cloudflareWritten };
 }
 
 // ==================== Project Type Detection ====================
+
+/**
+ * Detect Turborepo workspace directories
+ * Reads package.json workspaces field to find app directories
+ */
+function detectTurborepoWorkspaces(cwd: string): string[] | null {
+  const turboJsonPath = join(cwd, 'turbo.json');
+  if (!existsSync(turboJsonPath)) {
+    return null;
+  }
+
+  const rootPackageJson = join(cwd, 'package.json');
+  if (!existsSync(rootPackageJson)) {
+    return null;
+  }
+
+  try {
+    const packageData = JSON.parse(readFileSync(rootPackageJson, 'utf-8'));
+
+    // Get workspace patterns (supports npm/yarn/pnpm formats)
+    let workspacePatterns: string[] = [];
+    if (Array.isArray(packageData.workspaces)) {
+      workspacePatterns = packageData.workspaces;
+    } else if (packageData.workspaces?.packages) {
+      workspacePatterns = packageData.workspaces.packages;
+    }
+
+    // Resolve workspace directories
+    const workspaceDirs: string[] = [];
+
+    for (const pattern of workspacePatterns) {
+      if (pattern.includes('*')) {
+        // Handle globs like "apps/*" or "packages/*"
+        const baseDir = pattern.replace('/*', '');
+        const basePath = join(cwd, baseDir);
+
+        if (existsSync(basePath)) {
+          const entries = readdirSync(basePath);
+          for (const entry of entries) {
+            const entryPath = join(basePath, entry);
+            if (statSync(entryPath).isDirectory() && existsSync(join(entryPath, 'package.json'))) {
+              workspaceDirs.push(join(baseDir, entry));
+            }
+          }
+        }
+      } else {
+        // Direct path like "apps/web"
+        if (existsSync(join(cwd, pattern, 'package.json'))) {
+          workspaceDirs.push(pattern);
+        }
+      }
+    }
+
+    return workspaceDirs.length > 0 ? workspaceDirs : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Detect project type
@@ -296,16 +387,21 @@ function detectProjectType(cwd: string): ProjectType {
  * Get the dev command for the project type
  */
 function getDevCommand(cwd: string, projectType: ProjectType): string | null {
-  const pm = detectPackageManager(cwd);
-  const runCmd = pm === 'npm' ? 'npm run' : pm;
-
   switch (projectType) {
     case 'turborepo':
+      // CRITICAL: Use 'turbo dev' not package manager script
+      // turbo dev starts ALL workspace dev tasks in parallel
+      return 'turbo dev';
+
+    case 'nextjs': {
+      const pm = detectPackageManager(cwd);
+      const runCmd = pm === 'npm' ? 'npm run' : pm;
       return `${runCmd} dev`;
-    case 'nextjs':
-      return `${runCmd} dev`;
+    }
+
     case 'cloudflare':
       return 'wrangler dev';
+
     default:
       return null;
   }
@@ -386,6 +482,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       };
     }
 
+    // Read project_id from config.toml
+    const projectId = getSupabaseProjectId(input.cwd);
+    if (projectId) {
+      messages.push(`✓ Supabase project: ${projectId}`);
+    }
+
     // ========== Step 3: Check/Start Docker ==========
     let dockerRunning = await isDockerRunning();
 
@@ -411,12 +513,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     }
 
     // ========== Step 4: Check/Start Supabase ==========
-    let supabaseRunning = await isSupabaseRunning(input.cwd);
+    let supabaseRunning = await isSupabaseRunning(input.cwd, projectId);
 
     if (!supabaseRunning && dockerRunning) {
       messages.push('');
       messages.push('Starting Supabase local server...');
-      const startResult = await startSupabase(input.cwd);
+      const startResult = await startSupabase(input.cwd, projectId);
 
       if (startResult.success) {
         messages.push('✓ Supabase started');
@@ -431,11 +533,13 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
     // ========== Step 5: Export Environment Variables ==========
     if (supabaseRunning) {
-      const envVars = await getSupabaseEnvVars(input.cwd);
-      if (Object.keys(envVars).length > 0) {
-        const envFile = detectEnvFile(input.cwd);
-        writeEnvVars(input.cwd, envFile, envVars);
-        messages.push(`✓ Environment variables written to ${envFile}`);
+      const result = await exportSupabaseEnvVars(input.cwd, projectId);
+
+      if (result.nextjs) {
+        messages.push('✓ Environment variables written to .env.local');
+      }
+      if (result.cloudflare) {
+        messages.push('✓ Environment variables written to dev.vars');
       }
     }
 
@@ -446,6 +550,30 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     if (devCommand) {
       messages.push('');
       messages.push(`Detected project type: ${projectType}`);
+
+      // Show workspace info for Turborepo
+      if (projectType === 'turborepo') {
+        const workspaces = detectTurborepoWorkspaces(input.cwd);
+        if (workspaces && workspaces.length > 0) {
+          messages.push(`  Workspaces: ${workspaces.join(', ')}`);
+
+          // Check for MCP worker and start it separately
+          const mcpWorkspace = workspaces.find((w) => w.includes('mcp'));
+          if (mcpWorkspace) {
+            const mcpPath = join(input.cwd, mcpWorkspace);
+            if (existsSync(join(mcpPath, 'wrangler.toml'))) {
+              messages.push('');
+              messages.push('Starting MCP Cloudflare Worker...');
+              const mcpResult = startDevServerBackground(mcpPath, 'wrangler dev');
+              if (mcpResult) {
+                messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
+                messages.push('  URL: http://localhost:8787');
+              }
+            }
+          }
+        }
+      }
+
       messages.push(`Starting dev server: ${devCommand}`);
 
       const result = startDevServerBackground(input.cwd, devCommand);

@@ -1135,6 +1135,12 @@ ${checksTable}
           decision: 'block',
           reason: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
+      } else {
+        // Always show PR status when PR exists, even if no new commits this session
+        return {
+          decision: 'block',
+          reason: formatPRStatusInfo({ prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
+        };
       }
     }
 
