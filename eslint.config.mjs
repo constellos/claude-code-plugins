@@ -9,7 +9,7 @@ const config = [
     ignores: [
       "dist/*",
       "node_modules/*",
-      "!.claude/*",
+      "!.claude/**",
     ],
   },
   {

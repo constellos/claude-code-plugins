@@ -21,8 +21,6 @@ const MAX_OUTPUT_CHARS = 500;
 /** Default CI check timeout in milliseconds (10 minutes) */
 const DEFAULT_TIMEOUT_MS = 600000;
 
-/** Polling interval for fail-fast CI checks in milliseconds (5 seconds) */
-const POLL_INTERVAL_MS = 5000;
 
 /**
  * Branch sync status result
@@ -713,7 +711,7 @@ export async function checkBranchSyncStatus(cwd: string): Promise<BranchSyncResu
  */
 async function getCurrentCIChecks(prNumber: number, cwd: string): Promise<CheckStatus[]> {
   const result = await execCommand(
-    `gh pr checks ${prNumber} --json name,state,conclusion`,
+    `gh pr checks ${prNumber} --json name,state`,
     cwd
   );
 
@@ -723,24 +721,31 @@ async function getCurrentCIChecks(prNumber: number, cwd: string): Promise<CheckS
 
   try {
     const checks = JSON.parse(result.stdout);
-    return checks.map((check: { name: string; state: string; conclusion: string }) => {
+    return checks.map((check: { name: string; state: string }) => {
       let emoji = '⏳';
       let status = 'pending';
 
-      if (check.state === 'COMPLETED') {
-        if (check.conclusion === 'SUCCESS') {
-          emoji = '✅';
-          status = 'success';
-        } else if (check.conclusion === 'FAILURE') {
-          emoji = '❌';
-          status = 'failure';
-        } else if (check.conclusion === 'CANCELLED') {
-          emoji = '⚪';
-          status = 'cancelled';
-        }
-      } else if (check.state === 'IN_PROGRESS') {
+      // gh pr checks returns state directly as SUCCESS, FAILURE, SKIPPED, PENDING, IN_PROGRESS
+      const checkState = check.state.toUpperCase();
+
+      if (checkState === 'SUCCESS') {
+        emoji = '✅';
+        status = 'success';
+      } else if (checkState === 'FAILURE') {
+        emoji = '❌';
+        status = 'failure';
+      } else if (checkState === 'CANCELLED') {
+        emoji = '⚪';
+        status = 'cancelled';
+      } else if (checkState === 'SKIPPED') {
+        emoji = '⏭️';
+        status = 'skipped';
+      } else if (checkState === 'IN_PROGRESS') {
         emoji = '🔄';
         status = 'in_progress';
+      } else if (checkState === 'PENDING' || checkState === 'QUEUED') {
+        emoji = '⏳';
+        status = 'pending';
       }
 
       return { name: check.name, emoji, status };
@@ -786,7 +791,7 @@ export async function awaitCIWithFailFast(
   },
   cwd: string
 ): Promise<FailFastResult> {
-  const { timeout = DEFAULT_TIMEOUT_MS, pollInterval = POLL_INTERVAL_MS } = options;
+  const { timeout = DEFAULT_TIMEOUT_MS } = options;
   let { prNumber } = options;
 
   // Get PR number if not provided
@@ -823,19 +828,43 @@ export async function awaitCIWithFailFast(
     };
   }
 
-  // 3. Poll CI checks with fail-fast on any failure
-  const startTime = Date.now();
+  // 3. Get latest workflow run for PR's head SHA
+  const headShaResult = await execCommand(
+    `gh pr view ${prNumber} --json headRefOid --jq '.headRefOid'`,
+    cwd
+  );
+  if (!headShaResult.success) {
+    return {
+      success: false,
+      blockReason: `❌ Failed to get PR head SHA: ${headShaResult.stderr}`,
+      checks: [],
+      prNumber,
+    };
+  }
+  const headSha = headShaResult.stdout.trim();
 
-  while (Date.now() - startTime < timeout) {
+  // Get the workflow run ID for this commit
+  const runListResult = await execCommand(
+    `gh run list --commit ${headSha} --json databaseId,status --limit 1`,
+    cwd
+  );
+
+  if (!runListResult.success || !runListResult.stdout.trim()) {
+    // No runs yet - check using pr checks instead
     const checks = await getCurrentCIChecks(prNumber, cwd);
-
     if (checks.length === 0) {
-      // No checks yet, wait and retry
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-      continue;
+      return {
+        success: true,
+        checks: [],
+        prNumber,
+        error: 'No CI runs found for this commit',
+      };
     }
-
-    // Check for any failures - fail fast!
+    // Fall through to check status
+    const allComplete = checks.every((c) => c.status === 'success' || c.status === 'skipped');
+    if (allComplete) {
+      return { success: true, checks, prNumber };
+    }
     const failedCheck = checks.find((c) => c.status === 'failure' || c.status === 'cancelled');
     if (failedCheck) {
       return {
@@ -846,25 +875,114 @@ export async function awaitCIWithFailFast(
         prNumber,
       };
     }
-
-    // Check if all checks are complete and passed
-    const allComplete = checks.every((c) => c.status === 'success');
-    if (allComplete) {
-      return {
-        success: true,
-        checks,
-        prNumber,
-      };
-    }
-
-    // Some checks still pending, wait and poll again
-    await new Promise((resolve) => setTimeout(resolve, pollInterval));
   }
 
-  // Timeout reached
-  const finalChecks = await getCurrentCIChecks(prNumber, cwd);
-  const pendingChecks = finalChecks.filter((c) => c.status === 'pending' || c.status === 'in_progress');
+  let runId: string | undefined;
+  try {
+    const runs = JSON.parse(runListResult.stdout);
+    if (Array.isArray(runs) && runs.length > 0) {
+      runId = String(runs[0].databaseId);
+    }
+  } catch {
+    // Ignore parse errors, will fall back to pr checks
+  }
 
+  if (runId) {
+    // 4. Use gh run watch to wait for completion (with timeout)
+    const timeoutSecs = Math.floor(timeout / 1000);
+    const _watchResult = await execCommand(
+      `timeout ${timeoutSecs} gh run watch ${runId} --exit-status 2>&1 || true`,
+      cwd,
+      timeout + 5000 // Give a bit more time for timeout command
+    );
+
+    // 5. Get final run status using gh run view
+    const viewResult = await execCommand(
+      `gh run view ${runId} --json conclusion,jobs`,
+      cwd
+    );
+
+    if (viewResult.success) {
+      try {
+        const runData = JSON.parse(viewResult.stdout);
+        const conclusion = runData.conclusion;
+
+        // Get check statuses from jobs
+        const checks: CheckStatus[] = (runData.jobs || []).map((job: { name: string; conclusion: string; status: string }) => {
+          let emoji = '⏳';
+          let status = 'pending';
+
+          if (job.status === 'completed') {
+            if (job.conclusion === 'success') {
+              emoji = '✅';
+              status = 'success';
+            } else if (job.conclusion === 'failure') {
+              emoji = '❌';
+              status = 'failure';
+            } else if (job.conclusion === 'cancelled') {
+              emoji = '⚪';
+              status = 'cancelled';
+            } else if (job.conclusion === 'skipped') {
+              emoji = '⏭️';
+              status = 'skipped';
+            }
+          } else if (job.status === 'in_progress') {
+            emoji = '🔄';
+            status = 'in_progress';
+          }
+
+          return { name: job.name, emoji, status };
+        });
+
+        if (conclusion === 'success') {
+          return { success: true, checks, prNumber };
+        } else if (conclusion === 'failure') {
+          const failedCheck = checks.find((c) => c.status === 'failure');
+          return {
+            success: false,
+            blockReason: `❌ CI check "${failedCheck?.name || 'unknown'}" failed. Fix before continuing.`,
+            failedCheck: failedCheck?.name,
+            checks,
+            prNumber,
+          };
+        } else if (conclusion === 'cancelled') {
+          return {
+            success: false,
+            blockReason: `⚪ CI run was cancelled.`,
+            checks,
+            prNumber,
+          };
+        }
+        // Run still in progress or other state
+      } catch {
+        // Parse error, fall through
+      }
+    }
+  }
+
+  // Fallback: get current check statuses
+  const finalChecks = await getCurrentCIChecks(prNumber, cwd);
+
+  // Check for any failures
+  const failedCheck = finalChecks.find((c) => c.status === 'failure' || c.status === 'cancelled');
+  if (failedCheck) {
+    return {
+      success: false,
+      blockReason: `❌ CI check "${failedCheck.name}" failed. Fix before continuing.`,
+      failedCheck: failedCheck.name,
+      checks: finalChecks,
+      prNumber,
+    };
+  }
+
+  // Check if all complete (success or skipped)
+  const allComplete = finalChecks.every((c) => c.status === 'success' || c.status === 'skipped');
+  if (allComplete && finalChecks.length > 0) {
+    return { success: true, checks: finalChecks, prNumber };
+  }
+
+  // Still pending
+  const pendingChecks = finalChecks.filter((c) => c.status === 'pending' || c.status === 'in_progress');
   return {
     success: false,
     blockReason: `⏱️ CI check timeout (${Math.round(timeout / 60000)} minutes). ${pendingChecks.length} check(s) still pending.`,
