@@ -20,6 +20,11 @@
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-start-supabase-next.ts",
             "description": "Sets up Supabase local dev: installs CLI, starts Docker, starts Supabase, exports env vars, starts dev server"
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/cache-supabase-schema.ts",
+            "description": "Caches Supabase table/column metadata for context matching. Checks for stale cache and provides refresh instructions."
           }
         ]
       }

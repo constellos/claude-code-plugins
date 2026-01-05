@@ -21,6 +21,7 @@ Local dev environment setup for Vercel/Supabase and systematic UI development wi
 |------|-------|----------|---------|
 | install-vercel | SessionStart | No | Installs Vercel CLI |
 | install-start-supabase-next | SessionStart | No | Sets up Supabase local dev: CLI, Docker, server, env vars, dev server |
+| cache-supabase-schema | SessionStart | No | Caches Supabase table/column metadata for context matching |
 | log-task-call | PreToolUse[Task] | No | Saves task context |
 | log-task-result | PostToolUse[Task] | No | Logs task results |
 
