@@ -6,8 +6,8 @@
  * @module use-proxy-nextjs-16
  */
 
-import type { PreToolUseInput, PreToolUseHookOutput } from '../../../shared/types/types.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { PreToolUseInput, PreToolUseHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { basename, normalize } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
