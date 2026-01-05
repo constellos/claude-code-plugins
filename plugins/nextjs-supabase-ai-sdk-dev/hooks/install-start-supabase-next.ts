@@ -15,7 +15,7 @@ import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, mkdirSync, openSync } from 'fs';
 import { join } from 'path';
 import { platform } from 'os';
 
@@ -27,7 +27,7 @@ interface ExecResult {
   stderr: string;
 }
 
-type ProjectType = 'turborepo' | 'nextjs' | 'cloudflare' | 'unknown';
+type ProjectType = 'turborepo' | 'nextjs' | 'cloudflare' | 'elysia' | 'unknown';
 
 /**
  * Execute a shell command with error handling
@@ -388,6 +388,25 @@ function detectProjectType(cwd: string): ProjectType {
   if (existsSync(join(cwd, 'wrangler.toml')) || existsSync(join(cwd, 'wrangler.jsonc'))) {
     return 'cloudflare';
   }
+
+  // Check for Elysia (Bun framework)
+  if (existsSync(join(cwd, 'bun.toml'))) {
+    return 'elysia';
+  }
+
+  // Or check package.json for elysia dependency
+  const packageJsonPath = join(cwd, 'package.json');
+  if (existsSync(packageJsonPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      if (pkg.dependencies?.elysia || pkg.devDependencies?.elysia) {
+        return 'elysia';
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
   return 'unknown';
 }
 
@@ -396,10 +415,27 @@ function detectProjectType(cwd: string): ProjectType {
  */
 function getDevCommand(cwd: string, projectType: ProjectType): string | null {
   switch (projectType) {
-    case 'turborepo':
-      // Use npx to run turbo since it may be a local dependency
-      // turbo dev starts ALL workspace dev tasks in parallel
-      return 'npx turbo dev';
+    case 'turborepo': {
+      // Check if turbo.json has a dev task defined
+      const turboJsonPath = join(cwd, 'turbo.json');
+      if (existsSync(turboJsonPath)) {
+        try {
+          const turboConfig = JSON.parse(readFileSync(turboJsonPath, 'utf-8'));
+
+          // Check both old (pipeline) and new (tasks) format
+          const hasDev = turboConfig.pipeline?.dev || turboConfig.tasks?.dev;
+
+          if (hasDev) {
+            return 'npx turbo dev';
+          }
+        } catch {
+          // If parsing fails, fall through to default
+        }
+      }
+
+      // Fallback: try `npx turbo run dev` (works if workspaces define dev script)
+      return 'npx turbo run dev';
+    }
 
     case 'nextjs': {
       const pm = detectPackageManager(cwd);
@@ -411,29 +447,107 @@ function getDevCommand(cwd: string, projectType: ProjectType): string | null {
       // Use npx to run wrangler since it may be a local dependency
       return 'npx wrangler dev';
 
+    case 'elysia':
+      // Elysia uses Bun
+      return 'bun run dev';
+
     default:
       return null;
   }
 }
 
 /**
- * Start dev server in background
+ * Start dev server in background with comprehensive logging
  */
-function startDevServerBackground(cwd: string, command: string): { pid: number } | null {
+function startDevServerBackground(
+  cwd: string,
+  command: string,
+  logger: ReturnType<typeof createDebugLogger>
+): { pid: number; logs: { stdout: string; stderr: string } } | null {
   try {
     const [cmd, ...args] = command.split(' ');
+
+    // Ensure .claude/logs directory exists
+    const logDir = join(cwd, '.claude', 'logs');
+    if (!existsSync(logDir)) {
+      mkdirSync(logDir, { recursive: true });
+    }
+
+    // Create log files for stdout/stderr
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const stdoutPath = join(logDir, `dev-server-stdout-${timestamp}.log`);
+    const stderrPath = join(logDir, `dev-server-stderr-${timestamp}.log`);
+
+    const stdoutFd = openSync(stdoutPath, 'a');
+    const stderrFd = openSync(stderrPath, 'a');
+
     const child = spawn(cmd, args, {
       cwd,
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', stdoutFd, stderrFd],
       env: process.env,
     });
 
+    // Log spawn errors
+    child.on('error', (err) => {
+      logger.logError(new Error(`Dev server spawn failed: ${err.message}`));
+    });
+
+    // Log early exits (within 5 seconds = crash)
+    const spawnTime = Date.now();
+    child.on('exit', (code, signal) => {
+      const runtime = Date.now() - spawnTime;
+      if (runtime < 5000 && code !== 0) {
+        logger.logError(
+          new Error(`Dev server exited early (${runtime}ms) with code ${code}, signal ${signal}`)
+        );
+      }
+    });
+
     child.unref();
-    return { pid: child.pid || 0 };
-  } catch {
+
+    return {
+      pid: child.pid || 0,
+      logs: {
+        stdout: stdoutPath,
+        stderr: stderrPath,
+      },
+    };
+  } catch (error) {
+    logger.logError(error as Error);
     return null;
   }
+}
+
+/**
+ * Check if dev server is responding to HTTP requests
+ */
+async function checkServerHealth(port: number, timeoutMs: number = 10000): Promise<boolean> {
+  const startTime = Date.now();
+  const pollInterval = 1000;
+
+  while (Date.now() - startTime < timeoutMs) {
+    try {
+      const result = await execCommand(
+        `curl -s -o /dev/null -w "%{http_code}" http://localhost:${port}`,
+        { timeout: 2000 }
+      );
+
+      // Accept 2xx, 3xx, 404, or 405 (Next.js returns 404 on root before app is ready)
+      if (result.success) {
+        const statusCode = parseInt(result.stdout);
+        if (statusCode >= 200 && statusCode < 600) {
+          return true;
+        }
+      }
+    } catch {
+      // Ignore errors, server might not be ready yet
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollInterval));
+  }
+
+  return false;
 }
 
 // ==================== Main Handler ====================
@@ -495,6 +609,11 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     const projectId = getSupabaseProjectId(input.cwd);
     if (projectId) {
       messages.push(`✓ Supabase project: ${projectId}`);
+    }
+
+    // Show multi-instance warning if Supabase is running
+    if (projectId && await isSupabaseRunning(input.cwd)) {
+      messages.push(`ℹ️  Using Supabase instance: ${projectId}`);
     }
 
     // ========== Step 3: Check/Start Docker ==========
@@ -593,10 +712,13 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
             if (existsSync(join(mcpPath, 'wrangler.toml'))) {
               messages.push('');
               messages.push('Starting MCP Cloudflare Worker...');
-              const mcpResult = startDevServerBackground(mcpPath, 'npx wrangler dev');
+              const mcpResult = startDevServerBackground(mcpPath, 'npx wrangler dev', logger);
               if (mcpResult) {
                 messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
+                messages.push(`  Logs: ${mcpResult.logs.stdout}`);
                 messages.push('  URL: http://localhost:8787');
+              } else {
+                messages.push('⚠️ Could not start MCP worker');
               }
             }
           }
@@ -605,13 +727,25 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
       messages.push(`Starting dev server: ${devCommand}`);
 
-      const result = startDevServerBackground(input.cwd, devCommand);
+      const result = startDevServerBackground(input.cwd, devCommand, logger);
       if (result) {
         messages.push(`✓ Dev server started (PID: ${result.pid})`);
+        messages.push(`  Logs: ${result.logs.stdout}`);
 
         // Default ports by project type
-        const port = projectType === 'cloudflare' ? 8787 : 3000;
-        messages.push(`  URL: http://localhost:${port}`);
+        const port = projectType === 'cloudflare' ? 8787 : projectType === 'elysia' ? 3000 : 3000;
+
+        // Check server health
+        messages.push('  Waiting for server to be ready...');
+        const isHealthy = await checkServerHealth(port);
+
+        if (isHealthy) {
+          messages.push(`✓ Server is responding at http://localhost:${port}`);
+        } else {
+          messages.push(`⚠️ Server did not respond within 10 seconds`);
+          messages.push(`  Check logs: ${result.logs.stderr}`);
+          messages.push(`  Try manually: ${devCommand}`);
+        }
       } else {
         messages.push('⚠️ Could not start dev server');
         messages.push(`  Run manually: ${devCommand}`);
