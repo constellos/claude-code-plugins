@@ -6,9 +6,9 @@
  * @module use-correct-package-manager
  */
 
-import type { PreToolUseInput, PreToolUseHookOutput } from '../../../../shared/types/types.js';
+import type { PreToolUseInput, PreToolUseHookOutput } from '../types/types.js';
 import { runHook } from './utils/io.js';
-import { detectPackageManager } from '../../../../shared/hooks/utils/package-manager.js';
+import { detectPackageManager } from './utils/package-manager.js';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
