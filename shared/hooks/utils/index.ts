@@ -150,3 +150,73 @@ export {
   formatErrorSummary,
   formatSuccessMessage,
 } from './log-file.js';
+
+// ============================================================================
+// Plan File Parsing
+// ============================================================================
+// Parse plan file frontmatter to extract task definitions with agent
+// assignments, file path patterns, and task dependencies.
+
+export {
+  parsePlanFrontmatter,
+  validateTaskDefinitions,
+  findTaskByPath,
+  isPathInScope,
+  findAllTasksByPath,
+  type TaskDefinition,
+  type PlanMetadata,
+  type ValidationResult,
+} from './plan-parser.js';
+
+// ============================================================================
+// TSDoc Metadata Parsing
+// ============================================================================
+// Extract @context and @aliases tags from TSDoc comments, along with
+// export names for implicit tagging.
+
+export {
+  extractTSDocMetadata,
+  extractExports,
+  parseFileMetadata,
+  type TSDocMetadata,
+  type ExportInfo,
+  type FileMetadata as TSDocFileMetadata,
+} from './tsdoc-parser.js';
+
+// ============================================================================
+// Metadata Index Management
+// ============================================================================
+// Load, save, and update the incremental metadata index stored in
+// .claude/logs/metadata-index.json.
+
+export {
+  loadIndex,
+  saveIndex,
+  updateFileMetadata,
+  updateFolderMetadata,
+  removeFileMetadata,
+  removeFolderMetadata,
+  updateSupabaseSchema,
+  needsReindex,
+  getIndexedFiles,
+  getIndexedFolders,
+  type FileMetadata,
+  type FolderMetadata,
+  type SupabaseSchemaCache,
+  type MetadataIndex,
+} from './metadata-index.js';
+
+// ============================================================================
+// Context Matching
+// ============================================================================
+// Match user prompt words against the metadata index and return
+// SERP-style ranked results for context enrichment.
+
+export {
+  tokenizePrompt,
+  matchContext,
+  formatSERPOutput,
+  formatCompactOutput,
+  type MatchResult,
+  type MatchOptions,
+} from './context-matcher.js';
