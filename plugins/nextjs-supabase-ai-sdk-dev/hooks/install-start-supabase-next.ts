@@ -180,10 +180,8 @@ function getSupabaseProjectId(cwd: string): string | null {
 /**
  * Check if Supabase is already running
  */
-async function isSupabaseRunning(cwd: string, projectId: string | null): Promise<boolean> {
-  const cmd = projectId ? `supabase status --project-id ${projectId}` : 'supabase status';
-
-  const result = await execCommand(cmd, { cwd, timeout: 10000 });
+async function isSupabaseRunning(cwd: string): Promise<boolean> {
+  const result = await execCommand('supabase status', { cwd, timeout: 10000 });
   // If status returns successfully and contains service info, it's running
   return result.success && result.stdout.includes('API URL');
 }
@@ -191,52 +189,62 @@ async function isSupabaseRunning(cwd: string, projectId: string | null): Promise
 /**
  * Start Supabase local server
  */
-async function startSupabase(cwd: string, projectId: string | null): Promise<ExecResult> {
-  const cmd = projectId ? `supabase start --project-id ${projectId}` : 'supabase start';
-
+async function startSupabase(cwd: string): Promise<ExecResult> {
   // 5 minute timeout for first run (downloads containers)
-  return await execCommand(cmd, { cwd, timeout: 300000 });
+  return await execCommand('supabase start', { cwd, timeout: 300000 });
 }
 
 /**
  * Export Supabase env vars to .env.local and dev.vars
  * Only saves 3 critical variables with correct prefixes
  * Maps deprecated variable names to modern ones
+ *
+ * @param supabaseRoot - Directory containing supabase/config.toml (where to run supabase CLI)
+ * @param targetDir - Directory where to write .env.local and dev.vars
  */
 async function exportSupabaseEnvVars(
-  cwd: string,
-  projectId: string | null
+  supabaseRoot: string,
+  targetDir: string
 ): Promise<{ nextjs: boolean; cloudflare: boolean }> {
-  // Get raw env output
-  const cmd = projectId ? `supabase status -o env --project-id ${projectId}` : 'supabase status -o env';
-
-  const result = await execCommand(cmd, { cwd, timeout: 10000 });
+  // Get raw env output from supabase root
+  const result = await execCommand('supabase status -o env', { cwd: supabaseRoot, timeout: 10000 });
   if (!result.success) {
     return { nextjs: false, cloudflare: false };
   }
 
-  // Parse only the 3 variables we need, mapping deprecated names
+  // Parse only the 3 variables we need from supabase status output
+  // Supabase CLI outputs: API_URL, ANON_KEY, PUBLISHABLE_KEY, SERVICE_ROLE_KEY, SECRET_KEY
   const envVars: Record<string, string> = {};
   for (const line of result.stdout.split('\n')) {
-    // Map deprecated names to new ones
-    const urlMatch = line.match(/^SUPABASE_URL=(.+)$/);
-    const anonMatch = line.match(/^SUPABASE_ANON_KEY=(.+)$/);
-    const serviceMatch = line.match(/^SUPABASE_SERVICE_ROLE_KEY=(.+)$/);
+    // API_URL -> SUPABASE_URL
+    const urlMatch = line.match(/^API_URL="?([^"]+)"?$/);
+    // PUBLISHABLE_KEY (new) or ANON_KEY (legacy) -> SUPABASE_PUBLISHABLE_KEY
+    const publishableMatch = line.match(/^PUBLISHABLE_KEY="?([^"]+)"?$/);
+    const anonMatch = line.match(/^ANON_KEY="?([^"]+)"?$/);
+    // SECRET_KEY (new) or SERVICE_ROLE_KEY (legacy) -> SUPABASE_SECRET_KEY
+    const secretMatch = line.match(/^SECRET_KEY="?([^"]+)"?$/);
+    const serviceMatch = line.match(/^SERVICE_ROLE_KEY="?([^"]+)"?$/);
 
     if (urlMatch) {
       envVars.SUPABASE_URL = urlMatch[1];
-    } else if (anonMatch) {
-      envVars.SUPABASE_PUBLISHABLE_KEY = anonMatch[1]; // Map anon key to publishable key
-    } else if (serviceMatch) {
-      envVars.SUPABASE_SECRET_KEY = serviceMatch[1]; // Map service role to secret key
+    } else if (publishableMatch) {
+      envVars.SUPABASE_PUBLISHABLE_KEY = publishableMatch[1];
+    } else if (anonMatch && !envVars.SUPABASE_PUBLISHABLE_KEY) {
+      // Only use ANON_KEY if PUBLISHABLE_KEY not found
+      envVars.SUPABASE_PUBLISHABLE_KEY = anonMatch[1];
+    } else if (secretMatch) {
+      envVars.SUPABASE_SECRET_KEY = secretMatch[1];
+    } else if (serviceMatch && !envVars.SUPABASE_SECRET_KEY) {
+      // Only use SERVICE_ROLE_KEY if SECRET_KEY not found
+      envVars.SUPABASE_SECRET_KEY = serviceMatch[1];
     }
   }
 
   let nextjsWritten = false;
   let cloudflareWritten = false;
 
-  // Write to .env.local (always try for Next.js projects)
-  const envLocalPath = join(cwd, '.env.local');
+  // Write to .env.local (for Next.js projects)
+  const envLocalPath = join(targetDir, '.env.local');
   if (envVars.SUPABASE_URL && envVars.SUPABASE_PUBLISHABLE_KEY) {
     const nextjsEnv = [
       '',
@@ -266,8 +274,8 @@ async function exportSupabaseEnvVars(
   }
 
   // Write to dev.vars (for Cloudflare Workers)
-  const devVarsPath = join(cwd, 'dev.vars');
-  const hasWrangler = existsSync(join(cwd, 'wrangler.toml')) || existsSync(join(cwd, 'wrangler.jsonc'));
+  const devVarsPath = join(targetDir, 'dev.vars');
+  const hasWrangler = existsSync(join(targetDir, 'wrangler.toml')) || existsSync(join(targetDir, 'wrangler.jsonc'));
 
   if (
     (existsSync(devVarsPath) || hasWrangler) &&
@@ -389,9 +397,9 @@ function detectProjectType(cwd: string): ProjectType {
 function getDevCommand(cwd: string, projectType: ProjectType): string | null {
   switch (projectType) {
     case 'turborepo':
-      // CRITICAL: Use 'turbo dev' not package manager script
+      // Use npx to run turbo since it may be a local dependency
       // turbo dev starts ALL workspace dev tasks in parallel
-      return 'turbo dev';
+      return 'npx turbo dev';
 
     case 'nextjs': {
       const pm = detectPackageManager(cwd);
@@ -400,7 +408,8 @@ function getDevCommand(cwd: string, projectType: ProjectType): string | null {
     }
 
     case 'cloudflare':
-      return 'wrangler dev';
+      // Use npx to run wrangler since it may be a local dependency
+      return 'npx wrangler dev';
 
     default:
       return null;
@@ -513,12 +522,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     }
 
     // ========== Step 4: Check/Start Supabase ==========
-    let supabaseRunning = await isSupabaseRunning(input.cwd, projectId);
+    let supabaseRunning = await isSupabaseRunning(input.cwd);
 
     if (!supabaseRunning && dockerRunning) {
       messages.push('');
       messages.push('Starting Supabase local server...');
-      const startResult = await startSupabase(input.cwd, projectId);
+      const startResult = await startSupabase(input.cwd);
 
       if (startResult.success) {
         messages.push('✓ Supabase started');
@@ -532,19 +541,39 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     }
 
     // ========== Step 5: Export Environment Variables ==========
-    if (supabaseRunning) {
-      const result = await exportSupabaseEnvVars(input.cwd, projectId);
+    const projectType = detectProjectType(input.cwd);
 
-      if (result.nextjs) {
-        messages.push('✓ Environment variables written to .env.local');
-      }
-      if (result.cloudflare) {
-        messages.push('✓ Environment variables written to dev.vars');
+    if (supabaseRunning) {
+      if (projectType === 'turborepo') {
+        // For Turborepo: export env vars to each workspace
+        const workspaces = detectTurborepoWorkspaces(input.cwd);
+        if (workspaces && workspaces.length > 0) {
+          for (const workspace of workspaces) {
+            const workspacePath = join(input.cwd, workspace);
+            const result = await exportSupabaseEnvVars(input.cwd, workspacePath);
+
+            if (result.nextjs) {
+              messages.push(`✓ Environment variables written to ${workspace}/.env.local`);
+            }
+            if (result.cloudflare) {
+              messages.push(`✓ Environment variables written to ${workspace}/dev.vars`);
+            }
+          }
+        }
+      } else {
+        // For single projects: export to root
+        const result = await exportSupabaseEnvVars(input.cwd, input.cwd);
+
+        if (result.nextjs) {
+          messages.push('✓ Environment variables written to .env.local');
+        }
+        if (result.cloudflare) {
+          messages.push('✓ Environment variables written to dev.vars');
+        }
       }
     }
 
     // ========== Step 6: Detect Project Type and Start Dev Server ==========
-    const projectType = detectProjectType(input.cwd);
     const devCommand = getDevCommand(input.cwd, projectType);
 
     if (devCommand) {
@@ -564,7 +593,7 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
             if (existsSync(join(mcpPath, 'wrangler.toml'))) {
               messages.push('');
               messages.push('Starting MCP Cloudflare Worker...');
-              const mcpResult = startDevServerBackground(mcpPath, 'wrangler dev');
+              const mcpResult = startDevServerBackground(mcpPath, 'npx wrangler dev');
               if (mcpResult) {
                 messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
                 messages.push('  URL: http://localhost:8787');
