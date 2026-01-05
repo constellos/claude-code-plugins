@@ -9,7 +9,7 @@
 
 import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
-import { findConfigFile } from '../../../shared/hooks/utils/config-resolver.js';
+import { findConfigFile } from '../shared/hooks/utils/config-resolver.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 

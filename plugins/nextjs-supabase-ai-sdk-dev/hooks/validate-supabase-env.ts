@@ -5,8 +5,8 @@
  * @module validate-supabase-env
  */
 
-import type { PreToolUseInput, PreToolUseHookOutput } from '../../../shared/types/types.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
+import type { PreToolUseInput, PreToolUseHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 import { basename } from 'path';
 
 /**

@@ -1,6 +1,6 @@
 {
   "name": "project-context",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Project context discovery, markdown-friendly documentation, and maintenance for Claude Code",
   "author": {
     "name": "constellos"

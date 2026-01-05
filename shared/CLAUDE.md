@@ -95,7 +95,7 @@ export function createDebugLogger(
 
 **Usage:**
 ```typescript
-import { createDebugLogger } from '../../../shared/lib/debug.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 
 const logger = createDebugLogger(input.cwd, 'my-hook', true);
 await logger.logInput({ tool_name: input.tool_name });
@@ -121,7 +121,7 @@ export function extractWriteOperations(messages: Message[]): WriteOperation[]
 
 **Usage:**
 ```typescript
-import { parseTranscript } from '../../../shared/lib/transcripts.js';
+import { parseTranscript } from '../shared/hooks/utils/transcripts.js';
 
 const transcript = await parseTranscript(input.agent_transcript_path);
 console.log('Agent ID:', transcript.agentId);
@@ -139,7 +139,7 @@ export async function getAgentEdits(transcriptPath: string): Promise<AgentEdits>
 
 **Usage:**
 ```typescript
-import { getAgentEdits } from '../../../shared/lib/subagent-state.js';
+import { getAgentEdits } from '../shared/hooks/utils/subagent-state.js';
 
 const edits = await getAgentEdits(input.agent_transcript_path);
 console.log('Files created:', edits.agentNewFiles);
@@ -160,7 +160,7 @@ export function getScriptCommand(cwd: string, script: string): string
 
 **Usage:**
 ```typescript
-import { getScriptCommand } from '../../../shared/lib/package-manager.js';
+import { getScriptCommand } from '../shared/hooks/utils/package-manager.js';
 
 const command = getScriptCommand(input.cwd, 'lint');
 // Returns: "npm run lint" or "yarn lint" or "pnpm lint" etc.
@@ -201,22 +201,54 @@ node shared/runner.ts path/to/hook-file.ts
 
 ## Importing Shared Utilities
 
-All plugins import from `shared/lib/` via relative path:
+**CRITICAL:** Each plugin has its own copy of `shared/` utilities that gets installed to the plugin cache.
+
+### Correct Import Pattern (Plugin-Local)
+
+Hook files in `plugins/{plugin-name}/hooks/` must import from the plugin's local `shared/` folder:
 
 ```typescript
-// Import types
-import type { HookInput, HookOutput } from '../../../shared/lib/types.ts';
-
-// Import utilities (named imports)
-import { readJson, writeJson } from '../../../shared/lib/io.ts';
-import { createDebugLogger } from '../../../shared/lib/debug.ts';
-import { detectPackageManager } from '../../../shared/lib/package-manager.ts';
-
-// Or import everything
-import * as shared from '../../../shared/lib/index.ts';
+// ✅ CORRECT - Import from plugin-local shared folder
+import type { PreToolUseInput, PreToolUseHookOutput } from '../shared/types/types.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 ```
 
-The relative path `../../../shared/lib/` works from any hook file in `plugins/*/hooks/*.ts`.
+### Wrong Import Pattern (Global)
+
+**DO NOT** import from the global `shared/` folder at repo root:
+
+```typescript
+// ❌ WRONG - This breaks when plugin is cached!
+import type { PreToolUseInput, PreToolUseHookOutput } from '../../../shared/types/types.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
+```
+
+### Why This Matters
+
+When plugins are installed, they're cached at `~/.claude/plugins/cache/{org}/{plugin}/{version}/`:
+
+```
+~/.claude/plugins/cache/constellos/project-context/0.1.4/
+├── hooks/
+│   └── my-hook.ts          # Hook file location
+├── shared/                  # ✅ Plugin-local shared folder (exists here)
+│   ├── types/
+│   └── hooks/utils/
+└── .claude-plugin/
+```
+
+**The global `shared/` folder at `~/.claude/plugins/cache/shared/` does NOT exist.**
+
+- ✅ `../shared/` → Correct (1 level up to plugin root, then into `shared/`)
+- ❌ `../../../shared/` → Broken (3 levels up escapes plugin cache directory)
+
+### Import Path Reference
+
+From a hook file at `plugins/{plugin}/hooks/my-hook.ts`:
+
+- **Plugin-local shared:** `../shared/` (correct for cached plugins)
+- **Global shared:** `../../../shared/` (only works in repo, breaks in cache)
 
 ## Testing
 
