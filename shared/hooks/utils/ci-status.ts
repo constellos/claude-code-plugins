@@ -24,6 +24,9 @@ const DEFAULT_TIMEOUT_MS = 600000;
 /** Polling interval for fail-fast CI checks in milliseconds (5 seconds) */
 const POLL_INTERVAL_MS = 5000;
 
+/** Max consecutive empty check polls before assuming no CI configured */
+const MAX_EMPTY_CHECK_POLLS = 3;
+
 /**
  * Branch sync status result
  */
@@ -825,15 +828,28 @@ export async function awaitCIWithFailFast(
 
   // 3. Poll CI checks with fail-fast on any failure
   const startTime = Date.now();
+  let emptyCheckCount = 0;
 
   while (Date.now() - startTime < timeout) {
     const checks = await getCurrentCIChecks(prNumber, cwd);
 
     if (checks.length === 0) {
+      emptyCheckCount++;
+      if (emptyCheckCount >= MAX_EMPTY_CHECK_POLLS) {
+        // No CI checks after multiple polls - assume no CI configured
+        return {
+          success: true,
+          checks: [],
+          prNumber,
+          error: 'No CI checks configured for this repository',
+        };
+      }
       // No checks yet, wait and retry
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
       continue;
     }
+
+    emptyCheckCount = 0; // Reset when checks appear
 
     // Check for any failures - fail fast!
     const failedCheck = checks.find((c) => c.status === 'failure' || c.status === 'cancelled');
