@@ -606,18 +606,15 @@ function shouldSkipInstall(cwd: string): boolean {
  */
 async function installDependencies(
   cwd: string,
-  logger: ReturnType<typeof createDebugLogger>
+  _logger: ReturnType<typeof createDebugLogger>
 ): Promise<{ success: boolean; skipped: boolean; timeSeconds?: number; error?: string }> {
   // Skip if conditions met
   if (shouldSkipInstall(cwd)) {
-    logger.debug('Skipping install - node_modules exists and is recent');
     return { success: true, skipped: true };
   }
 
   const packageManager = detectPackageManager(cwd) as PackageManager;
   const installCmd = getInstallCommand(packageManager);
-
-  logger.debug(`Installing dependencies: ${installCmd}`);
 
   const startTime = Date.now();
   try {
@@ -626,12 +623,10 @@ async function installDependencies(
       timeout: 120000, // 2 minutes
     });
     const timeSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
-    logger.debug(`Dependencies installed successfully in ${timeSeconds}s`);
     return { success: true, skipped: false, timeSeconds: parseFloat(timeSeconds) };
   } catch (error: unknown) {
     const err = error as { message?: string };
     const errorMsg = err.message || 'Unknown error';
-    logger.debug(`Install failed: ${errorMsg} - continuing anyway`);
     return { success: false, skipped: false, error: errorMsg };
   }
 }
