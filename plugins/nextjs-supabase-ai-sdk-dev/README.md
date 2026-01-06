@@ -19,7 +19,7 @@ Provides CLI installation for Vercel and Supabase on remote environments, task c
 | Hook | Event | Purpose |
 |------|-------|---------|
 | install-vercel | SessionStart | Installs Vercel CLI on remote |
-| install-supabase | SessionStart | Installs Supabase CLI on remote |
+| install-start-supabase-next | SessionStart | Sets up Supabase local dev, installs dependencies, starts dev servers (Next.js, Cloudflare, Elysia, Turborepo) with health checks |
 | log-task-call | PreToolUse[Task] | Saves task context |
 | log-task-result | PostToolUse[Task] | Logs task results |
 
