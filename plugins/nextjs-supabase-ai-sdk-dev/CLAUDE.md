@@ -20,7 +20,7 @@ Local dev environment setup for Vercel/Supabase and systematic UI development wi
 | Hook | Event | Blocking | Purpose |
 |------|-------|----------|---------|
 | install-vercel | SessionStart | No | Installs Vercel CLI |
-| install-start-supabase-next | SessionStart | No | Sets up Supabase, starts dev servers (Next.js, Cloudflare, Elysia, Turborepo) with health checks and comprehensive logging |
+| install-start-supabase-next | SessionStart | No | Sets up Supabase local dev, installs dependencies (skips if fresh), starts dev servers (Next.js, Cloudflare, Elysia, Turborepo) with health checks |
 | log-task-call | PreToolUse[Task] | No | Saves task context |
 | log-task-result | PostToolUse[Task] | No | Logs task results |
 

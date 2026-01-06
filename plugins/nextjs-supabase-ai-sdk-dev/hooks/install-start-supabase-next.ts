@@ -5,7 +5,8 @@
  * 2. Starts Docker if needed
  * 3. Starts Supabase local server
  * 4. Exports env vars to the correct env file
- * 5. Starts Next.js dev server (or Turborepo apps)
+ * 5. Installs dependencies (skips if node_modules is fresh)
+ * 6. Starts Next.js dev server (or Turborepo apps)
  * @module install-start-supabase-next
  */
 
@@ -550,6 +551,86 @@ async function checkServerHealth(port: number, timeoutMs: number = 10000): Promi
   return false;
 }
 
+// ==================== Dependency Installation ====================
+
+type PackageManager = 'bun' | 'npm' | 'pnpm' | 'yarn';
+
+/**
+ * Get install command for package manager
+ */
+function getInstallCommand(pm: PackageManager): string {
+  const commands: Record<PackageManager, string> = {
+    bun: 'bun install',
+    npm: 'npm install',
+    pnpm: 'pnpm install',
+    yarn: 'yarn install',
+  };
+  return commands[pm];
+}
+
+/**
+ * Check if we should skip install (node_modules exists and is recent)
+ */
+function shouldSkipInstall(cwd: string): boolean {
+  // Skip if SKIP_INSTALL env var is set
+  if (process.env.SKIP_INSTALL === '1') {
+    return true;
+  }
+
+  // Check if package.json exists (if not, not a Node.js project)
+  const packageJsonPath = join(cwd, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return true;
+  }
+
+  // Check if node_modules exists
+  const nodeModulesPath = join(cwd, 'node_modules');
+  if (!existsSync(nodeModulesPath)) {
+    return false;
+  }
+
+  // Check if node_modules is recent (within 1 hour)
+  try {
+    const stats = statSync(nodeModulesPath);
+    const ageMs = Date.now() - stats.mtimeMs;
+    const oneHourMs = 60 * 60 * 1000;
+    return ageMs < oneHourMs;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Install dependencies with package manager
+ * @returns Success status and install time in seconds (or null if skipped)
+ */
+async function installDependencies(
+  cwd: string,
+  _logger: ReturnType<typeof createDebugLogger>
+): Promise<{ success: boolean; skipped: boolean; timeSeconds?: number; error?: string }> {
+  // Skip if conditions met
+  if (shouldSkipInstall(cwd)) {
+    return { success: true, skipped: true };
+  }
+
+  const packageManager = detectPackageManager(cwd) as PackageManager;
+  const installCmd = getInstallCommand(packageManager);
+
+  const startTime = Date.now();
+  try {
+    await execAsync(installCmd, {
+      cwd,
+      timeout: 120000, // 2 minutes
+    });
+    const timeSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+    return { success: true, skipped: false, timeSeconds: parseFloat(timeSeconds) };
+  } catch (error: unknown) {
+    const err = error as { message?: string };
+    const errorMsg = err.message || 'Unknown error';
+    return { success: false, skipped: false, error: errorMsg };
+  }
+}
+
 // ==================== Main Handler ====================
 
 /**
@@ -690,6 +771,20 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           messages.push('✓ Environment variables written to dev.vars');
         }
       }
+    }
+
+    // ========== Step 5.5: Install Dependencies ==========
+    messages.push('');
+    const installResult = await installDependencies(input.cwd, logger);
+
+    if (installResult.skipped) {
+      messages.push('✓ Dependencies already installed (skipped)');
+    } else if (installResult.success && installResult.timeSeconds !== undefined) {
+      const packageManager = detectPackageManager(input.cwd);
+      messages.push(`✓ Dependencies installed (${packageManager} install - ${installResult.timeSeconds}s)`);
+    } else if (!installResult.success) {
+      messages.push(`⚠️ Dependency installation failed: ${installResult.error}`);
+      messages.push('  Continuing anyway - you may need to run install manually');
     }
 
     // ========== Step 6: Detect Project Type and Start Dev Server ==========
