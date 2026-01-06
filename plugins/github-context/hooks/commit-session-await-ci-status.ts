@@ -231,6 +231,19 @@ async function getCurrentHeadSha(cwd: string): Promise<string | null> {
 }
 
 /**
+ * Get git repository root directory
+ * Normalizes cwd to repo root to ensure git commands work correctly
+ * even when hook is invoked from a subdirectory (e.g., subagent in apps/web/)
+ * @param cwd - Working directory (may be subdirectory)
+ * @returns Repository root path, or original cwd if not in a git repo
+ * @example
+ */
+async function getRepoRoot(cwd: string): Promise<string> {
+  const result = await execCommand('git rev-parse --show-toplevel', cwd);
+  return result.success ? result.stdout : cwd;
+}
+
+/**
  * Check if there are merge conflicts in the working directory
  * @param cwd - Working directory
  * @returns Object with conflict status and list of conflicted files
@@ -941,21 +954,25 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
   try {
     await logger.logInput({ session_id: input.session_id });
 
-    // Load session state for progressive blocking
-    const sessionState = await getSessionStopState(input.session_id, input.cwd);
+    // Normalize cwd to repo root - critical for subagents running from subdirectories
+    // (e.g., subagent with cwd=apps/web/ needs to check commits at repo root)
+    const repoRoot = await getRepoRoot(input.cwd);
+
+    // Load session state for progressive blocking (uses repoRoot for state file location)
+    const sessionState = await getSessionStopState(input.session_id, repoRoot);
 
     // === PHASE 1: BLOCKING CHECKS ===
     // These must pass before we proceed
 
     // Check if in git repository
-    const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);
+    const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', repoRoot);
     if (!gitCheck.success) {
       await logger.logOutput({ skipped: true, reason: 'Not a git repository' });
       return { decision: 'approve' };
     }
 
     // Check Claude settings health
-    const doctorCheck = await checkClaudeDoctor(input.cwd);
+    const doctorCheck = await checkClaudeDoctor(repoRoot);
     if (!doctorCheck.healthy && doctorCheck.issues.length > 0) {
       return {
         decision: 'block',
@@ -965,7 +982,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     }
 
     // Validate hook files exist
-    const hookValidation = await validateHookFiles(input.cwd);
+    const hookValidation = await validateHookFiles(repoRoot);
     if (!hookValidation.valid && hookValidation.missingFiles.length > 0) {
       return {
         decision: 'block',
@@ -975,7 +992,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     }
 
     // Check for merge conflicts
-    const conflictCheck = await checkMergeConflicts(input.cwd);
+    const conflictCheck = await checkMergeConflicts(repoRoot);
     if (conflictCheck.hasConflicts) {
       return {
         decision: 'block',
@@ -985,7 +1002,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     }
 
     // Check branch sync status (behind remote)
-    const syncCheck = await checkBranchSync(input.cwd);
+    const syncCheck = await checkBranchSync(repoRoot);
     if (!syncCheck.isSynced && syncCheck.remoteBranch) {
       return {
         decision: 'block',
@@ -998,30 +1015,30 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     let commitMade = false;
     let commitSha = '';
 
-    const hasChanges = await hasUncommittedChanges(input.cwd);
+    const hasChanges = await hasUncommittedChanges(repoRoot);
 
     if (hasChanges) {
-      const branch = await getCurrentBranch(input.cwd);
+      const branch = await getCurrentBranch(repoRoot);
 
       // Only stage non-gitignored files
-      const filesToStage = await getNonIgnoredChanges(input.cwd);
+      const filesToStage = await getNonIgnoredChanges(repoRoot);
       if (filesToStage.length === 0) {
         // All changes are gitignored - skip commit
         await logger.logOutput({ skipped: true, reason: 'All changes are gitignored' });
       } else {
         // Stage only non-ignored files
         for (const file of filesToStage) {
-          await execCommand(`git add "${file}"`, input.cwd);
+          await execCommand(`git add "${file}"`, repoRoot);
         }
 
         const commitMessage = formatCommitMessage(input.session_id, branch);
         const commitResult = await execCommand(
           `git commit -m ${JSON.stringify(commitMessage)}`,
-          input.cwd
+          repoRoot
         );
 
         if (commitResult.success) {
-          const shaResult = await execCommand('git rev-parse HEAD', input.cwd);
+          const shaResult = await execCommand('git rev-parse HEAD', repoRoot);
           const fullSha = shaResult.success ? shaResult.stdout : null;
           commitSha = fullSha ? fullSha.substring(0, 7) : 'unknown';
           commitMade = true;
@@ -1033,10 +1050,10 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
             blockCount: sessionState.blockCount + 1,
             lastBlockTimestamp: new Date().toISOString(),
             lastSeenCommitSha: fullSha || undefined,
-          }, input.cwd);
+          }, repoRoot);
 
           // Re-check branch sync after commit
-          const postCommitSync = await checkBranchSync(input.cwd);
+          const postCommitSync = await checkBranchSync(repoRoot);
           syncCheck.aheadBy = postCommitSync.aheadBy;
         } else {
           await logger.logOutput({ commit_failed: true, error: commitResult.stderr });
@@ -1045,7 +1062,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     }
 
     // === PHASE 3: PR STATUS CHECK ===
-    const currentBranch = await getCurrentBranch(input.cwd);
+    const currentBranch = await getCurrentBranch(repoRoot);
 
     // Skip PR checks for main branches
     const mainBranches = ['main', 'master', 'develop'];
@@ -1060,10 +1077,10 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
     }
 
     // Check if subagent just stopped (awaiting user input)
-    const hasSubagentActivity = await hasRecentSubagentActivity(input.cwd);
+    const hasSubagentActivity = await hasRecentSubagentActivity(repoRoot);
 
     // Check if PR exists
-    const prCheck = await checkPRExists(currentBranch, input.cwd);
+    const prCheck = await checkPRExists(currentBranch, repoRoot);
 
     // === PHASE 4: OUTPUT DECISION WITH AGENT COMMUNICATION ===
 
@@ -1076,13 +1093,13 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
         waiting_for_ci: true
       });
 
-      const ciResult = await awaitCIWithFailFast({ prNumber: prCheck.prNumber }, input.cwd);
+      const ciResult = await awaitCIWithFailFast({ prNumber: prCheck.prNumber }, repoRoot);
 
       // If CI failed, block with concise error message + log file link
       if (!ciResult.success) {
         // Format checks output for logging
         const checksOutput = ciResult.checks.map(c => `${c.emoji} ${c.name}: ${c.status}`).join('\n');
-        const logPath = await saveOutputToLog(input.cwd, 'ci', `pr-${prCheck.prNumber}`, checksOutput);
+        const logPath = await saveOutputToLog(repoRoot, 'ci', `pr-${prCheck.prNumber}`, checksOutput);
 
         // Map ci-status CheckStatus to log-file format
         const mappedChecks = ciResult.checks.map(c => ({
@@ -1113,15 +1130,15 @@ ${checksTable}
       }
 
       // CI passed - reset state and show success
-      await resetSessionStopState(input.session_id, input.cwd);
+      await resetSessionStopState(input.session_id, repoRoot);
       await logger.logOutput({
         ci_status: 'passed',
         checks: ciResult.checks
       });
 
       // Fetch PR details
-      const ciRun = await getCIRunDetails(prCheck.prNumber, input.cwd) ?? {};
-      const vercelUrls = await extractPreviewUrls(prCheck.prNumber, input.cwd);
+      const ciRun = await getCIRunDetails(prCheck.prNumber, repoRoot) ?? {};
+      const vercelUrls = await extractPreviewUrls(prCheck.prNumber, repoRoot);
 
       if (commitMade) {
         // Show PR status after commit (non-blocking)
@@ -1146,13 +1163,13 @@ ${checksTable}
 
     // No PR - check if comment posted for this session
     // First try branch-issues.json, then fallback to linked issue discovery
-    const branchIssueInfo = await getBranchIssueInfo(currentBranch, input.cwd);
-    const issueNumber = branchIssueInfo?.issueNumber ?? await getLinkedIssueNumber(currentBranch, input.cwd);
+    const branchIssueInfo = await getBranchIssueInfo(currentBranch, repoRoot);
+    const issueNumber = branchIssueInfo?.issueNumber ?? await getLinkedIssueNumber(currentBranch, repoRoot);
     const issueUrl = branchIssueInfo?.issueUrl ?? null;
 
-    if (issueNumber && await hasCommentForSession(issueNumber, input.session_id, input.cwd)) {
+    if (issueNumber && await hasCommentForSession(issueNumber, input.session_id, repoRoot)) {
       // Comment posted - reset state and allow session to end
-      await resetSessionStopState(input.session_id, input.cwd);
+      await resetSessionStopState(input.session_id, repoRoot);
 
       return {
         systemMessage: `✅ Session progress documented in issue #${issueNumber}`
@@ -1161,7 +1178,7 @@ ${checksTable}
 
     // No PR and no comment - determine blocking behavior based on commit tracking
     // Get current HEAD to compare with last seen commit
-    const currentHeadSha = await getCurrentHeadSha(input.cwd);
+    const currentHeadSha = await getCurrentHeadSha(repoRoot);
     const sawNewCommits = currentHeadSha !== sessionState.lastSeenCommitSha;
 
     // If we saw new commits (either just made or from previous session without PR)
@@ -1170,7 +1187,7 @@ ${checksTable}
       await updateSessionStopState(input.session_id, {
         lastSeenCommitSha: currentHeadSha || undefined,
         lastBlockTimestamp: new Date().toISOString(),
-      }, input.cwd);
+      }, repoRoot);
 
       // Block with agent instructions - first time seeing these commits
       return {
