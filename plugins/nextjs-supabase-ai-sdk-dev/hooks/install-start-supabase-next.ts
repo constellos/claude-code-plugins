@@ -28,7 +28,7 @@ interface ExecResult {
   stderr: string;
 }
 
-type ProjectType = 'turborepo' | 'nextjs' | 'cloudflare' | 'elysia' | 'unknown';
+type ProjectType = 'turborepo' | 'nextjs' | 'vite' | 'cloudflare' | 'elysia' | 'unknown';
 
 /**
  * Execute a shell command with error handling
@@ -390,6 +390,15 @@ function detectProjectType(cwd: string): ProjectType {
     return 'cloudflare';
   }
 
+  // Check for Vite
+  if (
+    existsSync(join(cwd, 'vite.config.ts')) ||
+    existsSync(join(cwd, 'vite.config.js')) ||
+    existsSync(join(cwd, 'vite.config.mjs'))
+  ) {
+    return 'vite';
+  }
+
   // Check for Elysia (Bun framework)
   if (existsSync(join(cwd, 'bun.toml'))) {
     return 'elysia';
@@ -409,6 +418,77 @@ function detectProjectType(cwd: string): ProjectType {
   }
 
   return 'unknown';
+}
+
+/**
+ * Extract port from package.json dev script
+ * Looks for patterns like "--port 3002" or "-p 3200"
+ */
+function extractPortFromDevScript(packageJsonPath: string): number | null {
+  if (!existsSync(packageJsonPath)) {
+    return null;
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    const devScript = pkg.scripts?.dev;
+    if (!devScript) {
+      return null;
+    }
+
+    // Match --port XXXX or -p XXXX patterns
+    const portMatch = devScript.match(/(?:--port|-p)\s+(\d+)/);
+    if (portMatch) {
+      return parseInt(portMatch[1], 10);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get the default port for a project type
+ */
+function getDefaultPort(projectType: ProjectType): number {
+  switch (projectType) {
+    case 'cloudflare':
+      return 8787;
+    case 'vite':
+      return 5173;
+    case 'elysia':
+      return 3000;
+    case 'nextjs':
+    default:
+      return 3000;
+  }
+}
+
+/**
+ * Check if turbo.json has required env vars in globalPassThroughEnv
+ * Returns list of missing env vars
+ */
+function checkTurboEnvPassthrough(cwd: string): string[] {
+  const turboJsonPath = join(cwd, 'turbo.json');
+  if (!existsSync(turboJsonPath)) {
+    return [];
+  }
+
+  const requiredVars = [
+    'NEXT_PUBLIC_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+    'SUPABASE_SECRET_KEY',
+  ];
+
+  try {
+    const turboConfig = JSON.parse(readFileSync(turboJsonPath, 'utf-8'));
+    const passThrough = turboConfig.globalPassThroughEnv || [];
+
+    return requiredVars.filter((v) => !passThrough.includes(v));
+  } catch {
+    return requiredVars; // If can't parse, assume all missing
+  }
 }
 
 /**
@@ -451,6 +531,12 @@ function getDevCommand(cwd: string, projectType: ProjectType): string | null {
     case 'elysia':
       // Elysia uses Bun
       return 'bun run dev';
+
+    case 'vite': {
+      const pm = detectPackageManager(cwd);
+      const runCmd = pm === 'npm' ? 'npm run' : pm;
+      return `${runCmd} dev`;
+    }
 
     default:
       return null;
@@ -801,6 +887,15 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         if (workspaces && workspaces.length > 0) {
           messages.push(`  Workspaces: ${workspaces.join(', ')}`);
 
+          // Check for missing env passthrough vars
+          const missingEnvVars = checkTurboEnvPassthrough(input.cwd);
+          if (missingEnvVars.length > 0) {
+            messages.push('');
+            messages.push('⚠️ turbo.json missing globalPassThroughEnv for:');
+            messages.push(`   ${missingEnvVars.join(', ')}`);
+            messages.push('  Add to turbo.json: "globalPassThroughEnv": [...]');
+          }
+
           // Check for MCP worker and start it separately
           const mcpWorkspace = workspaces.find((w) => w.includes('mcp'));
           if (mcpWorkspace) {
@@ -828,11 +923,13 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         messages.push(`✓ Dev server started (PID: ${result.pid})`);
         messages.push(`  Logs: ${result.logs.stdout}`);
 
-        // Default ports by project type
-        const port = projectType === 'cloudflare' ? 8787 : projectType === 'elysia' ? 3000 : 3000;
+        // Detect port: first try package.json dev script, then fall back to defaults
+        const packageJsonPath = join(input.cwd, 'package.json');
+        const scriptPort = extractPortFromDevScript(packageJsonPath);
+        const port = scriptPort || getDefaultPort(projectType);
 
         // Check server health
-        messages.push('  Waiting for server to be ready...');
+        messages.push(`  Waiting for server to be ready (port ${port})...`);
         const isHealthy = await checkServerHealth(port);
 
         if (isHealthy) {
