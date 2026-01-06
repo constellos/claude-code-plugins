@@ -1162,18 +1162,38 @@ ${checksTable}
     }
 
     // No PR - check if comment posted for this session
+    // First check session state flag (survives across stop attempts)
+    if (sessionState.commentPosted) {
+      await logger.logOutput({ debug: 'Comment previously posted - allowing stop' });
+      return {
+        decision: 'approve',
+        systemMessage: '✅ Session progress already documented'
+      };
+    }
+
+    // Try to discover linked issue
     // First try branch-issues.json, then fallback to linked issue discovery
     const branchIssueInfo = await getBranchIssueInfo(currentBranch, repoRoot);
     const issueNumber = branchIssueInfo?.issueNumber ?? await getLinkedIssueNumber(currentBranch, repoRoot);
     const issueUrl = branchIssueInfo?.issueUrl ?? null;
 
+    // Check GitHub for comment if we have an issue number
     if (issueNumber && await hasCommentForSession(issueNumber, input.session_id, repoRoot)) {
-      // Comment posted - reset state and allow session to end
-      await resetSessionStopState(input.session_id, repoRoot);
+      // Comment posted - update state flag and reset block count
+      await updateSessionStopState(input.session_id, {
+        commentPosted: true,
+        blockCount: 0,
+      }, repoRoot);
 
       return {
+        decision: 'approve',
         systemMessage: `✅ Session progress documented in issue #${issueNumber}`
       };
+    }
+
+    // Log if issue discovery failed (helps debug blocking issues)
+    if (!issueNumber) {
+      await logger.logOutput({ debug: 'Could not discover linked issue number for branch: ' + currentBranch });
     }
 
     // No PR and no comment - determine blocking behavior based on commit tracking
