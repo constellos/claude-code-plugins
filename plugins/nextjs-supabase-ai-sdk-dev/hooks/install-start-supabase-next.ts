@@ -459,6 +459,7 @@ function getDevCommand(cwd: string, projectType: ProjectType): string | null {
 
 /**
  * Start dev server in background with comprehensive logging
+ * Uses shell execution to properly handle commands like "npx turbo dev"
  */
 function startDevServerBackground(
   cwd: string,
@@ -466,8 +467,6 @@ function startDevServerBackground(
   logger: ReturnType<typeof createDebugLogger>
 ): { pid: number; logs: { stdout: string; stderr: string } } | null {
   try {
-    const [cmd, ...args] = command.split(' ');
-
     // Ensure .claude/logs directory exists
     const logDir = join(cwd, '.claude', 'logs');
     if (!existsSync(logDir)) {
@@ -482,7 +481,9 @@ function startDevServerBackground(
     const stdoutFd = openSync(stdoutPath, 'a');
     const stderrFd = openSync(stderrPath, 'a');
 
-    const child = spawn(cmd, args, {
+    // Use sh -c to properly execute the full command string
+    // This fixes issues with commands like "npx turbo dev" where simple splitting fails
+    const child = spawn('sh', ['-c', command], {
       cwd,
       detached: true,
       stdio: ['ignore', stdoutFd, stderrFd],
