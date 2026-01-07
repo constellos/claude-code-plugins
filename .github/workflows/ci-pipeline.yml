@@ -6,7 +6,8 @@ on:
 
 jobs:
   ci:
-    uses: constellos/.github/.github/workflows/ci-pipeline-reusable.yml@main
+    # Pin to commit before b587c23 which introduced env.ACTIONS_VERSION bug
+    uses: constellos/.github/.github/workflows/ci-pipeline-reusable.yml@b2ac7c36dbc1416070f467d400762c417959589f
     with:
       actions_version: 'v1.0.0'
       node_version: '22'
