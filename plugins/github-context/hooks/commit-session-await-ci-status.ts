@@ -773,23 +773,15 @@ function formatPRStatusInfo(
   ciRun: { url?: string; status?: string; conclusion?: string; name?: string },
   vercelUrls: { webUrl?: string; marketingUrl?: string }
 ): string {
-  const ciPassed = ciRun.conclusion === 'success';
-  const ciFailed = ciRun.conclusion === 'failure';
+  // Header (simplified - this function only called when CI passed or pending)
+  let message = '✅ PR Ready for Review\n\n';
 
-  // Header based on CI status
-  let message = ciPassed
-    ? '✅ PR Ready for Review\n\n'
-    : ciFailed
-      ? '❌ PR Has CI Failures\n\n'
-      : '⏳ PR Status\n\n';
+  // PR link with markdown format (clickable)
+  message += `📋 [View PR #${prCheck.prNumber}](${prCheck.prUrl})\n`;
 
-  // PR link (prominently displayed)
-  message += `📋 PR: ${prCheck.prUrl}\n`;
-
-  // CI run link (prominently displayed)
+  // CI run link with markdown format
   if (ciRun.url) {
-    const statusIcon = ciPassed ? '✅' : ciFailed ? '❌' : '⏳';
-    message += `🔄 CI: ${ciRun.url} ${statusIcon} ${ciRun.conclusion || ciRun.status || 'pending'}\n`;
+    message += `🔄 [View CI Run](${ciRun.url}) ✅ success\n`;
   }
 
   // Preview URLs
@@ -1124,7 +1116,7 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
 ${checksTable}
 
-🔗 [PR](${prCheck.prUrl}) | \`gh pr checks ${prCheck.prNumber}\``,
+🔗 [View PR](${prCheck.prUrl}) | \`gh pr checks ${prCheck.prNumber}\``,
           systemMessage: 'Claude is blocked from stopping due to CI check failures.',
         };
       }
@@ -1139,6 +1131,16 @@ ${checksTable}
       // Fetch PR details
       const ciRun = await getCIRunDetails(prCheck.prNumber, repoRoot) ?? {};
       const vercelUrls = await extractPreviewUrls(prCheck.prNumber, repoRoot);
+
+      // If CI run shows failure, block Claude (don't show to user)
+      if (ciRun.conclusion === 'failure' || ciRun.conclusion === 'cancelled') {
+        const failedStatus = ciRun.conclusion === 'cancelled' ? 'cancelled' : 'failed';
+        return {
+          decision: 'block',
+          reason: `❌ CI ${failedStatus} for PR #${prCheck.prNumber}\n\n🔗 [View PR](${prCheck.prUrl}) | [View CI Run](${ciRun.url})`,
+          systemMessage: `Claude is blocked from stopping due to CI ${failedStatus}.`,
+        };
+      }
 
       if (commitMade) {
         // Show PR status after commit (non-blocking)
