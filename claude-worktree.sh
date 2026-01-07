@@ -371,10 +371,11 @@ _cw_main() {
         local branch="${line#branch refs/heads/}"
         if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
           if [[ "$is_locked" != true ]]; then
+            # Check if branch exists on remote (source of truth)
+            # Do NOT check local refs - worktree branches are isolated and won't appear in base repo
+            # Only delete worktrees for branches that have been deleted from remote
             local should_remove=false
-            if ! git show-ref --verify --quiet "refs/heads/$branch"; then
-              should_remove=true
-            elif [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
+            if [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
               should_remove=true
             fi
             if [[ "$should_remove" == true ]]; then
