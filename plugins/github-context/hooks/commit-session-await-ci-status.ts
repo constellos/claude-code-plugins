@@ -343,6 +343,24 @@ async function checkBranchSync(cwd: string): Promise<{
   };
 }
 
+/**
+ * Get number of commits ahead of origin/main (or origin/master)
+ * Used to determine if a PR is needed (separate from sync check)
+ */
+async function getCommitsAheadOfMain(cwd: string): Promise<number> {
+  // Try origin/main first, then origin/master
+  for (const mainBranch of ['origin/main', 'origin/master']) {
+    const result = await execCommand(
+      `git rev-list --count ${mainBranch}..HEAD`,
+      cwd
+    );
+    if (result.success) {
+      return parseInt(result.stdout || '0', 10);
+    }
+  }
+  return 0;
+}
+
 // ============================================================================
 // GitHub CLI Operations
 // ============================================================================
@@ -1003,6 +1021,10 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
       };
     }
 
+    // Get commits ahead of main (for PR detection - separate from sync check)
+    // This determines if a PR is needed, regardless of whether we've pushed
+    let commitsAheadOfMain = await getCommitsAheadOfMain(repoRoot);
+
     // === PHASE 2: AUTO-COMMIT ===
     let commitMade = false;
     let commitSha = '';
@@ -1047,6 +1069,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
           // Re-check branch sync after commit
           const postCommitSync = await checkBranchSync(repoRoot);
           syncCheck.aheadBy = postCommitSync.aheadBy;
+          // Also update commits ahead of main
+          commitsAheadOfMain = await getCommitsAheadOfMain(repoRoot);
         } else {
           await logger.logOutput({ commit_failed: true, error: commitResult.stderr });
         }
@@ -1116,7 +1140,8 @@ async function handler(input: StopInput): Promise<StopHookOutput> {
 
 ${checksTable}
 
-🔗 [View PR](${prCheck.prUrl}) | \`gh pr checks ${prCheck.prNumber}\``,
+🔗 [View PR](${prCheck.prUrl})
+   \`gh pr checks ${prCheck.prNumber}\``,
           systemMessage: 'Claude is blocked from stopping due to CI check failures.',
         };
       }
@@ -1137,7 +1162,10 @@ ${checksTable}
         const failedStatus = ciRun.conclusion === 'cancelled' ? 'cancelled' : 'failed';
         return {
           decision: 'block',
-          reason: `❌ CI ${failedStatus} for PR #${prCheck.prNumber}\n\n🔗 [View PR](${prCheck.prUrl}) | [View CI Run](${ciRun.url})`,
+          reason: `❌ CI ${failedStatus} for PR #${prCheck.prNumber}
+
+🔗 [View PR](${prCheck.prUrl})
+   [View CI Run](${ciRun.url})`,
           systemMessage: `Claude is blocked from stopping due to CI ${failedStatus}.`,
         };
       }
@@ -1148,7 +1176,7 @@ ${checksTable}
           decision: 'approve',
           systemMessage: formatPRStatusWithCommit(commitSha, { prNumber: prCheck.prNumber, prUrl: prCheck.prUrl }, ciRun, vercelUrls),
         };
-      } else if (syncCheck.aheadBy > 0) {
+      } else if (commitsAheadOfMain > 0) {
         // Show PR status to user (non-blocking)
         return {
           decision: 'approve',
@@ -1204,7 +1232,8 @@ ${checksTable}
     const sawNewCommits = currentHeadSha !== sessionState.lastSeenCommitSha;
 
     // If we saw new commits (either just made or from previous session without PR)
-    if (sawNewCommits && syncCheck.aheadBy > 0) {
+    // Use commitsAheadOfMain (not syncCheck.aheadBy) to detect if PR is needed
+    if (sawNewCommits && commitsAheadOfMain > 0) {
       // Update lastSeenCommitSha so we only block ONCE for these commits
       await updateSessionStopState(input.session_id, {
         lastSeenCommitSha: currentHeadSha || undefined,
@@ -1220,18 +1249,18 @@ ${checksTable}
     }
 
     // Already saw these commits (lastSeenCommitSha matches current HEAD)
-    // Branch is ahead but we've already blocked once for these commits
-    if (syncCheck.aheadBy > 0) {
+    // Branch is ahead of main but we've already blocked once for these commits
+    if (commitsAheadOfMain > 0) {
       return {
         decision: 'approve',
-        systemMessage: `ℹ️ Branch has ${syncCheck.aheadBy} commit(s) without a PR. Agent chose to stop without creating one.`,
+        systemMessage: `ℹ️ Branch has ${commitsAheadOfMain} commit(s) ahead of main without a PR. Agent chose to stop without creating one.`,
       };
     }
 
-    // No commits on branch (in sync with remote) - nothing to do
+    // No commits ahead of main - nothing to do
     return {
       decision: 'approve',
-      systemMessage: 'No commits were made this session. PR not needed.'
+      systemMessage: 'No commits ahead of main. PR not needed.'
     };
   } catch (error) {
     await logger.logError(error as Error);

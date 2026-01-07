@@ -204,20 +204,24 @@ async function startSupabase(cwd: string): Promise<ExecResult> {
  * Maps deprecated variable names to modern ones
  *
  * @param supabaseRoot - Directory containing supabase/config.toml (where to run supabase CLI)
- * @param targetDir - Directory where to write .env.local and dev.vars
+ * @returns Object with vars, success status, and deprecation warnings
  */
 async function exportSupabaseEnvVars(
   supabaseRoot: string
-): Promise<{ vars: Record<string, string>; success: boolean }> {
+): Promise<{ vars: Record<string, string>; success: boolean; warnings: string[] }> {
   // Get raw env output from supabase root
   const result = await execCommand('supabase status -o env', { cwd: supabaseRoot, timeout: 10000 });
   if (!result.success) {
-    return { vars: {}, success: false };
+    return { vars: {}, success: false, warnings: [] };
   }
 
   // Parse only the 3 variables we need from supabase status output
   // Supabase CLI outputs: API_URL, ANON_KEY, PUBLISHABLE_KEY, SERVICE_ROLE_KEY, SECRET_KEY
   const envVars: Record<string, string> = {};
+  const warnings: string[] = [];
+  let usedLegacyAnon = false;
+  let usedLegacyService = false;
+
   for (const line of result.stdout.split('\n')) {
     // API_URL -> SUPABASE_URL
     const urlMatch = line.match(/^API_URL="?([^"]+)"?$/);
@@ -235,15 +239,27 @@ async function exportSupabaseEnvVars(
     } else if (anonMatch && !envVars.SUPABASE_PUBLISHABLE_KEY) {
       // Only use ANON_KEY if PUBLISHABLE_KEY not found
       envVars.SUPABASE_PUBLISHABLE_KEY = anonMatch[1];
+      usedLegacyAnon = true;
     } else if (secretMatch) {
       envVars.SUPABASE_SECRET_KEY = secretMatch[1];
     } else if (serviceMatch && !envVars.SUPABASE_SECRET_KEY) {
       // Only use SERVICE_ROLE_KEY if SECRET_KEY not found
       envVars.SUPABASE_SECRET_KEY = serviceMatch[1];
+      usedLegacyService = true;
     }
   }
 
-  return { vars: envVars, success: true };
+  // Add deprecation warnings for legacy key names
+  if (usedLegacyAnon || usedLegacyService) {
+    const legacyKeys = [];
+    if (usedLegacyAnon) legacyKeys.push('ANON_KEY');
+    if (usedLegacyService) legacyKeys.push('SERVICE_ROLE_KEY');
+    warnings.push(`⚠️ Deprecated: Using legacy Supabase key names (${legacyKeys.join(', ')})`);
+    warnings.push('  Update to: PUBLISHABLE_KEY, SECRET_KEY');
+    warnings.push('  Run: supabase upgrade to get modern key names');
+  }
+
+  return { vars: envVars, success: true, warnings };
 }
 
 /**
@@ -508,6 +524,24 @@ function extractPortFromDevScript(packageJsonPath: string): number | null {
     return null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Check if a workspace has a dev script that Turborepo will run
+ * Used to avoid double-starting services (port conflicts)
+ */
+function workspaceHasDevScript(workspacePath: string): boolean {
+  const packageJsonPath = join(workspacePath, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    return typeof pkg.scripts?.dev === 'string';
+  } catch {
+    return false;
   }
 }
 
@@ -1065,6 +1099,10 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           const result = await exportSupabaseEnvVars(input.cwd);
           if (result.success) {
             supabaseVars = result.vars;
+            // Show deprecation warnings if any
+            if (result.warnings.length > 0) {
+              messages.push(...result.warnings);
+            }
           }
         }
 
@@ -1076,6 +1114,11 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       // For single projects: export Supabase vars to root
       const result = await exportSupabaseEnvVars(input.cwd);
       if (result.success && Object.keys(result.vars).length > 0) {
+        // Show deprecation warnings if any
+        if (result.warnings.length > 0) {
+          messages.push(...result.warnings);
+        }
+
         // Use distributeEnvVars for consistent handling
         const distResult = await distributeEnvVars(
           input.cwd,
@@ -1085,6 +1128,9 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
         if (distResult.nextjs) {
           messages.push('✓ Environment variables written to .env.local');
+        }
+        if (distResult.vite) {
+          messages.push('✓ Environment variables written to .env.local (Vite)');
         }
         if (distResult.cloudflare) {
           messages.push('✓ Environment variables written to dev.vars');
@@ -1133,14 +1179,19 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
             messages.push('  Add to turbo.json: "globalPassThroughEnv": [...]');
           }
 
-          // Check for MCP worker and start it separately
+          // Check for MCP worker and start it separately (only if Turborepo won't handle it)
           const mcpWorkspace = workspaces.find((w) => w.includes('mcp'));
           if (mcpWorkspace) {
             const mcpPath = join(input.cwd, mcpWorkspace);
             const wranglerTomlPath = join(mcpPath, 'wrangler.toml');
             const wranglerJsoncPath = join(mcpPath, 'wrangler.jsonc');
 
-            if (existsSync(wranglerTomlPath) || existsSync(wranglerJsoncPath)) {
+            // Skip if workspace has a dev script - Turborepo will start it via `turbo dev`
+            const turboWillStart = workspaceHasDevScript(mcpPath);
+            if (turboWillStart) {
+              messages.push('');
+              messages.push(`ℹ️ MCP worker (${mcpWorkspace}) will be started by Turborepo`);
+            } else if (existsSync(wranglerTomlPath) || existsSync(wranglerJsoncPath)) {
               messages.push('');
               messages.push('Starting MCP Cloudflare Worker...');
 
