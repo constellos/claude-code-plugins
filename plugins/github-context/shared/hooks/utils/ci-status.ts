@@ -345,8 +345,22 @@ export async function getLatestCIRun(
   prNumber: number,
   cwd: string
 ): Promise<CIRunDetails | null> {
+  // First, get the PR's HEAD commit SHA to filter CI runs correctly
+  const headShaResult = await execCommand(
+    `gh pr view ${prNumber} --json headRefOid --jq '.headRefOid'`,
+    cwd
+  );
+
+  if (!headShaResult.success || !headShaResult.stdout.trim()) {
+    // Fallback: if we can't get PR info, return null rather than wrong data
+    return null;
+  }
+
+  const headSha = headShaResult.stdout.trim();
+
+  // Get CI runs for THIS specific commit, not the most recent run globally
   const result = await execCommand(
-    `gh run list --limit 1 --json databaseId,displayTitle,status,conclusion,url`,
+    `gh run list --commit ${headSha} --limit 1 --json databaseId,displayTitle,status,conclusion,url`,
     cwd
   );
 
