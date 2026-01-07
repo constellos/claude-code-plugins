@@ -8,9 +8,9 @@
  * Import this hook in any plugin that needs to track task execution.
  */
 
-import type { PreToolUseInput, PreToolUseHookOutput } from '../types/types.js';
-import { saveTaskCallContext } from './utils/task-state.js';
-import { runHook } from './utils/io.js';
+import type { PreToolUseInput, PreToolUseHookOutput } from '../shared/types/types.js';
+import { saveTaskCallContext } from '../shared/hooks/utils/task-state.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 
 async function handler(input: PreToolUseInput): Promise<PreToolUseHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('task');

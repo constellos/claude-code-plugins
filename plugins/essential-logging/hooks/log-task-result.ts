@@ -8,10 +8,10 @@
  * which have access to the full agent transcript.
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../types/types.js';
-import { loadTaskCallContext } from './utils/task-state.js';
-import { createDebugLogger } from './utils/debug.js';
-import { runHook } from './utils/io.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { loadTaskCallContext } from '../shared/hooks/utils/task-state.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
 
 async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> {
   const DEBUG = process.env.DEBUG === '*' || process.env.DEBUG?.includes('task');
