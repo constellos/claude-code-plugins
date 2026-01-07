@@ -356,6 +356,86 @@ function detectTurborepoWorkspaces(cwd: string): string[] | null {
 }
 
 /**
+ * Port information for a workspace
+ */
+interface WorkspacePortInfo {
+  workspace: string;
+  projectType: ProjectType;
+  configuredPort: number | null;
+  defaultPort: number | null;
+}
+
+/**
+ * Detect ports from all workspace package.json files
+ * For Turborepo projects, reads each workspace's dev script to find configured ports
+ */
+function detectWorkspacePorts(cwd: string, workspaces: string[]): WorkspacePortInfo[] {
+  const portInfos: WorkspacePortInfo[] = [];
+
+  for (const workspace of workspaces) {
+    const workspacePath = join(cwd, workspace);
+    const packageJsonPath = join(workspacePath, 'package.json');
+
+    // Detect project type for this workspace
+    const wsProjectType = detectWorkspaceProjectType(workspacePath);
+
+    // Extract configured port from dev script
+    const configuredPort = extractPortFromDevScript(packageJsonPath);
+
+    // Get default port for this project type
+    const defaultPort = getDefaultPort(wsProjectType);
+
+    portInfos.push({
+      workspace,
+      projectType: wsProjectType,
+      configuredPort,
+      defaultPort,
+    });
+  }
+
+  return portInfos;
+}
+
+/**
+ * Detect project type for a specific workspace directory
+ * Similar to detectProjectType but for individual workspaces
+ */
+function detectWorkspaceProjectType(workspacePath: string): ProjectType {
+  if (
+    existsSync(join(workspacePath, 'next.config.js')) ||
+    existsSync(join(workspacePath, 'next.config.mjs')) ||
+    existsSync(join(workspacePath, 'next.config.ts'))
+  ) {
+    return 'nextjs';
+  }
+  if (existsSync(join(workspacePath, 'wrangler.toml')) || existsSync(join(workspacePath, 'wrangler.jsonc'))) {
+    return 'cloudflare';
+  }
+  if (
+    existsSync(join(workspacePath, 'vite.config.ts')) ||
+    existsSync(join(workspacePath, 'vite.config.js')) ||
+    existsSync(join(workspacePath, 'vite.config.mjs'))
+  ) {
+    return 'vite';
+  }
+
+  // Check package.json for elysia dependency
+  const packageJsonPath = join(workspacePath, 'package.json');
+  if (existsSync(packageJsonPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      if (pkg.dependencies?.elysia || pkg.devDependencies?.elysia) {
+        return 'elysia';
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  return 'unknown';
+}
+
+/**
  * Detect project type
  */
 function detectProjectType(cwd: string): ProjectType {
@@ -433,8 +513,9 @@ function extractPortFromDevScript(packageJsonPath: string): number | null {
 
 /**
  * Get the default port for a project type
+ * Returns null for unknown project types - never assume port 3000
  */
-function getDefaultPort(projectType: ProjectType): number {
+function getDefaultPort(projectType: ProjectType): number | null {
   switch (projectType) {
     case 'cloudflare':
       return 8787;
@@ -443,8 +524,13 @@ function getDefaultPort(projectType: ProjectType): number {
     case 'elysia':
       return 3000;
     case 'nextjs':
-    default:
       return 3000;
+    case 'turborepo':
+      // Turborepo doesn't have a single port - detect from workspaces
+      return null;
+    default:
+      // Never assume port 3000 for unknown project types
+      return null;
   }
 }
 
@@ -623,6 +709,155 @@ async function checkServerHealth(port: number, timeoutMs: number = 10000): Promi
   return false;
 }
 
+/**
+ * Health check result for a workspace
+ */
+interface HealthCheckResult {
+  port: number;
+  workspace: string;
+  healthy: boolean;
+}
+
+/**
+ * Check health of multiple workspace servers in parallel
+ * Uses Promise.allSettled for concurrent health checks
+ */
+async function checkMultipleServerHealth(
+  ports: WorkspacePortInfo[]
+): Promise<HealthCheckResult[]> {
+  const healthPromises = ports.map(async (portInfo): Promise<HealthCheckResult> => {
+    const port = portInfo.configuredPort || portInfo.defaultPort;
+    if (!port) {
+      return {
+        port: 0,
+        workspace: portInfo.workspace,
+        healthy: false,
+      };
+    }
+
+    const healthy = await checkServerHealth(port);
+    return {
+      port,
+      workspace: portInfo.workspace,
+      healthy,
+    };
+  });
+
+  const results = await Promise.allSettled(healthPromises);
+  return results.map((result, index) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    // On rejection, mark as unhealthy
+    const portInfo = ports[index];
+    return {
+      port: portInfo.configuredPort || portInfo.defaultPort || 0,
+      workspace: portInfo.workspace,
+      healthy: false,
+    };
+  });
+}
+
+/**
+ * Information about a shared Supabase instance
+ */
+interface SupabaseInstanceInfo {
+  running: boolean;
+  sharedSession: boolean;
+  projectId: string | null;
+}
+
+/**
+ * Detect if Supabase is already running (possibly from another session)
+ * Parses supabase status output to extract instance information
+ */
+async function detectSharedSupabase(cwd: string): Promise<SupabaseInstanceInfo> {
+  const result = await execCommand('supabase status', { cwd, timeout: 10000 });
+
+  if (!result.success || !result.stdout.includes('API URL')) {
+    return {
+      running: false,
+      sharedSession: false,
+      projectId: null,
+    };
+  }
+
+  // Extract project ID from config
+  const projectId = getSupabaseProjectId(cwd);
+
+  // Check if this session started Supabase by looking for our marker
+  // If no marker exists but Supabase is running, it's a shared instance
+  const markerPath = join(cwd, '.claude', 'logs', 'supabase-session.json');
+  const sharedSession = !existsSync(markerPath);
+
+  return {
+    running: true,
+    sharedSession,
+    projectId,
+  };
+}
+
+/**
+ * Resolved port information after conflict resolution
+ */
+interface ResolvedPort {
+  workspace: string;
+  originalPort: number;
+  resolvedPort: number;
+  conflictResolved: boolean;
+}
+
+/**
+ * Resolve port conflicts for workspace ports
+ * Increments by 3 for each conflict (session separation strategy)
+ */
+async function resolvePortConflicts(
+  ports: WorkspacePortInfo[]
+): Promise<ResolvedPort[]> {
+  const resolvedPorts: ResolvedPort[] = [];
+  const usedPorts = new Set<number>();
+
+  for (const portInfo of ports) {
+    const originalPort = portInfo.configuredPort || portInfo.defaultPort;
+
+    if (!originalPort) {
+      // No port to resolve
+      resolvedPorts.push({
+        workspace: portInfo.workspace,
+        originalPort: 0,
+        resolvedPort: 0,
+        conflictResolved: false,
+      });
+      continue;
+    }
+
+    let resolvedPort = originalPort;
+    let conflictResolved = false;
+
+    // Check if port is available (not in use by system or already claimed by another workspace)
+    while (usedPorts.has(resolvedPort) || !(await isPortAvailable(resolvedPort))) {
+      resolvedPort += 3; // Increment by 3 for session separation
+      conflictResolved = true;
+
+      // Safety: don't go above 65535
+      if (resolvedPort > 65535) {
+        resolvedPort = originalPort; // Fall back, will likely fail
+        break;
+      }
+    }
+
+    usedPorts.add(resolvedPort);
+    resolvedPorts.push({
+      workspace: portInfo.workspace,
+      originalPort,
+      resolvedPort,
+      conflictResolved,
+    });
+  }
+
+  return resolvedPorts;
+}
+
 // ==================== Dependency Installation ====================
 
 type PackageManager = 'bun' | 'npm' | 'pnpm' | 'yarn';
@@ -794,7 +1029,9 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     }
 
     // ========== Step 4: Check/Start Supabase ==========
-    let supabaseRunning = await isSupabaseRunning(input.cwd);
+    // Use detectSharedSupabase to check if Supabase is running from another session
+    const supabaseInfo = await detectSharedSupabase(input.cwd);
+    let supabaseRunning = supabaseInfo.running;
 
     if (!supabaseRunning && dockerRunning) {
       messages.push('');
@@ -809,7 +1046,11 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         messages.push(`⚠️ Failed to start Supabase: ${startResult.stderr}`);
       }
     } else if (supabaseRunning) {
-      messages.push('✓ Supabase already running');
+      if (supabaseInfo.sharedSession) {
+        messages.push('ℹ️ Using shared Supabase instance from another session');
+      } else {
+        messages.push('✓ Supabase already running');
+      }
     }
 
     // ========== Step 5: Export Environment Variables ==========
@@ -876,7 +1117,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       if (projectType === 'turborepo') {
         const workspaces = detectTurborepoWorkspaces(input.cwd);
         if (workspaces && workspaces.length > 0) {
-          messages.push(`  Workspaces: ${workspaces.join(', ')}`);
+          // Detect ports for all workspaces
+          const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
+          const portSummary = workspacePorts
+            .map(p => `${p.workspace}:${p.configuredPort || p.defaultPort || '?'}`)
+            .join(', ');
+          messages.push(`  Workspaces: ${portSummary}`);
 
           // Check for missing env passthrough vars
           const missingEnvVars = checkTurboEnvPassthrough(input.cwd);
@@ -932,6 +1178,21 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
                   messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
                   messages.push(`  Logs: ${mcpResult.logs.stdout}`);
                   messages.push(`  URL: http://localhost:${actualPort}`);
+
+                  // Update NEXT_PUBLIC_MCP_SERVER_URL if port changed
+                  if (actualPort !== configuredPort) {
+                    const mcpUrl = `http://localhost:${actualPort}`;
+                    // Distribute updated MCP URL to all workspaces
+                    for (const ws of workspaces) {
+                      const wsPath = join(input.cwd, ws);
+                      await distributeEnvVars(
+                        wsPath,
+                        { supabaseVars: {}, vercelVars: { NEXT_PUBLIC_MCP_SERVER_URL: mcpUrl } },
+                        { createIfMissing: false, preserveExisting: true }
+                      );
+                    }
+                    messages.push(`  ✓ Updated NEXT_PUBLIC_MCP_SERVER_URL to ${mcpUrl}`);
+                  }
                 } else {
                   messages.push('⚠️ Could not start MCP worker');
                 }
@@ -948,21 +1209,52 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         messages.push(`✓ Dev server started (PID: ${result.pid})`);
         messages.push(`  Logs: ${result.logs.stdout}`);
 
-        // Detect port: first try package.json dev script, then fall back to defaults
-        const packageJsonPath = join(input.cwd, 'package.json');
-        const scriptPort = extractPortFromDevScript(packageJsonPath);
-        const port = scriptPort || getDefaultPort(projectType);
+        // For Turborepo: use multi-port health checks
+        if (projectType === 'turborepo') {
+          const workspaces = detectTurborepoWorkspaces(input.cwd);
+          if (workspaces && workspaces.length > 0) {
+            const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
 
-        // Check server health
-        messages.push(`  Waiting for server to be ready (port ${port})...`);
-        const isHealthy = await checkServerHealth(port);
+            // Resolve port conflicts
+            const resolvedPorts = await resolvePortConflicts(workspacePorts);
+            for (const rp of resolvedPorts.filter(p => p.conflictResolved)) {
+              messages.push(`  ⚠️ ${rp.workspace}: Port ${rp.originalPort} in use, using ${rp.resolvedPort}`);
+            }
 
-        if (isHealthy) {
-          messages.push(`✓ Server is responding at http://localhost:${port}`);
+            // Check health of all workspace servers
+            messages.push('  Waiting for workspace servers to be ready...');
+            const healthResults = await checkMultipleServerHealth(workspacePorts);
+
+            for (const hr of healthResults) {
+              if (hr.port === 0) {
+                messages.push(`  ⚠️ ${hr.workspace}: No port configured`);
+              } else if (hr.healthy) {
+                messages.push(`  ✓ ${hr.workspace} responding at http://localhost:${hr.port}`);
+              } else {
+                messages.push(`  ⚠️ ${hr.workspace} not responding on port ${hr.port}`);
+              }
+            }
+          }
         } else {
-          messages.push(`⚠️ Server did not respond within 10 seconds`);
-          messages.push(`  Check logs: ${result.logs.stderr}`);
-          messages.push(`  Try manually: ${devCommand}`);
+          // For non-Turborepo: use single-port health check
+          const packageJsonPath = join(input.cwd, 'package.json');
+          const scriptPort = extractPortFromDevScript(packageJsonPath);
+          const port = scriptPort || getDefaultPort(projectType);
+
+          if (port) {
+            messages.push(`  Waiting for server to be ready (port ${port})...`);
+            const isHealthy = await checkServerHealth(port);
+
+            if (isHealthy) {
+              messages.push(`✓ Server is responding at http://localhost:${port}`);
+            } else {
+              messages.push(`⚠️ Server did not respond within 10 seconds`);
+              messages.push(`  Check logs: ${result.logs.stderr}`);
+              messages.push(`  Try manually: ${devCommand}`);
+            }
+          } else {
+            messages.push('  ⚠️ Could not determine server port - skipping health check');
+          }
         }
       } else {
         messages.push('⚠️ Could not start dev server');
