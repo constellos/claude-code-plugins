@@ -849,7 +849,7 @@ export async function awaitCIWithFailFast(
     cwd
   );
 
-  if (!runListResult.success || !runListResult.stdout.trim()) {
+  if (!runListResult.success || !runListResult.stdout.trim() || runListResult.stdout.trim() === '[]') {
     // No runs yet - check using pr checks instead
     const checks = await getCurrentCIChecks(prNumber, cwd);
     if (checks.length === 0) {
@@ -977,7 +977,19 @@ export async function awaitCIWithFailFast(
 
   // Check if all complete (success or skipped)
   const allComplete = finalChecks.every((c) => c.status === 'success' || c.status === 'skipped');
-  if (allComplete && finalChecks.length > 0) {
+
+  // Safety net: Check for zero checks BEFORE allComplete check
+  // (prevents vacuous truth bug where [].every() returns true)
+  if (finalChecks.length === 0) {
+    return {
+      success: true,
+      checks: [],
+      prNumber,
+      error: 'No CI workflows configured for this repository',
+    };
+  }
+
+  if (allComplete) {
     return { success: true, checks: finalChecks, prNumber };
   }
 
