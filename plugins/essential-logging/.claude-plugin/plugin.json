@@ -1,0 +1,12 @@
+{
+  "name": "essential-logging",
+  "version": "0.1.0",
+  "description": "Core task execution logging and transcript utilities for all Claude Code sessions",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": ["logging", "task-tracking", "transcripts", "core"],
+  "hooks": "./hooks/hooks.json"
+}
