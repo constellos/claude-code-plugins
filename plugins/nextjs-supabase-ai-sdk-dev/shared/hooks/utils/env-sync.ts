@@ -5,11 +5,74 @@
  * across multiple workspaces in a turborepo project. Ensures consistent environment
  * configuration across all apps.
  *
+ * Supported frameworks and their env var prefixes:
+ * - Next.js: NEXT_PUBLIC_* for client-side, unprefixed for server-side
+ * - Vite: VITE_* for client-side
+ * - Cloudflare Workers: Unprefixed in dev.vars
+ *
  * @module env-sync
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+
+/**
+ * Workspace framework type for environment variable prefixing
+ */
+export type WorkspaceFramework = 'nextjs' | 'vite' | 'cloudflare' | 'unknown';
+
+/**
+ * Detect the framework type of a workspace based on config files
+ *
+ * @param workspacePath - Path to the workspace directory
+ * @returns Detected framework type
+ */
+export function detectWorkspaceFramework(workspacePath: string): WorkspaceFramework {
+  // Check for Next.js
+  if (
+    existsSync(join(workspacePath, 'next.config.js')) ||
+    existsSync(join(workspacePath, 'next.config.mjs')) ||
+    existsSync(join(workspacePath, 'next.config.ts'))
+  ) {
+    return 'nextjs';
+  }
+
+  // Check for Vite
+  if (
+    existsSync(join(workspacePath, 'vite.config.ts')) ||
+    existsSync(join(workspacePath, 'vite.config.js')) ||
+    existsSync(join(workspacePath, 'vite.config.mjs'))
+  ) {
+    return 'vite';
+  }
+
+  // Check for Cloudflare Workers
+  if (
+    existsSync(join(workspacePath, 'wrangler.toml')) ||
+    existsSync(join(workspacePath, 'wrangler.jsonc'))
+  ) {
+    return 'cloudflare';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Get the public environment variable prefix for a framework
+ *
+ * @param framework - The workspace framework type
+ * @returns The prefix to use for client-exposed environment variables
+ */
+export function getPublicEnvPrefix(framework: WorkspaceFramework): string {
+  switch (framework) {
+    case 'nextjs':
+      return 'NEXT_PUBLIC_';
+    case 'vite':
+      return 'VITE_';
+    default:
+      return '';
+  }
+}
 
 /**
  * Environment variable sets organized by source
@@ -204,7 +267,8 @@ export function validateEnvVars(
  *   { createIfMissing: true, preserveExisting: true }
  * );
  *
- * if (result.nextjs) console.log('.env.local updated');
+ * if (result.nextjs) console.log('Next.js .env.local updated');
+ * if (result.vite) console.log('Vite .env.local updated');
  * if (result.cloudflare) console.log('dev.vars updated');
  * ```
  */
@@ -212,53 +276,81 @@ export async function distributeEnvVars(
   workspacePath: string,
   vars: Partial<EnvVarSet>,
   options: DistributeOptions
-): Promise<{ nextjs: boolean; cloudflare: boolean }> {
+): Promise<{ nextjs: boolean; vite: boolean; cloudflare: boolean }> {
   let nextjsWritten = false;
+  let viteWritten = false;
   let cloudflareWritten = false;
 
-  // Prepare combined vars for Next.js (with NEXT_PUBLIC_ prefix where needed)
-  const nextjsVars: Record<string, string> = {};
+  // Detect workspace framework to use correct prefix
+  const framework = detectWorkspaceFramework(workspacePath);
+  const publicPrefix = getPublicEnvPrefix(framework);
 
-  // Add Supabase vars with NEXT_PUBLIC_ prefix
+  // Prepare combined vars for frontend frameworks (Next.js or Vite)
+  const frontendVars: Record<string, string> = {};
+
+  // Add Supabase vars with framework-specific prefix
   if (vars.supabaseVars) {
     for (const [key, value] of Object.entries(vars.supabaseVars)) {
       if (key === 'SUPABASE_URL') {
-        nextjsVars['NEXT_PUBLIC_SUPABASE_URL'] = value;
+        frontendVars[`${publicPrefix}SUPABASE_URL`] = value;
       } else if (key === 'SUPABASE_PUBLISHABLE_KEY') {
-        nextjsVars['NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'] = value;
+        frontendVars[`${publicPrefix}SUPABASE_PUBLISHABLE_KEY`] = value;
       } else if (key === 'SUPABASE_SECRET_KEY') {
-        nextjsVars['SUPABASE_SECRET_KEY'] = value; // No prefix for secret
+        frontendVars['SUPABASE_SECRET_KEY'] = value; // No prefix for secret
       }
     }
   }
 
-  // Add Vercel vars (keep as-is, they're already properly prefixed)
+  // Add Vercel vars - transform prefix if needed for Vite
   if (vars.vercelVars) {
-    Object.assign(nextjsVars, vars.vercelVars);
+    for (const [key, value] of Object.entries(vars.vercelVars)) {
+      if (framework === 'vite' && key.startsWith('NEXT_PUBLIC_')) {
+        // Convert NEXT_PUBLIC_ to VITE_ for Vite workspaces
+        const unprefixed = key.replace('NEXT_PUBLIC_', '');
+        frontendVars[`VITE_${unprefixed}`] = value;
+      } else {
+        frontendVars[key] = value;
+      }
+    }
   }
 
-  // Add explicit Next.js vars
+  // Add explicit Next.js vars (convert prefix for Vite)
   if (vars.nextjsVars) {
-    Object.assign(nextjsVars, vars.nextjsVars);
+    for (const [key, value] of Object.entries(vars.nextjsVars)) {
+      if (framework === 'vite' && key.startsWith('NEXT_PUBLIC_')) {
+        const unprefixed = key.replace('NEXT_PUBLIC_', '');
+        frontendVars[`VITE_${unprefixed}`] = value;
+      } else {
+        frontendVars[key] = value;
+      }
+    }
   }
 
-  // Write to .env.local
+  // Write to .env.local for frontend frameworks (Next.js or Vite)
   const envLocalPath = join(workspacePath, '.env.local');
-  if (Object.keys(nextjsVars).length > 0) {
+  if ((framework === 'nextjs' || framework === 'vite') && Object.keys(frontendVars).length > 0) {
     if (existsSync(envLocalPath)) {
       // Merge with existing
       const existing = await readEnvLocalFile(workspacePath);
       const merged = options.preserveExisting
-        ? { ...nextjsVars, ...existing } // Existing takes precedence
-        : { ...existing, ...nextjsVars }; // New takes precedence
+        ? { ...frontendVars, ...existing } // Existing takes precedence
+        : { ...existing, ...frontendVars }; // New takes precedence
 
       const lines = Object.entries(merged).map(([key, value]) => `${key}=${value}`);
       writeFileSync(envLocalPath, lines.join('\n') + '\n');
-      nextjsWritten = true;
+      if (framework === 'nextjs') {
+        nextjsWritten = true;
+      } else {
+        viteWritten = true;
+      }
     } else if (options.createIfMissing) {
-      const lines = Object.entries(nextjsVars).map(([key, value]) => `${key}=${value}`);
+      const lines = Object.entries(frontendVars).map(([key, value]) => `${key}=${value}`);
       writeFileSync(envLocalPath, lines.join('\n') + '\n');
-      nextjsWritten = true;
+      if (framework === 'nextjs') {
+        nextjsWritten = true;
+      } else {
+        viteWritten = true;
+      }
     }
   }
 
@@ -328,7 +420,7 @@ export async function distributeEnvVars(
     }
   }
 
-  return { nextjs: nextjsWritten, cloudflare: cloudflareWritten };
+  return { nextjs: nextjsWritten, vite: viteWritten, cloudflare: cloudflareWritten };
 }
 
 /**
