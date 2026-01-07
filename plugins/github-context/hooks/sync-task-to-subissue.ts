@@ -9,9 +9,13 @@
  * - **Agent filtering** - Skips Plan and Explore agents (too transient)
  * - **Parent linking** - Links subissue to branch's parent issue
  * - **Duplicate prevention** - Tracks created subissues to avoid duplicates
+ * - **Structured task support** - Detects task IDs from plan frontmatter
  *
  * State is tracked in .claude/logs/task-subissues.json to remember which
  * tasks have already created subissues.
+ *
+ * Structured tasks: If a Task prompt contains "taskId: <id>" or references
+ * a task from the active plan, the subissue will include that context.
  *
  * @module sync-task-to-subissue
  */
@@ -40,6 +44,34 @@ interface TaskSubissueEntry {
   subissueUrl: string;
   branch: string;
   createdAt: string;
+  /** Structured task ID if referenced in prompt */
+  planTaskId?: string;
+}
+
+/**
+ * Extract task ID from prompt if present
+ *
+ * Looks for patterns like:
+ * - "taskId: auth-backend"
+ * - "[task: auth-backend]"
+ * - "task id: auth-backend"
+ */
+function extractTaskIdFromPrompt(prompt: string): string | undefined {
+  // Pattern: taskId: <id> or task id: <id> or [task: <id>]
+  const patterns = [
+    /taskId:\s*(\S+)/i,
+    /task\s*id:\s*(\S+)/i,
+    /\[task:\s*(\S+)\]/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = prompt.match(pattern);
+    if (match) {
+      return match[1].replace(/['"`,]/g, ''); // Clean up quotes/punctuation
+    }
+  }
+
+  return undefined;
 }
 
 interface TaskSubissueState {
@@ -297,11 +329,15 @@ async function handler(input: PostToolUseInputTyped): Promise<PostToolUseHookOut
       };
     }
 
+    // Extract task ID if present in prompt
+    const planTaskId = extractTaskIdFromPrompt(prompt);
+
     // Create subissue
+    const taskIdSection = planTaskId ? `**Plan Task ID:** \`${planTaskId}\`\n` : '';
     const subissueBody = `**Parent Issue:** #${parentIssueNumber}
 **Agent Type:** ${subagent_type}
 **Branch:** \`${branch}\`
-
+${taskIdSection}
 ---
 
 ## Task Description
@@ -330,6 +366,7 @@ ${prompt}`;
       subissueUrl,
       branch,
       createdAt: new Date().toISOString(),
+      planTaskId,
     };
     await saveTaskSubissueState(input.cwd, taskState);
 

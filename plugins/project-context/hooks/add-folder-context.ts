@@ -1,14 +1,14 @@
 /**
- * Context discovery hook for CLAUDE.md documentation
+ * Context discovery hook for CLAUDE.md documentation and TSDoc metadata
  *
  * PostToolUse hook that automatically discovers and links related CLAUDE.md
- * documentation files after Read operations. This helps Claude understand the
- * project structure and access relevant context without explicit prompting.
+ * documentation files after Read operations. Also incrementally indexes TSDoc
+ * metadata from TypeScript files for SERP-style context matching.
  *
- * When a file is read, this hook searches for CLAUDE.md files in:
- * 1. Project root directory
- * 2. Parent directories (walking up from the read file)
- * 3. Immediate child directories (one level deep)
+ * When a file is read, this hook:
+ * 1. Searches for CLAUDE.md files in parent/child directories
+ * 2. For .ts/.tsx files: extracts TSDoc @context and @aliases tags
+ * 3. Updates the metadata index for future context matching
  *
  * Found documentation files are provided as clickable file:// links in the
  * additional context section, making it easy to explore related documentation.
@@ -16,11 +16,13 @@
  * @module add-folder-context
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
-import { createDebugLogger } from '../shared/hooks/utils/debug.js';
-import { runHook } from '../shared/hooks/utils/io.js';
-import { readdir, access, readFile, writeFile, mkdir } from 'fs/promises';
-import { join, dirname } from 'path';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
+import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
+import { runHook } from '../../../shared/hooks/utils/io.js';
+import { parseFileMetadata } from '../../../shared/hooks/utils/tsdoc-parser.js';
+import { loadIndex, saveIndex } from '../../../shared/hooks/utils/metadata-index.js';
+import { readdir, access, readFile, writeFile, mkdir, stat } from 'fs/promises';
+import { join, dirname, extname, relative } from 'path';
 import { existsSync } from 'fs';
 
 /**
@@ -184,6 +186,42 @@ async function handler(
     if (!filePath) {
       await logger.logOutput({ success: false, reason: 'No file_path in tool input' });
       return {};
+    }
+
+    // Extract TSDoc metadata for TypeScript files and update the index
+    const fileExt = extname(filePath).toLowerCase();
+    if (fileExt === '.ts' || fileExt === '.tsx') {
+      try {
+        // Get file content from tool response (the Read tool returns the content)
+        const toolResponse = input.tool_response as { content?: string } | string;
+        const fileContent = typeof toolResponse === 'string' ? toolResponse : toolResponse?.content;
+
+        if (fileContent && typeof fileContent === 'string') {
+          // Get file modification time
+          const fileStat = await stat(filePath).catch(() => null);
+          const lastModified = fileStat?.mtime.toISOString() || new Date().toISOString();
+
+          // Parse TSDoc metadata
+          const relativePath = relative(input.cwd, filePath);
+          const fileMetadata = parseFileMetadata(relativePath, fileContent);
+          fileMetadata.lastModified = lastModified;
+
+          // Update the index
+          const index = await loadIndex(input.cwd);
+          index.files[relativePath] = fileMetadata;
+          await saveIndex(input.cwd, index);
+
+          await logger.logOutput({
+            tsdoc_indexed: true,
+            file: relativePath,
+            tags: fileMetadata.tags.length,
+            exports: fileMetadata.exports.length,
+          });
+        }
+      } catch (error) {
+        // Non-blocking - TSDoc extraction is optional
+        await logger.logOutput({ tsdoc_indexed: false, error: String(error) });
+      }
     }
 
     const claudeMdFiles: string[] = [];
