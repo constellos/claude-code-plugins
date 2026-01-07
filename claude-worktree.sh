@@ -53,6 +53,100 @@ _cw_item() {
   echo "  $status $message"
 }
 
+# Per-worktree cache isolation helpers
+# =====================================
+
+# Generate short hash of worktree path for cache isolation
+_cw_worktree_cache_hash() {
+  local worktree_path="$1"
+  echo "$worktree_path" | sha256sum | cut -c1-12
+}
+
+# Get/create worktree-specific cache directory
+_cw_get_worktree_cache_dir() {
+  local worktree_path="$1"
+  local cache_hash=$(_cw_worktree_cache_hash "$worktree_path")
+  local cache_base="${HOME}/.claude/plugins/cache/.constellos-local-caches"
+  local cache_dir="${cache_base}/${cache_hash}"
+
+  mkdir -p "$cache_dir"
+  echo "$cache_dir"
+}
+
+# Update the constellos-local symlink to point to worktree cache
+_cw_update_cache_symlink() {
+  local target_cache="$1"
+  local symlink_path="${HOME}/.claude/plugins/cache/constellos-local"
+
+  # If it's an existing directory (not symlink), migrate it
+  if [[ -d "$symlink_path" && ! -L "$symlink_path" ]]; then
+    local backup_dir="${HOME}/.claude/plugins/cache/.constellos-local-legacy-$(date +%s)"
+    mv "$symlink_path" "$backup_dir" 2>/dev/null || rm -rf "$symlink_path"
+  fi
+
+  # Create or update symlink atomically
+  ln -sfn "$target_cache" "$symlink_path"
+}
+
+# Compute content hash of plugin source files
+_cw_plugin_content_hash() {
+  local plugin_source_dir="$1"
+  find "$plugin_source_dir" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.json" -o -name "*.md" \) \
+    -exec sha256sum {} \; 2>/dev/null | sort | sha256sum | cut -c1-16
+}
+
+# Check if cache needs refresh based on content hash
+_cw_cache_needs_refresh() {
+  local plugin_name="$1"
+  local plugin_source="$2"
+  local cache_dir="$3"
+  local version="$4"
+
+  local hash_file="${cache_dir}/${plugin_name}/${version}/.content-hash"
+
+  if [[ ! -f "$hash_file" ]]; then
+    return 0  # No hash = needs refresh
+  fi
+
+  local current_hash=$(_cw_plugin_content_hash "$plugin_source")
+  local cached_hash=$(cat "$hash_file" 2>/dev/null)
+  [[ "$current_hash" != "$cached_hash" ]]
+}
+
+# Save content hash after install
+_cw_save_content_hash() {
+  local plugin_name="$1"
+  local plugin_source="$2"
+  local cache_dir="$3"
+  local version="$4"
+
+  local hash_dir="${cache_dir}/${plugin_name}/${version}"
+  mkdir -p "$hash_dir"
+  _cw_plugin_content_hash "$plugin_source" > "${hash_dir}/.content-hash"
+}
+
+# Invalidate all worktree caches (forces refresh on next session)
+cw_refresh_all_caches() {
+  local cache_base="${HOME}/.claude/plugins/cache/.constellos-local-caches"
+
+  if [[ ! -d "$cache_base" ]]; then
+    echo "No worktree caches found"
+    return 0
+  fi
+
+  echo "Invalidating all worktree plugin caches..."
+
+  for cache_dir in "$cache_base"/*/; do
+    [[ -d "$cache_dir" ]] || continue
+
+    # Remove content hashes to force refresh on next session
+    find "$cache_dir" -name ".content-hash" -delete 2>/dev/null
+    echo "  ✔ Invalidated: $(basename "$cache_dir")"
+  done
+
+  echo "Done. Caches will refresh on next worktree session."
+}
+
 # Self-update function: pulls latest from origin/main if script repo has updates
 # If an update is found, exec-reinvokes with the updated script (never returns)
 # Returns 0 if no update needed
@@ -423,11 +517,18 @@ _cw_main() {
       local has_local_marketplace=$(jq -r '.extraKnownMarketplaces["constellos-local"] // empty' "$settings_file" 2>/dev/null)
 
       if [[ -n "$has_local_marketplace" ]]; then
+        # Get worktree-specific cache directory (per-worktree isolation)
+        local wt_cache_dir=$(_cw_get_worktree_cache_dir "$worktree_dir")
+
+        # Update symlink to point to this worktree's cache
+        # This ensures each worktree has isolated cache without breaking others
+        _cw_update_cache_symlink "$wt_cache_dir"
+
         local current_path=$(claude plugin marketplace list 2>/dev/null | grep -A1 "constellos-local" | grep "Directory" | sed 's/.*(\(.*\))/\1/')
 
         if [[ -z "$current_path" || "$current_path" != "$worktree_dir" ]]; then
           claude plugin marketplace remove constellos-local &>/dev/null || true
-          rm -rf ~/.claude/plugins/cache/constellos-local 2>/dev/null
+          # DO NOT rm -rf the shared cache - each worktree has isolated cache via symlink
 
           if [[ "$has_marketplace_output" == false ]]; then
             _cw_section "Marketplace"
@@ -480,16 +581,40 @@ _cw_main() {
         local plugin_name="${plugin%@*}"
         local marketplace="${plugin#*@}"
 
-        # Skip plugins from just-registered local marketplace (already installed by marketplace add)
-        if [[ "$marketplace" == "$registered_local_marketplace" ]]; then
-          _cw_item "✔" "${plugin}"
-          ((plugin_count++)) || true
-          ((installed_count++)) || true
+        ((plugin_count++)) || true
+
+        # For local marketplace plugins, use content-hash based refresh
+        if [[ "$marketplace" == "$registered_local_marketplace" ]] && [[ -n "$wt_cache_dir" ]]; then
+          # Get plugin source path and version from marketplace.json
+          local plugin_source_rel=$(jq -r ".plugins[] | select(.name == \"$plugin_name\") | .source" "$marketplace_file" 2>/dev/null)
+          local plugin_version=$(jq -r ".plugins[] | select(.name == \"$plugin_name\") | .version" "$marketplace_file" 2>/dev/null)
+          local plugin_source="${worktree_dir}/${plugin_source_rel#./}"
+
+          if [[ -n "$plugin_source_rel" ]] && [[ -d "$plugin_source" ]]; then
+            # Check if content hash changed (plugin source files modified)
+            if _cw_cache_needs_refresh "$plugin_name" "$plugin_source" "$wt_cache_dir" "$plugin_version"; then
+              # Clear only this plugin from worktree-specific cache
+              rm -rf "${wt_cache_dir}/${plugin_name}" 2>/dev/null || true
+
+              if claude plugin install --scope project "$plugin" &>/dev/null; then
+                _cw_save_content_hash "$plugin_name" "$plugin_source" "$wt_cache_dir" "$plugin_version"
+                _cw_item "✔" "${plugin} (refreshed)"
+                ((installed_count++)) || true
+              else
+                _cw_item "✘" "${plugin}"
+              fi
+            else
+              _cw_item "✔" "${plugin} (cached)"
+              ((installed_count++)) || true
+            fi
+          else
+            _cw_item "✔" "${plugin}"
+            ((installed_count++)) || true
+          fi
           continue
         fi
 
-        ((plugin_count++)) || true
-
+        # For remote marketplace plugins, standard install
         # Uninstall quietly
         claude plugin uninstall --scope project "$plugin" &>/dev/null || true
 
