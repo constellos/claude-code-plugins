@@ -16,10 +16,10 @@ import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { isPortAvailable, findAvailablePort } from '../shared/hooks/utils/port.js';
 import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
-import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars, collectEnvVars } from '../shared/hooks/utils/env-sync.js';
+import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars } from '../shared/hooks/utils/env-sync.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
-import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, mkdirSync, openSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, openSync } from 'fs';
 import { join } from 'path';
 import { platform } from 'os';
 
