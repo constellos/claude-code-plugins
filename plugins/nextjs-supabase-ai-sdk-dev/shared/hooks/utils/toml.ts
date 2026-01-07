@@ -230,3 +230,62 @@ export async function readTomlFile(filePath: string): Promise<TomlValue | null> 
     return null;
   }
 }
+
+/**
+ * Get the dev server port from a wrangler.toml or wrangler.jsonc file
+ *
+ * Parses the wrangler configuration file to extract the dev server port.
+ * Supports both TOML format (wrangler.toml) and JSONC format (wrangler.jsonc).
+ *
+ * For TOML files, looks for: `[dev]` section with `port = 8787`
+ * For JSONC files, looks for: `{ "dev": { "port": 8787 } }`
+ *
+ * @param wranglerPath - Path to wrangler.toml or wrangler.jsonc file
+ * @returns Port number if found, null if file doesn't exist or port not configured
+ *
+ * @example
+ * ```typescript
+ * import { getWranglerDevPort } from './toml.js';
+ * import { join } from 'path';
+ *
+ * // Check wrangler.toml
+ * const port = await getWranglerDevPort(join(process.cwd(), 'wrangler.toml'));
+ * console.log('Wrangler dev port:', port || 8787); // Default to 8787 if not found
+ *
+ * // Check wrangler.jsonc
+ * const port2 = await getWranglerDevPort(join(process.cwd(), 'wrangler.jsonc'));
+ * ```
+ */
+export async function getWranglerDevPort(wranglerPath: string): Promise<number | null> {
+  try {
+    const fs = await import('fs/promises');
+    const content = await fs.readFile(wranglerPath, 'utf-8');
+
+    // Handle TOML format (wrangler.toml)
+    if (wranglerPath.endsWith('.toml')) {
+      const config = parseToml(content);
+      if (config.dev && typeof config.dev === 'object') {
+        const dev = config.dev as TomlValue;
+        if (typeof dev.port === 'number') {
+          return dev.port;
+        }
+      }
+      return null;
+    }
+
+    // Handle JSONC format (wrangler.jsonc)
+    if (wranglerPath.endsWith('.jsonc') || wranglerPath.endsWith('.json')) {
+      // Strip comments from JSONC
+      const jsonContent = content.replace(/\/\*[\s\S]*?\*\/|\/\/.*/g, '');
+      const config = JSON.parse(jsonContent);
+      if (config.dev && typeof config.dev.port === 'number') {
+        return config.dev.port;
+      }
+      return null;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}

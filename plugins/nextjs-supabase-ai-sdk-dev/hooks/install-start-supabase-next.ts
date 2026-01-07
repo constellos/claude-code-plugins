@@ -14,6 +14,9 @@ import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
+import { isPortAvailable, findAvailablePort } from '../shared/hooks/utils/port.js';
+import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
+import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars, collectEnvVars } from '../shared/hooks/utils/env-sync.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, readdirSync, statSync, mkdirSync, openSync } from 'fs';
@@ -204,13 +207,12 @@ async function startSupabase(cwd: string): Promise<ExecResult> {
  * @param targetDir - Directory where to write .env.local and dev.vars
  */
 async function exportSupabaseEnvVars(
-  supabaseRoot: string,
-  targetDir: string
-): Promise<{ nextjs: boolean; cloudflare: boolean }> {
+  supabaseRoot: string
+): Promise<{ vars: Record<string, string>; success: boolean }> {
   // Get raw env output from supabase root
   const result = await execCommand('supabase status -o env', { cwd: supabaseRoot, timeout: 10000 });
   if (!result.success) {
-    return { nextjs: false, cloudflare: false };
+    return { vars: {}, success: false };
   }
 
   // Parse only the 3 variables we need from supabase status output
@@ -241,75 +243,56 @@ async function exportSupabaseEnvVars(
     }
   }
 
-  let nextjsWritten = false;
-  let cloudflareWritten = false;
+  return { vars: envVars, success: true };
+}
 
-  // Write to .env.local (for Next.js projects)
-  const envLocalPath = join(targetDir, '.env.local');
-  if (envVars.SUPABASE_URL && envVars.SUPABASE_PUBLISHABLE_KEY) {
-    const nextjsEnv = [
-      '',
-      '# Supabase Local Development (auto-generated)',
-      `NEXT_PUBLIC_SUPABASE_URL=${envVars.SUPABASE_URL}`,
-      `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${envVars.SUPABASE_PUBLISHABLE_KEY}`,
-      envVars.SUPABASE_SECRET_KEY ? `SUPABASE_SECRET_KEY=${envVars.SUPABASE_SECRET_KEY}` : '',
-      '',
-    ].filter(Boolean);
+/**
+ * Distribute environment variables to all workspaces in a turborepo
+ * Collects Supabase vars and Vercel vars, then distributes to all workspaces
+ *
+ * @param cwd - Root directory of the project
+ * @param workspaces - Array of workspace paths relative to cwd
+ * @param supabaseVars - Optional Supabase variables (from Supabase CLI)
+ * @returns Array of status messages
+ */
+async function distributeAllEnvVars(
+  cwd: string,
+  workspaces: string[],
+  supabaseVars?: Record<string, string>
+): Promise<string[]> {
+  const messages: string[] = [];
 
-    // Update or append to .env.local
-    if (existsSync(envLocalPath)) {
-      const existing = readFileSync(envLocalPath, 'utf-8');
-      if (existing.includes('# Supabase Local Development')) {
-        const updated = existing.replace(
-          /\n# Supabase Local Development \(auto-generated\)[\s\S]*?(?=\n[^#\n]|\n\n[^#]|$)/,
-          nextjsEnv.join('\n')
-        );
-        writeFileSync(envLocalPath, updated);
-      } else {
-        appendFileSync(envLocalPath, nextjsEnv.join('\n'));
-      }
-    } else {
-      writeFileSync(envLocalPath, nextjsEnv.join('\n'));
+  // Collect and merge Vercel vars from all workspaces
+  const vercelVars = await mergeWorkspaceEnvVars(workspaces, cwd);
+
+  // Validate critical Supabase vars
+  if (supabaseVars && Object.keys(supabaseVars).length > 0) {
+    const critical = ['SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY'];
+    const validation = validateEnvVars({ supabaseVars, vercelVars }, critical);
+
+    if (!validation.valid) {
+      messages.push(`⚠️ Missing critical env vars: ${validation.missing.join(', ')}`);
     }
-    nextjsWritten = true;
   }
 
-  // Write to dev.vars (for Cloudflare Workers)
-  const devVarsPath = join(targetDir, 'dev.vars');
-  const hasWrangler = existsSync(join(targetDir, 'wrangler.toml')) || existsSync(join(targetDir, 'wrangler.jsonc'));
+  // Distribute to ALL workspaces
+  for (const workspace of workspaces) {
+    const workspacePath = join(cwd, workspace);
+    const result = await distributeEnvVars(
+      workspacePath,
+      { supabaseVars: supabaseVars || {}, vercelVars },
+      { createIfMissing: true, preserveExisting: true }
+    );
 
-  if (
-    (existsSync(devVarsPath) || hasWrangler) &&
-    envVars.SUPABASE_URL &&
-    envVars.SUPABASE_PUBLISHABLE_KEY
-  ) {
-    const cloudflareEnv = [
-      '',
-      '# Supabase Local Development (auto-generated)',
-      `SUPABASE_URL=${envVars.SUPABASE_URL}`, // No NEXT_PUBLIC_ prefix!
-      `SUPABASE_PUBLISHABLE_KEY=${envVars.SUPABASE_PUBLISHABLE_KEY}`, // No prefix!
-      envVars.SUPABASE_SECRET_KEY ? `SUPABASE_SECRET_KEY=${envVars.SUPABASE_SECRET_KEY}` : '',
-      '',
-    ].filter(Boolean);
-
-    if (existsSync(devVarsPath)) {
-      const existing = readFileSync(devVarsPath, 'utf-8');
-      if (existing.includes('# Supabase Local Development')) {
-        const updated = existing.replace(
-          /\n# Supabase Local Development \(auto-generated\)[\s\S]*?(?=\n[^#\n]|\n\n[^#]|$)/,
-          cloudflareEnv.join('\n')
-        );
-        writeFileSync(devVarsPath, updated);
-      } else {
-        appendFileSync(devVarsPath, cloudflareEnv.join('\n'));
-      }
-    } else {
-      writeFileSync(devVarsPath, cloudflareEnv.join('\n'));
+    if (result.nextjs) {
+      messages.push(`✓ Environment variables written to ${workspace}/.env.local`);
     }
-    cloudflareWritten = true;
+    if (result.cloudflare) {
+      messages.push(`✓ Environment variables written to ${workspace}/dev.vars`);
+    }
   }
 
-  return { nextjs: nextjsWritten, cloudflare: cloudflareWritten };
+  return messages;
 }
 
 // ==================== Project Type Detection ====================
@@ -550,8 +533,9 @@ function getDevCommand(cwd: string, projectType: ProjectType): string | null {
 function startDevServerBackground(
   cwd: string,
   command: string,
-  logger: ReturnType<typeof createDebugLogger>
-): { pid: number; logs: { stdout: string; stderr: string } } | null {
+  logger: ReturnType<typeof createDebugLogger>,
+  expectedPort?: number
+): { pid: number; logs: { stdout: string; stderr: string }; actualPort?: number } | null {
   try {
     // Ensure .claude/logs directory exists
     const logDir = join(cwd, '.claude', 'logs');
@@ -581,11 +565,11 @@ function startDevServerBackground(
       logger.logError(new Error(`Dev server spawn failed: ${err.message}`));
     });
 
-    // Log early exits (within 5 seconds = crash)
+    // Log early exits (within 10 seconds = crash)
     const spawnTime = Date.now();
     child.on('exit', (code, signal) => {
       const runtime = Date.now() - spawnTime;
-      if (runtime < 5000 && code !== 0) {
+      if (runtime < 10000 && code !== 0) {
         logger.logError(
           new Error(`Dev server exited early (${runtime}ms) with code ${code}, signal ${signal}`)
         );
@@ -600,6 +584,7 @@ function startDevServerBackground(
         stdout: stdoutPath,
         stderr: stderrPath,
       },
+      actualPort: expectedPort,
     };
   } catch (error) {
     logger.logError(error as Error);
@@ -830,31 +815,37 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     // ========== Step 5: Export Environment Variables ==========
     const projectType = detectProjectType(input.cwd);
 
-    if (supabaseRunning) {
-      if (projectType === 'turborepo') {
-        // For Turborepo: export env vars to each workspace
-        const workspaces = detectTurborepoWorkspaces(input.cwd);
-        if (workspaces && workspaces.length > 0) {
-          for (const workspace of workspaces) {
-            const workspacePath = join(input.cwd, workspace);
-            const result = await exportSupabaseEnvVars(input.cwd, workspacePath);
-
-            if (result.nextjs) {
-              messages.push(`✓ Environment variables written to ${workspace}/.env.local`);
-            }
-            if (result.cloudflare) {
-              messages.push(`✓ Environment variables written to ${workspace}/dev.vars`);
-            }
+    if (projectType === 'turborepo') {
+      const workspaces = detectTurborepoWorkspaces(input.cwd);
+      if (workspaces && workspaces.length > 0) {
+        // Collect Supabase vars if running
+        let supabaseVars: Record<string, string> | undefined;
+        if (supabaseRunning) {
+          const result = await exportSupabaseEnvVars(input.cwd);
+          if (result.success) {
+            supabaseVars = result.vars;
           }
         }
-      } else {
-        // For single projects: export to root
-        const result = await exportSupabaseEnvVars(input.cwd, input.cwd);
 
-        if (result.nextjs) {
+        // Distribute all env vars (Supabase + Vercel) to all workspaces
+        const envMessages = await distributeAllEnvVars(input.cwd, workspaces, supabaseVars);
+        messages.push(...envMessages);
+      }
+    } else if (supabaseRunning) {
+      // For single projects: export Supabase vars to root
+      const result = await exportSupabaseEnvVars(input.cwd);
+      if (result.success && Object.keys(result.vars).length > 0) {
+        // Use distributeEnvVars for consistent handling
+        const distResult = await distributeEnvVars(
+          input.cwd,
+          { supabaseVars: result.vars, vercelVars: {} },
+          { createIfMissing: true, preserveExisting: true }
+        );
+
+        if (distResult.nextjs) {
           messages.push('✓ Environment variables written to .env.local');
         }
-        if (result.cloudflare) {
+        if (distResult.cloudflare) {
           messages.push('✓ Environment variables written to dev.vars');
         }
       }
@@ -900,16 +891,50 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           const mcpWorkspace = workspaces.find((w) => w.includes('mcp'));
           if (mcpWorkspace) {
             const mcpPath = join(input.cwd, mcpWorkspace);
-            if (existsSync(join(mcpPath, 'wrangler.toml'))) {
+            const wranglerTomlPath = join(mcpPath, 'wrangler.toml');
+            const wranglerJsoncPath = join(mcpPath, 'wrangler.jsonc');
+
+            if (existsSync(wranglerTomlPath) || existsSync(wranglerJsoncPath)) {
               messages.push('');
               messages.push('Starting MCP Cloudflare Worker...');
-              const mcpResult = startDevServerBackground(mcpPath, 'npx wrangler dev', logger);
-              if (mcpResult) {
-                messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
-                messages.push(`  Logs: ${mcpResult.logs.stdout}`);
-                messages.push('  URL: http://localhost:8787');
-              } else {
-                messages.push('⚠️ Could not start MCP worker');
+
+              // Parse configured port (default 8787 if not found)
+              const configuredPort = await getWranglerDevPort(wranglerTomlPath) ||
+                                    await getWranglerDevPort(wranglerJsoncPath) ||
+                                    8787;
+
+              // Check if port available
+              const portAvailable = await isPortAvailable(configuredPort);
+
+              // If not available, find fallback port
+              let actualPort = configuredPort;
+              if (!portAvailable) {
+                const fallback = await findAvailablePort(configuredPort + 1, 10);
+                if (fallback) {
+                  actualPort = fallback;
+                  messages.push(`  ⚠️ Port ${configuredPort} in use, using ${actualPort}`);
+                } else {
+                  messages.push(`  ⚠️ Could not find available port for MCP worker (${configuredPort}-${configuredPort + 9} all in use)`);
+                  messages.push('  Skipping MCP worker startup');
+                  // Continue without MCP worker - non-blocking
+                  actualPort = 0;
+                }
+              }
+
+              if (actualPort > 0) {
+                // Start with explicit port if needed
+                const command = actualPort !== configuredPort
+                  ? `npx wrangler dev --port ${actualPort}`
+                  : 'npx wrangler dev';
+
+                const mcpResult = startDevServerBackground(mcpPath, command, logger, actualPort);
+                if (mcpResult) {
+                  messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
+                  messages.push(`  Logs: ${mcpResult.logs.stdout}`);
+                  messages.push(`  URL: http://localhost:${actualPort}`);
+                } else {
+                  messages.push('⚠️ Could not start MCP worker');
+                }
               }
             }
           }

@@ -10,6 +10,16 @@
   },
   "plugins": [
     {
+      "name": "essential-logging",
+      "description": "Core task execution logging and transcript utilities for all Claude Code sessions",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/essential-logging",
+      "strict": false
+    },
+    {
       "name": "github-context",
       "description": "GitHub integration with branch context, commit review, and issue orchestration",
       "version": "0.1.2",

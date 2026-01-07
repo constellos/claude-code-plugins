@@ -1,0 +1,35 @@
+{
+  "_comment": "Essential logging hooks for task execution tracking",
+  "_notes": [
+    "Provides core logging infrastructure for Task tool execution",
+    "PreToolUse[Task]: Saves task context before agent execution",
+    "PostToolUse[Task]: Logs task results after agent completion"
+  ],
+  "description": "Core task execution logging hooks",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/log-task-call.ts",
+            "description": "Logs Task tool calls before agent execution and saves context to .claude/logs/task-calls.json"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/log-task-result.ts",
+            "description": "Logs Task tool results after agent completion using saved context from task-calls.json"
+          }
+        ]
+      }
+    ]
+  }
+}
