@@ -14,7 +14,7 @@
 import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
-import { parsePlanFrontmatter, findTaskByPath } from '../../../shared/hooks/utils/plan-parser.js';
+import { parsePlanFrontmatter, findTaskByPath } from '../shared/hooks/utils/plan-parser.js';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, relative } from 'path';
 import { existsSync } from 'fs';

@@ -16,11 +16,11 @@
  * @module add-folder-context
  */
 
-import type { PostToolUseInput, PostToolUseHookOutput } from '../../../shared/types/types.js';
-import { createDebugLogger } from '../../../shared/hooks/utils/debug.js';
-import { runHook } from '../../../shared/hooks/utils/io.js';
-import { parseFileMetadata } from '../../../shared/hooks/utils/tsdoc-parser.js';
-import { loadIndex, saveIndex } from '../../../shared/hooks/utils/metadata-index.js';
+import type { PostToolUseInput, PostToolUseHookOutput } from '../shared/types/types.js';
+import { createDebugLogger } from '../shared/hooks/utils/debug.js';
+import { runHook } from '../shared/hooks/utils/io.js';
+import { parseFileMetadata } from '../shared/hooks/utils/tsdoc-parser.js';
+import { loadIndex, saveIndex } from '../shared/hooks/utils/metadata-index.js';
 import { readdir, access, readFile, writeFile, mkdir, stat } from 'fs/promises';
 import { join, dirname, extname, relative } from 'path';
 import { existsSync } from 'fs';
