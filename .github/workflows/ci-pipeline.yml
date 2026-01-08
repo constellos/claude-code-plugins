@@ -53,7 +53,7 @@ jobs:
 
       - name: Run requirements review
         id: review
-        uses: constellos/claude-code-actions/.github/actions/requirements-reviewer@main
+        uses: constellos/claude-code-actions/.github/actions/requirements-reviewer@55b17d3
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           pr_number: ${{ github.event.pull_request.number }}
@@ -62,7 +62,7 @@ jobs:
 
       - name: Update comment
         if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@main
+        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
         with:
           review_name: Requirements
           passed: ${{ steps.review.outputs.passed }}
@@ -86,7 +86,7 @@ jobs:
 
       - name: Run code quality review
         id: review
-        uses: constellos/claude-code-actions/.github/actions/code-quality-reviewer@main
+        uses: constellos/claude-code-actions/.github/actions/code-quality-reviewer@55b17d3
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           pr_number: ${{ github.event.pull_request.number }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Update comment
         if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@main
+        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
         with:
           review_name: Code Quality
           passed: ${{ steps.review.outputs.passed }}
@@ -118,7 +118,7 @@ jobs:
 
       - name: Run context review
         id: review
-        uses: constellos/claude-code-actions/.github/actions/context-reviewer@main
+        uses: constellos/claude-code-actions/.github/actions/context-reviewer@55b17d3
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           pr_number: ${{ github.event.pull_request.number }}
@@ -126,7 +126,7 @@ jobs:
 
       - name: Update comment
         if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@main
+        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
         with:
           review_name: Context
           passed: ${{ steps.review.outputs.passed }}
