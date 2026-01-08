@@ -123,7 +123,7 @@ async function handler(input: PostToolUseInput): Promise<PostToolUseHookOutput> 
       if (DEBUG) {
         console.log('[PostToolUse:browser_eval] Screenshot moved to:', targetPath);
       }
-    } catch (renameError) {
+    } catch {
       // Fallback: copy then delete (handles cross-device moves)
       if (DEBUG) {
         console.log('[PostToolUse:browser_eval] Rename failed, using copy+delete fallback');
