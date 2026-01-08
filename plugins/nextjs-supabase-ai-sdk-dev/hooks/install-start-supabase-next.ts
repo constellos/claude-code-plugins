@@ -17,6 +17,23 @@ import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { isPortAvailable, findAvailablePort, killProcessOnPort } from '../shared/hooks/utils/port.js';
 import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
 import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars } from '../shared/hooks/utils/env-sync.js';
+import { detectWorktree, type WorktreeInfo } from '../shared/hooks/utils/worktree.js';
+import {
+  PORT_INCREMENT,
+  calculatePortSet,
+  checkSupabasePortUsage,
+  findAvailableSlot,
+  updateSupabaseConfigPorts,
+  getSupabaseConfigPath,
+  type SupabasePortSet,
+} from '../shared/hooks/utils/supabase-ports.js';
+import {
+  loadWorktreeSupabaseSession,
+  saveWorktreeSupabaseSession,
+  type WorktreeSupabaseSession,
+  type DevServerPortSet,
+} from '../shared/hooks/utils/session-state.js';
+import { getProcessesOnPorts, formatProcessInfo } from '../shared/hooks/utils/process-info.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import { existsSync, readFileSync, readdirSync, statSync, mkdirSync, openSync } from 'fs';
@@ -831,6 +848,198 @@ async function detectSharedSupabase(cwd: string): Promise<SupabaseInstanceInfo> 
   };
 }
 
+// ==================== Worktree Instance Management ====================
+
+/**
+ * Calculate dev server ports for a given slot
+ */
+function calculateDevServerPorts(slot: number): DevServerPortSet {
+  const offset = slot * PORT_INCREMENT;
+  return {
+    nextjs: 3000 + offset,
+    vite: 5173 + offset,
+    cloudflare: 8787 + offset,
+  };
+}
+
+/**
+ * Determine the Supabase instance configuration for this session
+ * Handles worktree detection, port allocation, and instance reuse
+ */
+async function determineSupabaseInstance(
+  cwd: string,
+  messages: string[]
+): Promise<{
+  slot: number;
+  supabasePorts: SupabasePortSet;
+  devServerPorts: DevServerPortSet;
+  worktreeInfo: WorktreeInfo;
+  needsNewInstance: boolean;
+  existingSession: WorktreeSupabaseSession | null;
+}> {
+  // Detect if we're in a worktree
+  const worktreeInfo = detectWorktree(cwd);
+
+  if (worktreeInfo.isWorktree) {
+    messages.push(`ℹ️  Worktree detected: ${worktreeInfo.worktreeName}`);
+  }
+
+  // Check for existing worktree session
+  const existingSession = await loadWorktreeSupabaseSession(cwd, worktreeInfo.worktreeId);
+
+  if (existingSession && existingSession.running) {
+    messages.push(`✓ Found existing session (slot ${existingSession.slot})`);
+    return {
+      slot: existingSession.slot,
+      supabasePorts: existingSession.supabasePorts,
+      devServerPorts: existingSession.devServerPorts,
+      worktreeInfo,
+      needsNewInstance: false,
+      existingSession,
+    };
+  }
+
+  // Check port usage on default ports
+  const defaultUsage = await checkSupabasePortUsage();
+
+  if (defaultUsage.allRunning) {
+    // All default ports in use - need new instance for worktree
+    if (worktreeInfo.isWorktree) {
+      messages.push('ℹ️  Default Supabase ports in use, allocating worktree instance...');
+
+      // Show what's using the ports (best effort)
+      const processInfos = await getProcessesOnPorts(defaultUsage.runningPorts.slice(0, 3));
+      for (const info of processInfos) {
+        if (info.found) {
+          messages.push(`  Port ${info.port}: ${formatProcessInfo(info)}`);
+        }
+      }
+
+      // Find next available slot
+      const slot = await findAvailableSlot();
+      if (slot === null) {
+        messages.push('⚠️ No available port slots (all 25 slots in use)');
+        // Fall back to default ports
+        return {
+          slot: 0,
+          supabasePorts: calculatePortSet(0),
+          devServerPorts: calculateDevServerPorts(0),
+          worktreeInfo,
+          needsNewInstance: false,
+          existingSession: null,
+        };
+      }
+
+      messages.push(`  Allocated slot ${slot}`);
+      return {
+        slot,
+        supabasePorts: calculatePortSet(slot),
+        devServerPorts: calculateDevServerPorts(slot),
+        worktreeInfo,
+        needsNewInstance: true,
+        existingSession: null,
+      };
+    } else {
+      // Main repo with Supabase running - use existing
+      messages.push('✓ Using existing Supabase instance on default ports');
+      return {
+        slot: 0,
+        supabasePorts: calculatePortSet(0),
+        devServerPorts: calculateDevServerPorts(0),
+        worktreeInfo,
+        needsNewInstance: false,
+        existingSession: null,
+      };
+    }
+  } else if (defaultUsage.someRunning) {
+    // Partial - stale processes, clean up
+    messages.push('⚠️ Stale Supabase processes detected, cleaning up...');
+    for (const port of defaultUsage.runningPorts) {
+      const killed = await killProcessOnPort(port);
+      if (killed) {
+        messages.push(`  ✓ Freed port ${port}`);
+      }
+    }
+    // Start fresh on default ports
+    return {
+      slot: 0,
+      supabasePorts: calculatePortSet(0),
+      devServerPorts: calculateDevServerPorts(0),
+      worktreeInfo,
+      needsNewInstance: true,
+      existingSession: null,
+    };
+  }
+
+  // Nothing running - start on default ports (slot 0)
+  return {
+    slot: 0,
+    supabasePorts: calculatePortSet(0),
+    devServerPorts: calculateDevServerPorts(0),
+    worktreeInfo,
+    needsNewInstance: true,
+    existingSession: null,
+  };
+}
+
+/**
+ * Start Supabase with custom ports (for worktree instances)
+ * Modifies config.toml, starts Supabase, and saves session state
+ */
+async function startWorktreeSupabase(
+  cwd: string,
+  slot: number,
+  supabasePorts: SupabasePortSet,
+  devServerPorts: DevServerPortSet,
+  worktreeInfo: WorktreeInfo,
+  messages: string[]
+): Promise<{ success: boolean; configBackupPath?: string }> {
+  const configPath = getSupabaseConfigPath(cwd);
+
+  // For non-default slots, modify config.toml
+  let configBackupPath: string | undefined;
+  if (slot > 0) {
+    try {
+      const backupSuffix = `.backup-${worktreeInfo.worktreeId}`;
+      configBackupPath = updateSupabaseConfigPorts(configPath, supabasePorts, backupSuffix);
+      messages.push(`✓ Updated config.toml for slot ${slot}`);
+      messages.push(`  Backup: ${configBackupPath}`);
+    } catch (error) {
+      messages.push(`⚠️ Failed to update config.toml: ${error}`);
+      return { success: false };
+    }
+  }
+
+  // Start Supabase
+  messages.push('Starting Supabase local server...');
+  const startResult = await startSupabase(cwd);
+
+  if (!startResult.success) {
+    messages.push(`⚠️ Failed to start Supabase: ${startResult.stderr}`);
+    return { success: false, configBackupPath };
+  }
+
+  messages.push('✓ Supabase started');
+  messages.push(`  API: http://localhost:${supabasePorts.api}`);
+  messages.push(`  Studio: http://localhost:${supabasePorts.studio}`);
+
+  // Save session state
+  const session: WorktreeSupabaseSession = {
+    worktreeId: worktreeInfo.worktreeId,
+    worktreePath: worktreeInfo.worktreePath,
+    slot,
+    supabasePorts,
+    devServerPorts,
+    startedAt: new Date().toISOString(),
+    configBackupPath: configBackupPath || '',
+    running: true,
+  };
+
+  await saveWorktreeSupabaseSession(cwd, session);
+
+  return { success: true, configBackupPath };
+}
+
 // ==================== Dependency Installation ====================
 
 type PackageManager = 'bun' | 'npm' | 'pnpm' | 'yarn';
@@ -1001,28 +1210,43 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       messages.push('✓ Docker running');
     }
 
-    // ========== Step 4: Check/Start Supabase ==========
-    // Use detectSharedSupabase to check if Supabase is running from another session
-    const supabaseInfo = await detectSharedSupabase(input.cwd);
-    let supabaseRunning = supabaseInfo.running;
+    // ========== Step 4: Check/Start Supabase (Worktree-Aware) ==========
+    // Determine instance configuration based on worktree status and port usage
+    const instanceConfig = await determineSupabaseInstance(input.cwd, messages);
+    let supabaseRunning = false;
+    // Track worktree slot for dev server port allocation (slot 0 = default, slot N = +N*10 offset)
+    const worktreeSlot = instanceConfig.slot;
 
-    if (!supabaseRunning && dockerRunning) {
-      messages.push('');
-      messages.push('Starting Supabase local server...');
-      const startResult = await startSupabase(input.cwd);
-
-      if (startResult.success) {
-        messages.push('✓ Supabase started');
-        messages.push('  Studio: http://localhost:54323');
+    if (dockerRunning) {
+      if (instanceConfig.needsNewInstance) {
+        // Start new Supabase instance (possibly with custom ports for worktree)
+        messages.push('');
+        const startResult = await startWorktreeSupabase(
+          input.cwd,
+          instanceConfig.slot,
+          instanceConfig.supabasePorts,
+          instanceConfig.devServerPorts,
+          instanceConfig.worktreeInfo,
+          messages
+        );
+        supabaseRunning = startResult.success;
+      } else if (instanceConfig.existingSession) {
+        // Use existing worktree session
+        messages.push('✓ Supabase already running (worktree session)');
+        messages.push(`  API: http://localhost:${instanceConfig.supabasePorts.api}`);
+        messages.push(`  Studio: http://localhost:${instanceConfig.supabasePorts.studio}`);
         supabaseRunning = true;
       } else {
-        messages.push(`⚠️ Failed to start Supabase: ${startResult.stderr}`);
-      }
-    } else if (supabaseRunning) {
-      if (supabaseInfo.sharedSession) {
-        messages.push('ℹ️ Using shared Supabase instance from another session');
-      } else {
-        messages.push('✓ Supabase already running');
+        // Check if default Supabase is running
+        const supabaseInfo = await detectSharedSupabase(input.cwd);
+        supabaseRunning = supabaseInfo.running;
+        if (supabaseRunning) {
+          if (supabaseInfo.sharedSession) {
+            messages.push('ℹ️ Using shared Supabase instance from another session');
+          } else {
+            messages.push('✓ Supabase already running');
+          }
+        }
       }
     }
 
@@ -1104,6 +1328,20 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         if (workspaces && workspaces.length > 0) {
           // Detect ports for all workspaces
           const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
+
+          // Apply worktree port offsets if in a non-default slot
+          if (worktreeSlot > 0) {
+            messages.push(`  Using worktree slot ${worktreeSlot} (ports offset by ${worktreeSlot * PORT_INCREMENT})`);
+            for (const wp of workspacePorts) {
+              if (wp.configuredPort) {
+                wp.configuredPort += worktreeSlot * PORT_INCREMENT;
+              }
+              if (wp.defaultPort) {
+                wp.defaultPort += worktreeSlot * PORT_INCREMENT;
+              }
+            }
+          }
+
           const portSummary = workspacePorts
             .map(p => `${p.workspace}:${p.configuredPort || p.defaultPort || '?'}`)
             .join(', ');
@@ -1223,6 +1461,18 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           if (workspaces && workspaces.length > 0) {
             const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
 
+            // Apply worktree port offsets for health checks
+            if (worktreeSlot > 0) {
+              for (const wp of workspacePorts) {
+                if (wp.configuredPort) {
+                  wp.configuredPort += worktreeSlot * PORT_INCREMENT;
+                }
+                if (wp.defaultPort) {
+                  wp.defaultPort += worktreeSlot * PORT_INCREMENT;
+                }
+              }
+            }
+
             // Check health of all workspace servers
             // Note: Port conflicts were resolved before starting the dev server
             messages.push('  Waiting for workspace servers to be ready...');
@@ -1242,7 +1492,12 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           // For non-Turborepo: use single-port health check
           const packageJsonPath = join(input.cwd, 'package.json');
           const scriptPort = extractPortFromDevScript(packageJsonPath);
-          const port = scriptPort || getDefaultPort(projectType);
+          let port = scriptPort || getDefaultPort(projectType);
+
+          // Apply worktree port offset for non-Turborepo projects
+          if (port && worktreeSlot > 0) {
+            port += worktreeSlot * PORT_INCREMENT;
+          }
 
           if (port) {
             messages.push(`  Waiting for server to be ready (port ${port})...`);
