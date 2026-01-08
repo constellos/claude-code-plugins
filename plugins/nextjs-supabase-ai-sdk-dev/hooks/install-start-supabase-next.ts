@@ -14,7 +14,7 @@ import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
-import { isPortAvailable, findAvailablePort } from '../shared/hooks/utils/port.js';
+import { isPortAvailable, findAvailablePort, killProcessOnPort } from '../shared/hooks/utils/port.js';
 import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
 import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars } from '../shared/hooks/utils/env-sync.js';
 import { exec, spawn } from 'child_process';
@@ -831,67 +831,6 @@ async function detectSharedSupabase(cwd: string): Promise<SupabaseInstanceInfo> 
   };
 }
 
-/**
- * Resolved port information after conflict resolution
- */
-interface ResolvedPort {
-  workspace: string;
-  originalPort: number;
-  resolvedPort: number;
-  conflictResolved: boolean;
-}
-
-/**
- * Resolve port conflicts for workspace ports
- * Increments by 3 for each conflict (session separation strategy)
- */
-async function resolvePortConflicts(
-  ports: WorkspacePortInfo[]
-): Promise<ResolvedPort[]> {
-  const resolvedPorts: ResolvedPort[] = [];
-  const usedPorts = new Set<number>();
-
-  for (const portInfo of ports) {
-    const originalPort = portInfo.configuredPort || portInfo.defaultPort;
-
-    if (!originalPort) {
-      // No port to resolve
-      resolvedPorts.push({
-        workspace: portInfo.workspace,
-        originalPort: 0,
-        resolvedPort: 0,
-        conflictResolved: false,
-      });
-      continue;
-    }
-
-    let resolvedPort = originalPort;
-    let conflictResolved = false;
-
-    // Check if port is available (not in use by system or already claimed by another workspace)
-    while (usedPorts.has(resolvedPort) || !(await isPortAvailable(resolvedPort))) {
-      resolvedPort += 3; // Increment by 3 for session separation
-      conflictResolved = true;
-
-      // Safety: don't go above 65535
-      if (resolvedPort > 65535) {
-        resolvedPort = originalPort; // Fall back, will likely fail
-        break;
-      }
-    }
-
-    usedPorts.add(resolvedPort);
-    resolvedPorts.push({
-      workspace: portInfo.workspace,
-      originalPort,
-      resolvedPort,
-      conflictResolved,
-    });
-  }
-
-  return resolvedPorts;
-}
-
 // ==================== Dependency Installation ====================
 
 type PackageManager = 'bun' | 'npm' | 'pnpm' | 'yarn';
@@ -1170,6 +1109,24 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
             .join(', ');
           messages.push(`  Workspaces: ${portSummary}`);
 
+          // Kill any stale processes on workspace ports BEFORE starting dev server
+          const portsToCheck = workspacePorts
+            .map(p => p.configuredPort || p.defaultPort)
+            .filter((p): p is number => p !== null && p !== undefined);
+
+          for (const port of portsToCheck) {
+            const available = await isPortAvailable(port);
+            if (!available) {
+              messages.push(`  ⚠️ Port ${port} in use, killing stale process...`);
+              const killed = await killProcessOnPort(port);
+              if (killed) {
+                messages.push(`  ✓ Freed port ${port}`);
+              } else {
+                messages.push(`  ⚠️ Could not free port ${port} - server may fail to start`);
+              }
+            }
+          }
+
           // Check for missing env passthrough vars
           const missingEnvVars = checkTurboEnvPassthrough(input.cwd);
           if (missingEnvVars.length > 0) {
@@ -1266,13 +1223,8 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           if (workspaces && workspaces.length > 0) {
             const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
 
-            // Resolve port conflicts
-            const resolvedPorts = await resolvePortConflicts(workspacePorts);
-            for (const rp of resolvedPorts.filter(p => p.conflictResolved)) {
-              messages.push(`  ⚠️ ${rp.workspace}: Port ${rp.originalPort} in use, using ${rp.resolvedPort}`);
-            }
-
             // Check health of all workspace servers
+            // Note: Port conflicts were resolved before starting the dev server
             messages.push('  Waiting for workspace servers to be ready...');
             const healthResults = await checkMultipleServerHealth(workspacePorts);
 

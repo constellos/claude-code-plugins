@@ -180,6 +180,91 @@ function createTitleFromPrompt(prompt: string, branch: string): string {
 }
 
 /**
+ * Work type prefixes for branch naming
+ */
+type WorkType = 'feature' | 'fix' | 'chore' | 'docs' | 'refactor';
+
+/**
+ * Detect work type from prompt keywords
+ */
+function detectWorkType(prompt: string): WorkType {
+  const lower = prompt.toLowerCase();
+
+  // Fix patterns
+  if (/\b(fix|bug|error|issue|broken|crash|fail|wrong)\b/.test(lower)) {
+    return 'fix';
+  }
+
+  // Docs patterns
+  if (/\b(doc|readme|document|comment|explain)\b/.test(lower)) {
+    return 'docs';
+  }
+
+  // Refactor patterns
+  if (/\b(refactor|clean|improve|optimize|reorganize|restructure)\b/.test(lower)) {
+    return 'refactor';
+  }
+
+  // Feature patterns (default for most work)
+  if (/\b(add|create|implement|build|new|feature|develop)\b/.test(lower)) {
+    return 'feature';
+  }
+
+  // Default to feature for general work
+  return 'feature';
+}
+
+/**
+ * Convert title to kebab-case for branch name (max 40 chars)
+ */
+function toKebabCase(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Collapse multiple hyphens
+    .replace(/^-|-$/g, '') // Trim hyphens
+    .substring(0, 40); // Max 40 chars
+}
+
+/**
+ * Rename branch to include issue number and work type
+ * Format: {issueNumber}-{workType}/{kebab-name}
+ */
+async function renameBranch(
+  cwd: string,
+  oldBranch: string,
+  issueNumber: number,
+  title: string,
+  workType: WorkType
+): Promise<{ success: boolean; newBranch: string; error?: string }> {
+  const kebabName = toKebabCase(title);
+  const newBranch = `${issueNumber}-${workType}/${kebabName}`;
+
+  // Rename local branch
+  const renameResult = await execCommand(`git branch -m ${oldBranch} ${newBranch}`, cwd);
+  if (!renameResult.success) {
+    return { success: false, newBranch: oldBranch, error: renameResult.stderr };
+  }
+
+  // Check if old branch exists on remote
+  const remoteCheck = await execCommand(`git ls-remote --heads origin ${oldBranch}`, cwd);
+  if (remoteCheck.success && remoteCheck.stdout.includes(oldBranch)) {
+    // Push new branch and delete old remote branch
+    const pushResult = await execCommand(`git push -u origin ${newBranch}`, cwd);
+    if (pushResult.success) {
+      // Delete old remote branch (non-blocking if fails)
+      await execCommand(`git push origin --delete ${oldBranch}`, cwd);
+    }
+  } else {
+    // Just set upstream for new branch
+    await execCommand(`git push -u origin ${newBranch}`, cwd);
+  }
+
+  return { success: true, newBranch };
+}
+
+/**
  * UserPromptSubmit hook handler
  *
  * Creates a GitHub issue on first user prompt if one doesn't exist for the branch.
@@ -309,31 +394,51 @@ ${input.prompt}
       return {};
     }
 
-    // Save state
-    state[branch] = {
+    // Detect work type and rename branch to include issue number
+    const workType = detectWorkType(input.prompt);
+    const renameResult = await renameBranch(input.cwd, branch, issueNumber, title, workType);
+
+    // Use the new branch name for state tracking
+    const finalBranch = renameResult.newBranch;
+
+    // Save state with the new branch name
+    state[finalBranch] = {
       issueNumber,
       issueUrl,
       createdAt: new Date().toISOString(),
       createdFromPrompt: true,
     };
+    // Also keep old branch mapping in case of reference
+    if (finalBranch !== branch) {
+      state[branch] = state[finalBranch];
+    }
     await saveBranchIssueState(input.cwd, state);
 
     await logger.logOutput({
       action: 'created',
       issueNumber,
       issueUrl,
-      branch,
+      oldBranch: branch,
+      newBranch: finalBranch,
+      workType,
+      renamed: renameResult.success,
     });
+
+    // Build response message
+    let additionalContext = `Created issue #${issueNumber} for this branch: ${issueUrl}`;
+
+    if (renameResult.success && finalBranch !== branch) {
+      additionalContext += `\n\n✓ Branch renamed: \`${branch}\` → \`${finalBranch}\``;
+      additionalContext += `\n  Work type: ${workType}`;
+    } else if (!renameResult.success) {
+      additionalContext += `\n\n⚠️ Could not rename branch: ${renameResult.error}`;
+      additionalContext += `\n  To rename manually: \`git branch -m ${branch} ${issueNumber}-${workType}/<name>\``;
+    }
 
     return {
       hookSpecificOutput: {
         hookEventName: 'UserPromptSubmit',
-        additionalContext: `Created issue #${issueNumber} for this branch: ${issueUrl}
-
-To link to a different existing issue instead:
-1. Close this issue: \`gh issue close ${issueNumber}\`
-2. Rename branch: \`git branch -m ${branch} <issue#>-${branch}\`
-3. The hook will detect the issue number prefix on next prompt`,
+        additionalContext,
       },
     };
   } catch (error) {

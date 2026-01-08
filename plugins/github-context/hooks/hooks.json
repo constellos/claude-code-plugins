@@ -35,7 +35,7 @@
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/create-issue-on-prompt.ts",
-            "description": "Creates GitHub issue on first user prompt for branch tracking"
+            "description": "Creates GitHub issue on first prompt, renames branch to {issueNum}-{type}/{name}"
           }
         ]
       }
