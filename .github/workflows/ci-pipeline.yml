@@ -7,4 +7,5 @@ on:
 jobs:
   ci:
     uses: constellos/.github/.github/workflows/ci-pipeline-reusable.yml@main
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
