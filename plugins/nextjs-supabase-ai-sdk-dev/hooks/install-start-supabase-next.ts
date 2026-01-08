@@ -671,7 +671,10 @@ function startDevServerBackground(
   cwd: string,
   command: string,
   logger: ReturnType<typeof createDebugLogger>,
-  expectedPort?: number
+  options?: {
+    expectedPort?: number;
+    envVars?: Record<string, string>;
+  }
 ): { pid: number; logs: { stdout: string; stderr: string }; actualPort?: number } | null {
   try {
     // Ensure .claude/logs directory exists
@@ -694,7 +697,7 @@ function startDevServerBackground(
       cwd,
       detached: true,
       stdio: ['ignore', stdoutFd, stderrFd],
-      env: process.env,
+      env: { ...process.env, ...options?.envVars },
     });
 
     // Log spawn errors
@@ -721,7 +724,7 @@ function startDevServerBackground(
         stdout: stdoutPath,
         stderr: stderrPath,
       },
-      actualPort: expectedPort,
+      actualPort: options?.expectedPort,
     };
   } catch (error) {
     logger.logError(error as Error);
@@ -860,6 +863,42 @@ function calculateDevServerPorts(slot: number): DevServerPortSet {
     vite: 5173 + offset,
     cloudflare: 8787 + offset,
   };
+}
+
+/**
+ * Build environment variable overrides for dev servers with port offsets
+ * Maps workspace types to their PORT environment variable names
+ */
+function buildDevServerEnvVars(
+  workspacePorts: WorkspacePortInfo[],
+  worktreeSlot: number
+): Record<string, string> {
+  if (worktreeSlot === 0) {
+    return {}; // No overrides for default slot (main branch)
+  }
+
+  const envVars: Record<string, string> = {};
+
+  for (const wp of workspacePorts) {
+    const offsetPort = (wp.configuredPort || wp.defaultPort || 0) + (worktreeSlot * PORT_INCREMENT);
+
+    // Next.js apps use PORT env var
+    if (wp.projectType === 'nextjs') {
+      envVars.PORT = String(offsetPort);
+    }
+
+    // Vite uses VITE_PORT
+    if (wp.projectType === 'vite') {
+      envVars.VITE_PORT = String(offsetPort);
+    }
+
+    // Cloudflare uses WRANGLER_DEV_PORT
+    if (wp.projectType === 'cloudflare') {
+      envVars.WRANGLER_DEV_PORT = String(offsetPort);
+    }
+  }
+
+  return envVars;
 }
 
 /**
@@ -1419,7 +1458,10 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
                   ? `npx wrangler dev --port ${actualPort}`
                   : 'npx wrangler dev';
 
-                const mcpResult = startDevServerBackground(mcpPath, command, logger, actualPort);
+                const mcpResult = startDevServerBackground(mcpPath, command, logger, {
+                  expectedPort: actualPort,
+                  envVars: { PORT: String(actualPort) }
+                });
                 if (mcpResult) {
                   messages.push(`✓ MCP worker started (PID: ${mcpResult.pid})`);
                   messages.push(`  Logs: ${mcpResult.logs.stdout}`);
@@ -1450,7 +1492,28 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
       messages.push(`Starting dev server: ${devCommand}`);
 
-      const result = startDevServerBackground(input.cwd, devCommand, logger);
+      // Build env vars with port offsets BEFORE starting dev server
+      let devServerEnvVars: Record<string, string> = {};
+      if (projectType === 'turborepo') {
+        const workspaces = detectTurborepoWorkspaces(input.cwd);
+        if (workspaces && workspaces.length > 0) {
+          const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
+          devServerEnvVars = buildDevServerEnvVars(workspacePorts, worktreeSlot);
+        }
+      } else if (worktreeSlot > 0) {
+        // For single-project: apply port offset via PORT env var
+        const packageJsonPath = join(input.cwd, 'package.json');
+        const scriptPort = extractPortFromDevScript(packageJsonPath);
+        const basePort = scriptPort || getDefaultPort(projectType);
+        if (basePort) {
+          const offsetPort = basePort + (worktreeSlot * PORT_INCREMENT);
+          devServerEnvVars.PORT = String(offsetPort);
+        }
+      }
+
+      const result = startDevServerBackground(input.cwd, devCommand, logger, {
+        envVars: devServerEnvVars
+      });
       if (result) {
         messages.push(`✓ Dev server started (PID: ${result.pid})`);
         messages.push(`  Logs: ${result.logs.stdout}`);

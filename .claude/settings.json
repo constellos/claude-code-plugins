@@ -93,7 +93,8 @@
     "feature-dev@claude-code-plugins": true,
     "github-context@constellos-local": true,
     "project-context@constellos-local": true,
-    "nextjs-supabase-ai-sdk-dev@constellos-local": true
+    "nextjs-supabase-ai-sdk-dev@constellos-local": true,
+    "nextjs-supabase-ai-sdk-dev@constellos": true
   },
   "extraKnownMarketplaces": {
     "constellos-local": {
