@@ -723,10 +723,11 @@ export async function checkBranchSyncStatus(cwd: string): Promise<BranchSyncResu
  * @param cwd - Working directory
  * @returns Array of check statuses
  */
-async function getCurrentCIChecks(prNumber: number, cwd: string): Promise<CheckStatus[]> {
+async function getCurrentCIChecks(prNumber: number, cwd: string, timeout = 30000): Promise<CheckStatus[]> {
   const result = await execCommand(
     `gh pr checks ${prNumber} --json name,state`,
-    cwd
+    cwd,
+    timeout
   );
 
   if (!result.success) {
@@ -845,7 +846,8 @@ export async function awaitCIWithFailFast(
   // 3. Get latest workflow run for PR's head SHA
   const headShaResult = await execCommand(
     `gh pr view ${prNumber} --json headRefOid --jq '.headRefOid'`,
-    cwd
+    cwd,
+    timeout
   );
   if (!headShaResult.success) {
     return {
@@ -860,12 +862,13 @@ export async function awaitCIWithFailFast(
   // Get the workflow run ID for this commit
   const runListResult = await execCommand(
     `gh run list --commit ${headSha} --json databaseId,status --limit 1`,
-    cwd
+    cwd,
+    timeout
   );
 
   if (!runListResult.success || !runListResult.stdout.trim() || runListResult.stdout.trim() === '[]') {
     // No runs yet - check using pr checks instead
-    const checks = await getCurrentCIChecks(prNumber, cwd);
+    const checks = await getCurrentCIChecks(prNumber, cwd, timeout);
     if (checks.length === 0) {
       return {
         success: true,
@@ -913,7 +916,8 @@ export async function awaitCIWithFailFast(
     // 5. Get final run status using gh run view
     const viewResult = await execCommand(
       `gh run view ${runId} --json conclusion,jobs`,
-      cwd
+      cwd,
+      timeout
     );
 
     if (viewResult.success) {
@@ -975,7 +979,7 @@ export async function awaitCIWithFailFast(
   }
 
   // Fallback: get current check statuses
-  const finalChecks = await getCurrentCIChecks(prNumber, cwd);
+  const finalChecks = await getCurrentCIChecks(prNumber, cwd, timeout);
 
   // Check for any failures
   const failedCheck = finalChecks.find((c) => c.status === 'failure' || c.status === 'cancelled');
