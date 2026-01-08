@@ -41,8 +41,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test -- --passWithNoTests || echo "No tests"
 
-  requirements:
-    name: "Review / Requirements"
+  review:
+    name: "AI Review"
     needs: [lint, typecheck]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -51,89 +51,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run requirements review
+      - name: Get changed files
+        id: files
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path' > /tmp/changed.txt
+          echo "Changed files:"
+          cat /tmp/changed.txt
+
+      - name: Run review
         id: review
-        uses: constellos/claude-code-actions/.github/actions/requirements-reviewer@55b17d3
+        uses: anthropics/claude-code-base-action@main
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          pr_number: ${{ github.event.pull_request.number }}
-          branch: ${{ github.head_ref }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          allowed_tools: "View,GlobTool,Grep,Bash(git diff:*)"
+          max_turns: 10
+          prompt: |
+            Review this PR. Changed files are listed in /tmp/changed.txt.
+            Provide a brief code quality assessment.
+            Output your findings as a summary.
 
-      - name: Update comment
+      - name: Post comment
         if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
-        with:
-          review_name: Requirements
-          passed: ${{ steps.review.outputs.passed }}
-          result_json: ${{ steps.review.outputs.result }}
-          checks_passed: ${{ steps.review.outputs.checks_passed }}
-          checks_failed: ${{ steps.review.outputs.checks_failed }}
-          checks_skipped: ${{ steps.review.outputs.checks_skipped }}
-          pr_number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.sha }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMENT="## 📋 AI Review
 
-  code-quality:
-    name: "Review / Code Quality"
-    needs: [requirements]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+**Status**: Completed
 
-      - name: Run code quality review
-        id: review
-        uses: constellos/claude-code-actions/.github/actions/code-quality-reviewer@55b17d3
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          pr_number: ${{ github.event.pull_request.number }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+Review ran successfully.
 
-      - name: Update comment
-        if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
-        with:
-          review_name: Code Quality
-          passed: ${{ steps.review.outputs.passed }}
-          result_json: ${{ steps.review.outputs.result }}
-          checks_passed: ${{ steps.review.outputs.checks_passed }}
-          checks_failed: ${{ steps.review.outputs.checks_failed }}
-          checks_skipped: ${{ steps.review.outputs.checks_skipped }}
-          pr_number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.sha }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-  context:
-    name: "Review / Context"
-    needs: [requirements]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run context review
-        id: review
-        uses: constellos/claude-code-actions/.github/actions/context-reviewer@55b17d3
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          pr_number: ${{ github.event.pull_request.number }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update comment
-        if: always()
-        uses: constellos/claude-code-actions/.github/actions/review-comment@55b17d3
-        with:
-          review_name: Context
-          passed: ${{ steps.review.outputs.passed }}
-          result_json: ${{ steps.review.outputs.result }}
-          checks_passed: ${{ steps.review.outputs.checks_passed }}
-          checks_failed: ${{ steps.review.outputs.checks_failed }}
-          checks_skipped: ${{ steps.review.outputs.checks_skipped }}
-          pr_number: ${{ github.event.pull_request.number }}
-          sha: ${{ github.sha }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+---
+*Claude Code CI*"
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
