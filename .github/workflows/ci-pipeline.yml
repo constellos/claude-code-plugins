@@ -77,12 +77,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          COMMENT="## 📋 AI Review
+          gh pr comment ${{ github.event.pull_request.number }} --body "## 📋 AI Review
 
-**Status**: Completed
+          Status: Completed
 
-Review ran successfully.
+          Review ran successfully.
 
----
-*Claude Code CI*"
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+          ---
+          Claude Code CI"
