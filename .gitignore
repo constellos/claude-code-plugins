@@ -3,6 +3,7 @@ dist/
 *.log
 .DS_Store
 .claude/logs/
+.claude/screenshots/
 PLAN.md
 plugins/**/hooks/.claude/
 .worktrees/
