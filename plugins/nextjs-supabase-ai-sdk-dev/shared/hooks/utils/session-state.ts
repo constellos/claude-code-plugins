@@ -1,10 +1,17 @@
 /**
- * Session state management for Stop hook tracking
+ * Session state management for Stop hook tracking and Worktree Supabase instances
  *
- * Manages session-level state for the Stop hook to track:
+ * Manages session-level state for:
+ *
+ * **Stop Hook Tracking:**
  * - How many times the hook has blocked the session
  * - Whether a GitHub comment has been posted for the session
  * - When the last block occurred
+ *
+ * **Worktree Supabase Instances:**
+ * - Port allocations for concurrent worktree sessions
+ * - Config.toml backup tracking
+ * - Instance startup state
  *
  * This enables progressive blocking behavior where the Stop hook can:
  * 1. Block on first commit without PR (with instructions)
@@ -23,6 +30,7 @@ import * as path from 'path';
 
 const LOGS_DIR = '.claude/logs';
 const SESSION_STOPS_FILE = 'session-stops.json';
+const WORKTREE_SUPABASE_SESSION_PREFIX = 'supabase-session-';
 
 // ============================================================================
 // Types
@@ -278,4 +286,230 @@ export async function removeSessionStopState(
   } catch {
     // Nothing to remove
   }
+}
+
+// ============================================================================
+// Worktree Supabase Session Types
+// ============================================================================
+
+/**
+ * Port set for a Supabase instance
+ */
+export interface SupabasePortSet {
+  api: number;
+  db: number;
+  shadowDb: number;
+  studio: number;
+  inbucket: number;
+  analytics: number;
+  pooler: number;
+  edgeRuntime: number;
+}
+
+/**
+ * Port set for dev servers (Next.js, Vite, etc.)
+ */
+export interface DevServerPortSet {
+  nextjs: number;
+  vite: number;
+  cloudflare: number;
+}
+
+/**
+ * Worktree Supabase session state
+ * Tracks isolated Supabase instances for concurrent worktree sessions
+ */
+export interface WorktreeSupabaseSession {
+  /** Unique worktree identifier (8-char hash) */
+  worktreeId: string;
+  /** Full path to worktree root */
+  worktreePath: string;
+  /** Port slot number (0 = default, 1+ = worktree) */
+  slot: number;
+  /** Supabase service ports for this instance */
+  supabasePorts: SupabasePortSet;
+  /** Dev server ports for this worktree */
+  devServerPorts: DevServerPortSet;
+  /** ISO timestamp when instance was started */
+  startedAt: string;
+  /** Path to config.toml backup file */
+  configBackupPath: string;
+  /** Whether instance is currently running */
+  running: boolean;
+}
+
+// ============================================================================
+// Worktree Session File Path Management
+// ============================================================================
+
+/**
+ * Get the path to a worktree's Supabase session file
+ * @param cwd - The working directory
+ * @param worktreeId - Unique worktree identifier
+ * @returns Full path to the session file
+ */
+function getWorktreeSessionFilePath(cwd: string, worktreeId: string): string {
+  return path.join(cwd, LOGS_DIR, `${WORKTREE_SUPABASE_SESSION_PREFIX}${worktreeId}.json`);
+}
+
+// ============================================================================
+// Worktree Supabase Session Management
+// ============================================================================
+
+/**
+ * Load worktree Supabase session from disk
+ *
+ * @param cwd - The working directory where logs are stored
+ * @param worktreeId - Unique worktree identifier
+ * @returns Session state, or null if not found
+ *
+ * @example
+ * ```typescript
+ * const session = await loadWorktreeSupabaseSession(cwd, worktreeId);
+ * if (session && session.running) {
+ *   console.log(`Using existing Supabase on port ${session.supabasePorts.api}`);
+ * }
+ * ```
+ */
+export async function loadWorktreeSupabaseSession(
+  cwd: string,
+  worktreeId: string
+): Promise<WorktreeSupabaseSession | null> {
+  const filePath = getWorktreeSessionFilePath(cwd, worktreeId);
+
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content) as WorktreeSupabaseSession;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save worktree Supabase session to disk
+ *
+ * @param cwd - The working directory where logs are stored
+ * @param session - Session state to save
+ *
+ * @example
+ * ```typescript
+ * await saveWorktreeSupabaseSession(cwd, {
+ *   worktreeId: 'abc12345',
+ *   worktreePath: '/path/to/worktree',
+ *   slot: 1,
+ *   supabasePorts: { api: 54331, db: 54332, ... },
+ *   devServerPorts: { nextjs: 3010, vite: 5183, cloudflare: 8797 },
+ *   startedAt: new Date().toISOString(),
+ *   configBackupPath: '/path/to/config.toml.backup-abc12345',
+ *   running: true,
+ * });
+ * ```
+ */
+export async function saveWorktreeSupabaseSession(
+  cwd: string,
+  session: WorktreeSupabaseSession
+): Promise<void> {
+  const filePath = getWorktreeSessionFilePath(cwd, session.worktreeId);
+
+  // Ensure directory exists
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(session, null, 2), 'utf-8');
+}
+
+/**
+ * Update worktree Supabase session with partial updates
+ *
+ * @param cwd - The working directory where logs are stored
+ * @param worktreeId - Unique worktree identifier
+ * @param updates - Partial updates to apply
+ * @returns Updated session, or null if session doesn't exist
+ */
+export async function updateWorktreeSupabaseSession(
+  cwd: string,
+  worktreeId: string,
+  updates: Partial<Omit<WorktreeSupabaseSession, 'worktreeId'>>
+): Promise<WorktreeSupabaseSession | null> {
+  const existing = await loadWorktreeSupabaseSession(cwd, worktreeId);
+  if (!existing) {
+    return null;
+  }
+
+  const updated: WorktreeSupabaseSession = {
+    ...existing,
+    ...updates,
+    worktreeId, // Ensure worktreeId is never overwritten
+  };
+
+  await saveWorktreeSupabaseSession(cwd, updated);
+  return updated;
+}
+
+/**
+ * Clear worktree Supabase session from disk
+ *
+ * @param cwd - The working directory where logs are stored
+ * @param worktreeId - Unique worktree identifier
+ * @returns true if session was deleted, false if not found
+ */
+export async function clearWorktreeSupabaseSession(
+  cwd: string,
+  worktreeId: string
+): Promise<boolean> {
+  const filePath = getWorktreeSessionFilePath(cwd, worktreeId);
+
+  try {
+    await fs.unlink(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * List all worktree Supabase sessions
+ * Useful for debugging and cleanup
+ *
+ * @param cwd - The working directory where logs are stored
+ * @returns Array of all session states
+ */
+export async function listWorktreeSupabaseSessions(
+  cwd: string
+): Promise<WorktreeSupabaseSession[]> {
+  const logsDir = path.join(cwd, LOGS_DIR);
+  const sessions: WorktreeSupabaseSession[] = [];
+
+  try {
+    const files = await fs.readdir(logsDir);
+    const sessionFiles = files.filter(
+      (f) => f.startsWith(WORKTREE_SUPABASE_SESSION_PREFIX) && f.endsWith('.json')
+    );
+
+    for (const file of sessionFiles) {
+      try {
+        const content = await fs.readFile(path.join(logsDir, file), 'utf-8');
+        sessions.push(JSON.parse(content) as WorktreeSupabaseSession);
+      } catch {
+        // Skip invalid files
+      }
+    }
+  } catch {
+    // Directory doesn't exist
+  }
+
+  return sessions;
+}
+
+/**
+ * Check if a worktree session exists and is marked as running
+ *
+ * @param cwd - The working directory where logs are stored
+ * @param worktreeId - Unique worktree identifier
+ * @returns true if session exists and is running
+ */
+export async function isWorktreeSupabaseRunning(
+  cwd: string,
+  worktreeId: string
+): Promise<boolean> {
+  const session = await loadWorktreeSupabaseSession(cwd, worktreeId);
+  return session?.running === true;
 }
