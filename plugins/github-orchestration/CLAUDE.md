@@ -1,10 +1,10 @@
 ---
-title: GitHub Context Plugin
-description: GitHub integration with branch context, commit enhancement, and CI orchestration
-version: 0.1.2
+title: GitHub Orchestration Plugin
+description: Comprehensive GitHub workflow orchestration with skills for issues, branches, PRs, subissues, stacked PRs, and CI management
+version: 0.2.0
 folder:
   subfolders:
-    allowed: [.claude-plugin, hooks, shared]
+    allowed: [.claude-plugin, hooks, shared, skills, agents]
     required: [.claude-plugin, hooks]
   files:
     allowed: [CLAUDE.md, README.md, .gitignore]
@@ -13,7 +13,7 @@ folder:
 
 # GitHub Orchestration Plugin
 
-GitHub workflow orchestration for Claude Code sessions with branch context discovery, commit enhancement, and CI status management.
+Comprehensive GitHub workflow orchestration with skills for issues, branches, PRs, subissues, stacked PRs, and CI management.
 
 ## Hook Summary
 
@@ -30,6 +30,23 @@ GitHub workflow orchestration for Claude Code sessions with branch context disco
 | post-explore-findings | SubagentStop | No | Posts Explore agent findings as comments |
 | commit-task-await-ci-status | SubagentStop | No | Auto-commits agent work |
 | commit-session-await-ci-status | Stop | Yes | Auto-commits, waits for CI |
+
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| issue-management | Create, update, label, and link issues with templates |
+| branch-orchestration | Smart branch naming, lifecycle management |
+| subissue-orchestration | Hierarchical issues with auto-updated checklists |
+| stacked-pr-management | Dependent PR chains for large features |
+| ci-orchestration | CI/CD monitoring with fail-fast patterns |
+| pr-workflow | PR lifecycle with auto-generated descriptions |
+
+## Agents
+
+| Agent | Purpose |
+|-------|---------|
+| github-orchestrator | Coordinates complex multi-step workflows |
 
 ## Installation
 
