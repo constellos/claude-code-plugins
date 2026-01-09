@@ -11,9 +11,9 @@ folder:
     required: [README.md]
 ---
 
-# GitHub Context Plugin
+# GitHub Orchestration Plugin
 
-GitHub integration for Claude Code sessions with branch context discovery, commit enhancement, and CI status management.
+GitHub workflow orchestration for Claude Code sessions with branch context discovery, commit enhancement, and CI status management.
 
 ## Hook Summary
 
@@ -32,7 +32,7 @@ GitHub integration for Claude Code sessions with branch context discovery, commi
 ## Installation
 
 ```bash
-claude plugin install github-context@constellos
+claude plugin install github-orchestration@constellos
 ```
 
 ## See Also

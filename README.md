@@ -6,7 +6,7 @@ A curated marketplace of plugins that extend Claude Code with typed hooks for de
 
 This marketplace contains three production-ready plugins designed for modern development workflows:
 
-- **github-context** - GitHub integration with branch context, commit enhancement, and PR orchestration
+- **github-orchestration** - GitHub workflow orchestration with branch context, commit enhancement, and CI management
 - **nextjs-supabase-ai-sdk-dev** - Development quality enforcement with linting, type checking, and testing
 - **project-context** - Context discovery, folder validation, and documentation management
 
@@ -34,7 +34,7 @@ All plugins leverage shared TypeScript utilities for consistent behavior, compre
 2. Install plugins using the CLI:
 
 ```bash
-claude plugin install github-context@constellos
+claude plugin install github-orchestration@constellos
 claude plugin install nextjs-supabase-ai-sdk-dev@constellos
 claude plugin install project-context@constellos
 ```
@@ -44,7 +44,7 @@ Or enable them in your settings:
 ```json
 {
   "enabledPlugins": {
-    "github-context@constellos": true,
+    "github-orchestration@constellos": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true,
     "project-context@constellos": true
   }
@@ -53,9 +53,9 @@ Or enable them in your settings:
 
 ## Available Plugins
 
-### GitHub Context (`github-context`)
+### GitHub Orchestration (`github-orchestration`)
 
-**Purpose:** Comprehensive GitHub integration for issue-driven development with automatic context discovery and commit enhancement.
+**Purpose:** Comprehensive GitHub workflow orchestration for issue-driven development with automatic context discovery and commit enhancement.
 
 **Key Features:**
 - Displays linked GitHub issue for current branch at session start
@@ -81,7 +81,7 @@ Or enable them in your settings:
 - PR readiness checks before ending sessions
 - Automated task documentation through enriched commits
 
-**Documentation:** [plugins/github-context/README.md](./plugins/github-context/README.md)
+**Documentation:** [plugins/github-orchestration/README.md](./plugins/github-orchestration/README.md)
 
 ---
 
@@ -181,7 +181,7 @@ Or enable them in your settings:
 │   └── rules/                  # Rule documentation
 │
 └── plugins/                    # Individual marketplace plugins
-    ├── github-context/
+    ├── github-orchestration/
     │   ├── .claude-plugin/plugin.json
     │   ├── README.md
     │   └── hooks/

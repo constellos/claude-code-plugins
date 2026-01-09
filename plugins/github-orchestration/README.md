@@ -2,9 +2,9 @@
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 ![GitHub](https://img.shields.io/badge/GitHub-CLI-black?style=for-the-badge&logo=github)
 
-# GitHub Context Plugin
+# GitHub Orchestration Plugin
 
-> GitHub integration with branch context, commit enhancement, and CI orchestration
+> GitHub workflow orchestration with branch context, commit enhancement, and CI management
 
 ## Purpose
 
@@ -29,7 +29,7 @@ Provides comprehensive GitHub integration for Claude Code sessions. Automaticall
 ## Installation
 
 ```bash
-claude plugin install github-context@constellos
+claude plugin install github-orchestration@constellos
 ```
 
 ## License

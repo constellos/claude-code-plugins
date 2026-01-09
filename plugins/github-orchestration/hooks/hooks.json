@@ -1,5 +1,5 @@
 {
-  "_comment": "GitHub Context Plugin - GitHub integration and CLI setup",
+  "_comment": "GitHub Orchestration Plugin - GitHub integration and CLI setup",
   "_notes": [
     "Installs GitHub CLI on remote, warns on local",
     "Branch context and issue sync at session start",

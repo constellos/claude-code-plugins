@@ -1,5 +1,5 @@
 {
-  "name": "github-context",
+  "name": "github-orchestration",
   "version": "0.1.2",
   "description": "GitHub integration with branch context, commit review, and issue orchestration",
   "author": {
@@ -7,6 +7,6 @@
   },
   "repository": "https://github.com/constellos/claude-code-plugins",
   "license": "MIT",
-  "keywords": ["github", "context", "commits", "issues"],
+  "keywords": ["github", "orchestration", "commits", "issues", "ci"],
   "hooks": "./hooks/hooks.json"
 }
