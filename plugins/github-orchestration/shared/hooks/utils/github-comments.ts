@@ -24,6 +24,10 @@ const execAsync = promisify(exec);
 
 const COMMENT_MARKER_PREFIX = '<!-- claude-session: ';
 const COMMENT_MARKER_SUFFIX = ' -->';
+const EXPLORE_MARKER_PREFIX = '<!-- claude-explore: ';
+const EXPLORE_MARKER_SUFFIX = ' -->';
+const PLAN_UPDATE_MARKER_PREFIX = '<!-- plan-update-v';
+const PLAN_UPDATE_MARKER_SUFFIX = ' -->';
 
 // ============================================================================
 // Types
@@ -484,6 +488,179 @@ ${content}
 
 ---
 *Posted automatically via Stop hook*`;
+
+  const result = await execGhWithStdin(
+    ['issue', 'comment', issueNumber.toString(), '--body-file', '-'],
+    commentBody,
+    cwd
+  );
+
+  return result.success;
+}
+
+/**
+ * Create explore comment marker
+ * @param taskId - Unique task identifier (e.g., tool_use_id)
+ * @returns HTML comment marker
+ */
+function createExploreMarker(taskId: string): string {
+  return `${EXPLORE_MARKER_PREFIX}${taskId}${EXPLORE_MARKER_SUFFIX}`;
+}
+
+/**
+ * Check if an explore comment already exists for a task
+ *
+ * @param issueNumber - GitHub issue number
+ * @param taskId - Unique task identifier
+ * @param cwd - Working directory
+ * @returns True if a comment with the explore marker exists
+ */
+export async function hasExploreComment(
+  issueNumber: number,
+  taskId: string,
+  cwd: string
+): Promise<boolean> {
+  const result = await execCommand(
+    `gh issue view ${issueNumber} --json comments`,
+    cwd
+  );
+
+  if (!result.success) {
+    return false;
+  }
+
+  try {
+    const issue: GitHubIssue = JSON.parse(result.stdout);
+    if (!issue.comments || issue.comments.length === 0) {
+      return false;
+    }
+
+    const marker = createExploreMarker(taskId);
+    return issue.comments.some((comment) => comment.body.includes(marker));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Post an Explore agent findings comment to a GitHub issue
+ *
+ * Creates a formatted comment with:
+ * - Hidden task ID marker for duplicate detection
+ * - Query/prompt that was explored
+ * - Collapsible details with full findings
+ *
+ * @param issueNumber - GitHub issue number
+ * @param taskId - Unique task identifier (tool_use_id)
+ * @param query - The original explore query/prompt
+ * @param findings - The agent's findings/output text
+ * @param branch - Current git branch
+ * @param cwd - Working directory
+ * @returns True if comment was posted successfully
+ *
+ * @example
+ * ```typescript
+ * const posted = await postExploreComment(
+ *   212,
+ *   'toolu_abc123',
+ *   'Find all API endpoints in the codebase',
+ *   'Found 15 API endpoints across 8 files...',
+ *   'issue-212-explore',
+ *   '/path/to/project'
+ * );
+ * ```
+ */
+export async function postExploreComment(
+  issueNumber: number,
+  taskId: string,
+  query: string,
+  findings: string,
+  branch: string,
+  cwd: string
+): Promise<boolean> {
+  const timestamp = new Date().toISOString();
+  const marker = createExploreMarker(taskId);
+
+  // Truncate query if too long
+  const displayQuery = query.length > 200 ? query.slice(0, 197) + '...' : query;
+
+  const commentBody = `${marker}
+
+## 🔍 Explore Agent Findings
+
+**Query**: ${displayQuery}
+**Branch**: \`${branch}\`
+**Timestamp**: ${timestamp}
+
+<details>
+<summary>View findings</summary>
+
+${findings}
+
+</details>
+
+---
+*Posted automatically via SubagentStop hook*`;
+
+  const result = await execGhWithStdin(
+    ['issue', 'comment', issueNumber.toString(), '--body-file', '-'],
+    commentBody,
+    cwd
+  );
+
+  return result.success;
+}
+
+/**
+ * Post a plan update comment to a GitHub issue
+ *
+ * Creates a versioned comment that documents when the plan was updated.
+ * Each plan edit posts a new comment with an incrementing version number.
+ *
+ * @param issueNumber - GitHub issue number
+ * @param version - Plan version number (1, 2, 3, etc.)
+ * @param action - Whether this was 'created' or 'updated'
+ * @param planPath - Path to the plan file
+ * @param branch - Current git branch
+ * @param cwd - Working directory
+ * @returns True if comment was posted successfully
+ *
+ * @example
+ * ```typescript
+ * const posted = await postPlanUpdateComment(
+ *   212,
+ *   2,
+ *   'updated',
+ *   '/home/user/.claude/plans/my-plan.md',
+ *   'issue-212-feature',
+ *   '/path/to/project'
+ * );
+ * ```
+ */
+export async function postPlanUpdateComment(
+  issueNumber: number,
+  version: number,
+  action: 'created' | 'updated',
+  planPath: string,
+  branch: string,
+  cwd: string
+): Promise<boolean> {
+  const timestamp = new Date().toISOString();
+  const marker = `${PLAN_UPDATE_MARKER_PREFIX}${version}${PLAN_UPDATE_MARKER_SUFFIX}`;
+
+  const actionEmoji = action === 'created' ? '✨' : '📝';
+  const actionText = action === 'created' ? 'Plan created' : 'Plan updated';
+
+  const commentBody = `${marker}
+
+## ${actionEmoji} ${actionText} (v${version})
+
+**Timestamp**: ${timestamp}
+**Plan file**: \`${planPath}\`
+**Branch**: \`${branch}\`
+
+---
+*Plan synced automatically via PostToolUse hook*`;
 
   const result = await execGhWithStdin(
     ['issue', 'comment', issueNumber.toString(), '--body-file', '-'],

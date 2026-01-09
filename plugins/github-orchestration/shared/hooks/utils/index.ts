@@ -142,3 +142,104 @@ export {
   formatErrorSummary,
   formatSuccessMessage,
 } from './log-file.js';
+
+// ============================================================================
+// Work Type Detection
+// ============================================================================
+// Detect work type from prompts and issue labels for branch naming and
+// issue categorization.
+
+export {
+  detectWorkType,
+  formatWorkTypeLabel,
+  type WorkType,
+} from './work-type-detector.js';
+
+// ============================================================================
+// Branch Naming
+// ============================================================================
+// Generate, parse, and validate branch names following the convention
+// {issueNumber}-{workType}/{kebab-name}.
+
+export {
+  generateBranchName,
+  parseBranchName,
+  validateBranchName,
+  extractIssueNumber,
+  toKebabCase,
+  type ParsedBranchName,
+  type BranchValidation,
+} from './branch-naming.js';
+
+// ============================================================================
+// Issue Templates
+// ============================================================================
+// GitHub issue templates for bug reports, feature requests, and epics.
+
+export {
+  getBugTemplate,
+  getFeatureTemplate,
+  getEpicTemplate,
+  getTaskTemplate,
+  renderTemplate,
+  getMinimalIssueBody,
+  createSubissueBody,
+  addBranchReference,
+  type TemplateVars,
+} from './issue-templates.js';
+
+// ============================================================================
+// PR Templates
+// ============================================================================
+// GitHub PR templates and description generation from commits.
+
+export {
+  getFeaturePRTemplate,
+  getBugfixPRTemplate,
+  getChorePRTemplate,
+  getDocsPRTemplate,
+  getRefactorPRTemplate,
+  getPRTemplateByWorkType,
+  renderPRTemplate,
+  generatePRDescription,
+  addStackContext,
+  extractCommitType,
+  groupCommitsByType,
+  formatGroupedCommits,
+  type PRTemplateVars,
+} from './pr-templates.js';
+
+// ============================================================================
+// PR Stack Management
+// ============================================================================
+// Manage stacked PR dependencies and visualization.
+
+export {
+  savePRStack,
+  loadPRStack,
+  addPRToStack,
+  removePRFromStack,
+  visualizeStack,
+  validateStackOrder,
+  getMergeOrder,
+  findDependentPRs,
+  type PRStackNode,
+  type PRStack,
+  type StackValidationError,
+} from './pr-stack.js';
+
+// ============================================================================
+// Subissue Checklist Management
+// ============================================================================
+// Generate and update subissue checklists in parent issue bodies.
+
+export {
+  generateChecklistMarkdown,
+  extractChecklistSection,
+  parseChecklistItems,
+  updateParentIssueChecklist,
+  addSubissueToChecklist,
+  markSubissueComplete,
+  syncSubissueStates,
+  type SubissueInfo,
+} from './subissue-checklist.js';

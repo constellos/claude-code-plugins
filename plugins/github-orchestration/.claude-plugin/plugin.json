@@ -1,0 +1,23 @@
+{
+  "name": "github-orchestration",
+  "version": "0.2.0",
+  "description": "Comprehensive GitHub workflow orchestration with skills for issues, branches, PRs, subissues, stacked PRs, and CI management",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": ["github", "orchestration", "workflow", "issues", "pr", "ci", "automation"],
+  "hooks": "./hooks/hooks.json",
+  "skills": {
+    "issue-management": "./skills/issue-management/SKILL.md",
+    "branch-orchestration": "./skills/branch-orchestration/SKILL.md",
+    "subissue-orchestration": "./skills/subissue-orchestration/SKILL.md",
+    "stacked-pr-management": "./skills/stacked-pr-management/SKILL.md",
+    "ci-orchestration": "./skills/ci-orchestration/SKILL.md",
+    "pr-workflow": "./skills/pr-workflow/SKILL.md"
+  },
+  "agents": {
+    "github-orchestrator": "./agents/github-orchestrator.md"
+  }
+}
