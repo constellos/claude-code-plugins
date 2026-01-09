@@ -11,9 +11,9 @@ folder:
     required: [README.md]
 ---
 
-# GitHub Context Plugin
+# GitHub Orchestration Plugin
 
-GitHub integration for Claude Code sessions with branch context discovery, commit enhancement, and CI status management.
+Comprehensive GitHub workflow orchestration with skills for issues, branches, PRs, subissues, stacked PRs, and CI management.
 
 ## Hook Summary
 
@@ -29,10 +29,27 @@ GitHub integration for Claude Code sessions with branch context discovery, commi
 | commit-task-await-ci-status | SubagentStop | No | Auto-commits agent work |
 | commit-session-await-ci-status | Stop | Yes | Auto-commits, waits for CI |
 
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| issue-management | Create, update, label, and link issues with templates |
+| branch-orchestration | Smart branch naming, lifecycle management |
+| subissue-orchestration | Hierarchical issues with auto-updated checklists |
+| stacked-pr-management | Dependent PR chains for large features |
+| ci-orchestration | CI/CD monitoring with fail-fast patterns |
+| pr-workflow | PR lifecycle with auto-generated descriptions |
+
+## Agents
+
+| Agent | Purpose |
+|-------|---------|
+| github-orchestrator | Coordinates complex multi-step workflows |
+
 ## Installation
 
 ```bash
-claude plugin install github-context@constellos
+claude plugin install github-orchestration@constellos
 ```
 
 ## See Also
