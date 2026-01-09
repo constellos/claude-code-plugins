@@ -908,10 +908,18 @@ function formatAgentInstructions(
 **Linked Issue:** #${issueNumber}
 ${issueUrl}
 
-   Command: gh issue comment ${issueNumber} --body "..."`;
+   Use ONE of these methods to post your comment:
+
+   METHOD A - Direct command (include the session marker):
+   gh issue comment ${issueNumber} --body $'<!-- claude-session: ${sessionId} -->\\n\\nWork completed:\\n- Item 1\\n- Item 2'
+
+   METHOD B - Helper function (recommended for complex content):
+   Use Bash tool to run:
+   npx tsx -e "import { postSessionComment } from './plugins/github-context/shared/hooks/utils/github-comments.js'; await postSessionComment(${issueNumber}, '${sessionId}', 'Work completed:\\n- Item 1\\n- Item 2', '${branch}', process.cwd());"`;
   } else {
     issueSection = `
-   Command: Find issue number from branch ${branch} or create new issue`;
+   First discover the linked issue number, then post a comment with your session ID.
+   Use gh issue list or parse from branch name pattern.`;
   }
 
   return `${header}
@@ -927,13 +935,14 @@ Please choose ONE of the following:
    gh pr create --title "..." --body "..."
 
 2. DOCUMENT PROGRESS
-   Post a comment to the linked issue with:
+   Post a comment to the linked issue documenting:
    - What work you checked/reviewed
    - What you accomplished
    - Any issues or confusion noted
 ${issueSection}
 
-The comment will auto-include your session ID for tracking.`;
+   IMPORTANT: Your comment must include the session ID marker shown above.
+   The hook detects either the HTML marker or the plain session ID in your comment.`;
 }
 
 // ============================================================================
