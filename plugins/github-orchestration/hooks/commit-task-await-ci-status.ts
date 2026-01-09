@@ -33,6 +33,7 @@ import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { getTaskEdits } from '../shared/hooks/utils/task-state.js';
 import { execCommand } from '../shared/hooks/utils/ci-status.js';
+import { getStackedBranchEntry } from '../shared/hooks/utils/stacked-branches.js';
 
 // Using shared execCommand from ci-status.ts
 
@@ -101,6 +102,17 @@ async function handler(
       agent_id: input.agent_id,
       agent_transcript_path: input.agent_transcript_path,
     });
+
+    // Check if stacked PR workflow already handled this agent
+    const stackedEntry = await getStackedBranchEntry(input.cwd, input.agent_id);
+    if (stackedEntry && stackedEntry.status !== 'failed') {
+      await logger.logOutput({
+        skipped: true,
+        reason: 'Stacked PR workflow already handled this agent',
+        stackedStatus: stackedEntry.status,
+      });
+      return {};
+    }
 
     // Check if we're in a git repository
     const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);

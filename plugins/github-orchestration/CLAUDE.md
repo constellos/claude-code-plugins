@@ -27,7 +27,9 @@ Comprehensive GitHub workflow orchestration with skills for issues, branches, PR
 | sync-task-to-subissue | PostToolUse[Task] | No | Creates subissues from Task prompts |
 | enhance-commit-context | PostToolUse[Bash] | No | Enriches commits with context |
 | await-pr-status | PostToolUse[Bash] | No | Waits for CI after PR create |
+| create-subagent-branch | SubagentStart | No | Creates isolated branch for stacked PR workflow |
 | post-explore-findings | SubagentStop | No | Posts Explore agent findings as comments |
+| stacked-pr-subagent-stop | SubagentStop | No | Handles stacked PR: push, create PR, auto-merge |
 | commit-task-await-ci-status | SubagentStop | No | Auto-commits agent work |
 | commit-session-await-ci-status | Stop | Yes | Auto-commits, waits for CI |
 
