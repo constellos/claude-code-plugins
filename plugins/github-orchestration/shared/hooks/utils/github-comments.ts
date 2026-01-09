@@ -341,21 +341,50 @@ function createSessionMarker(sessionId: string): string {
 
 /**
  * Check if a comment contains a session marker
+ *
+ * Uses two validation strategies for robustness:
+ * 1. Exact HTML marker match: `<!-- claude-session: SESSION_ID -->` (preferred)
+ * 2. Plain session ID substring match (lenient fallback)
+ *
+ * The lenient fallback prevents infinite blocking loops when agents post
+ * comments without the exact HTML marker format. Session IDs are unique
+ * enough (UUID-like strings) that false positives are extremely unlikely.
+ *
  * @param commentBody - Comment body text
  * @param sessionId - Session ID to search for
- * @returns True if comment contains the session marker
+ * @returns True if comment contains the session marker or plain session ID
  * @example
  * ```typescript
- * const hasMarker = commentHasSessionMarker(
+ * // Exact marker (preferred, backward compatible)
+ * commentHasSessionMarker(
  *   '<!-- claude-session: abc-123 -->\n\nMy comment',
+ *   'abc-123'
+ * );
+ * // Returns: true
+ *
+ * // Plain session ID (lenient fallback)
+ * commentHasSessionMarker(
+ *   'Session abc-123 completed work',
  *   'abc-123'
  * );
  * // Returns: true
  * ```
  */
 function commentHasSessionMarker(commentBody: string, sessionId: string): boolean {
+  // Strategy 1: Check for exact HTML marker (backward compatible, preferred)
   const marker = createSessionMarker(sessionId);
-  return commentBody.includes(marker);
+  if (commentBody.includes(marker)) {
+    return true;
+  }
+
+  // Strategy 2: Check for plain session ID (lenient fallback)
+  // Session IDs are unique/long enough that false positives are unlikely
+  // This prevents infinite blocking loops when agents don't include exact marker
+  if (commentBody.includes(sessionId)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
