@@ -20,13 +20,13 @@
       "strict": false
     },
     {
-      "name": "github-context",
-      "description": "GitHub integration with branch context, commit review, and issue orchestration",
+      "name": "github-orchestration",
+      "description": "GitHub workflow orchestration with branch context, commit enhancement, and CI management",
       "version": "0.1.2",
       "author": {
         "name": "constellos"
       },
-      "source": "./plugins/github-context",
+      "source": "./plugins/github-orchestration",
       "strict": false
     },
     {
