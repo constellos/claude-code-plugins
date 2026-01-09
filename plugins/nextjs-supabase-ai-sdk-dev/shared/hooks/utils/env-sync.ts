@@ -22,6 +22,31 @@ import { join } from 'path';
 export type WorkspaceFramework = 'nextjs' | 'vite' | 'cloudflare' | 'unknown';
 
 /**
+ * Detect if a workspace uses Supabase by checking dependencies
+ *
+ * @param workspacePath - Path to the workspace directory
+ * @returns True if the workspace uses Supabase
+ */
+export function detectSupabaseUsage(workspacePath: string): boolean {
+  const packageJsonPath = join(workspacePath, 'package.json');
+  if (!existsSync(packageJsonPath)) {
+    return false;
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+    const allDeps = {
+      ...pkg.dependencies,
+      ...pkg.devDependencies,
+    };
+
+    return '@supabase/supabase-js' in allDeps || '@supabase/ssr' in allDeps;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Detect the framework type of a workspace based on config files
  *
  * @param workspacePath - Path to the workspace directory
@@ -96,6 +121,8 @@ export interface DistributeOptions {
   createIfMissing: boolean;
   /** Preserve existing environment variables (don't overwrite) */
   preserveExisting: boolean;
+  /** Keys that should always be overwritten, even if preserveExisting is true */
+  alwaysOverwriteKeys?: string[];
 }
 
 /**
@@ -330,11 +357,29 @@ export async function distributeEnvVars(
   const envLocalPath = join(workspacePath, '.env.local');
   if ((framework === 'nextjs' || framework === 'vite') && Object.keys(frontendVars).length > 0) {
     if (existsSync(envLocalPath)) {
-      // Merge with existing
+      // Merge with existing, respecting alwaysOverwriteKeys
       const existing = await readEnvLocalFile(workspacePath);
-      const merged = options.preserveExisting
-        ? { ...frontendVars, ...existing } // Existing takes precedence
-        : { ...existing, ...frontendVars }; // New takes precedence
+
+      // Split vars into protected (always overwrite) and regular
+      const protectedKeys = new Set(options.alwaysOverwriteKeys || []);
+      const protectedVars: Record<string, string> = {};
+      const regularVars: Record<string, string> = {};
+
+      for (const [key, value] of Object.entries(frontendVars)) {
+        if (protectedKeys.has(key)) {
+          protectedVars[key] = value;
+        } else {
+          regularVars[key] = value;
+        }
+      }
+
+      // Merge: regular vars respect preserveExisting, protected vars always overwrite
+      const mergedRegular = options.preserveExisting
+        ? { ...regularVars, ...existing } // Existing takes precedence for regular vars
+        : { ...existing, ...regularVars }; // New takes precedence for regular vars
+
+      // Protected vars always overwrite, applied last
+      const merged = { ...mergedRegular, ...protectedVars };
 
       const lines = Object.entries(merged).map(([key, value]) => `${key}=${value}`);
       writeFileSync(envLocalPath, lines.join('\n') + '\n');
@@ -386,7 +431,7 @@ export async function distributeEnvVars(
 
   if (hasWrangler && Object.keys(cloudflareVars).length > 0) {
     if (existsSync(devVarsPath)) {
-      // Merge with existing
+      // Merge with existing, respecting alwaysOverwriteKeys
       const existing = readFileSync(devVarsPath, 'utf-8');
       const existingVars: Record<string, string> = {};
 
@@ -406,9 +451,34 @@ export async function distributeEnvVars(
         existingVars[key] = value;
       }
 
-      const merged = options.preserveExisting
-        ? { ...cloudflareVars, ...existingVars }
-        : { ...existingVars, ...cloudflareVars };
+      // Split vars into protected (always overwrite) and regular
+      // For Cloudflare, strip NEXT_PUBLIC_ prefix from protected keys
+      const protectedKeys = new Set(
+        (options.alwaysOverwriteKeys || []).map(key =>
+          key.startsWith('NEXT_PUBLIC_') ? key.replace('NEXT_PUBLIC_', '') : key
+        ).concat(
+          (options.alwaysOverwriteKeys || []).filter(key => key.startsWith('VITE_'))
+            .map(key => key.replace('VITE_', ''))
+        )
+      );
+      const protectedVars: Record<string, string> = {};
+      const regularVars: Record<string, string> = {};
+
+      for (const [key, value] of Object.entries(cloudflareVars)) {
+        if (protectedKeys.has(key)) {
+          protectedVars[key] = value;
+        } else {
+          regularVars[key] = value;
+        }
+      }
+
+      // Merge: regular vars respect preserveExisting, protected vars always overwrite
+      const mergedRegular = options.preserveExisting
+        ? { ...regularVars, ...existingVars }
+        : { ...existingVars, ...regularVars };
+
+      // Protected vars always overwrite, applied last
+      const merged = { ...mergedRegular, ...protectedVars };
 
       const lines = Object.entries(merged).map(([key, value]) => `${key}=${value}`);
       writeFileSync(devVarsPath, lines.join('\n') + '\n');
