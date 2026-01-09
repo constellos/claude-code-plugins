@@ -354,3 +354,151 @@ export function getSupabaseConfigPath(cwd: string): string {
 export function hasSupabaseConfig(cwd: string): boolean {
   return existsSync(getSupabaseConfigPath(cwd));
 }
+
+// ============================================================================
+// Project ID Management (for Database Isolation)
+// ============================================================================
+
+/**
+ * Read original project_id from config.toml
+ *
+ * @param configPath - Path to config.toml
+ * @returns The project_id string, or null if not found
+ * @example
+ * ```typescript
+ * const projectId = getOriginalProjectId('/path/to/supabase/config.toml');
+ * // Returns: "myapp"
+ * ```
+ */
+export function getOriginalProjectId(configPath: string): string | null {
+  if (!existsSync(configPath)) {
+    return null;
+  }
+
+  const content = readFileSync(configPath, 'utf-8');
+  const match = content.match(/project_id\s*=\s*"([^"]+)"/);
+  return match ? match[1] : null;
+}
+
+/**
+ * Generate worktree-specific project_id
+ * Slot 0 = original project_id (main repo)
+ * Slot 1+ = original-{slot} (worktrees)
+ *
+ * @param originalId - Original project_id from config.toml
+ * @param slot - Slot number (0 for main, 1+ for worktrees)
+ * @returns Worktree-specific project_id
+ * @example
+ * ```typescript
+ * generateWorktreeProjectId('myapp', 0)  // Returns: "myapp"
+ * generateWorktreeProjectId('myapp', 1)  // Returns: "myapp-1"
+ * generateWorktreeProjectId('myapp', 2)  // Returns: "myapp-2"
+ * ```
+ */
+export function generateWorktreeProjectId(originalId: string, slot: number): string {
+  if (slot === 0) return originalId;
+  return `${originalId}-${slot}`;
+}
+
+/**
+ * Update project_id in config.toml with backup
+ *
+ * @param configPath - Path to config.toml
+ * @param newProjectId - New project_id to set
+ * @param backupSuffix - Suffix for backup file (e.g., ".backup-abc12345")
+ * @returns Path to backup file
+ * @throws Error if config.toml cannot be read or written
+ * @example
+ * ```typescript
+ * const backupPath = updateSupabaseProjectId(
+ *   '/path/to/supabase/config.toml',
+ *   'myapp-1',
+ *   '.backup-abc12345'
+ * );
+ * // Creates backup at: /path/to/supabase/config.toml.backup-abc12345
+ * // Updates project_id to: "myapp-1"
+ * ```
+ */
+export function updateSupabaseProjectId(
+  configPath: string,
+  newProjectId: string,
+  backupSuffix: string
+): string {
+  const content = readFileSync(configPath, 'utf-8');
+  const backupPath = `${configPath}${backupSuffix}`;
+
+  // Backup original config
+  copyFileSync(configPath, backupPath);
+
+  // Replace project_id
+  const updated = content.replace(/project_id\s*=\s*"[^"]+"/, `project_id = "${newProjectId}"`);
+
+  writeFileSync(configPath, updated, 'utf-8');
+  return backupPath;
+}
+
+// ============================================================================
+// Service Optimization (Resource Management)
+// ============================================================================
+
+/**
+ * Detect which Supabase services are enabled in config.toml
+ *
+ * @param configPath - Path to config.toml
+ * @returns Array of enabled service names
+ * @example
+ * ```typescript
+ * const enabled = getEnabledServices('/path/to/supabase/config.toml');
+ * // Returns: ['gotrue', 'realtime', 'storage-api', 'postgrest', ...]
+ * ```
+ */
+export function getEnabledServices(configPath: string): string[] {
+  if (!existsSync(configPath)) {
+    return [];
+  }
+
+  const content = readFileSync(configPath, 'utf-8');
+
+  // Map of service names to their config.toml section names
+  const serviceMap: Record<string, string> = {
+    gotrue: 'auth',
+    realtime: 'realtime',
+    'storage-api': 'storage',
+    'edge-runtime': 'edge-runtime',
+    logflare: 'analytics',
+    vector: 'vector',
+  };
+
+  const services = Object.keys(serviceMap);
+
+  return services.filter((service) => {
+    const section = serviceMap[service];
+    // Match [section] ... enabled = true pattern (case insensitive, multiline)
+    const pattern = new RegExp(`\\[${section}\\][\\s\\S]*?enabled\\s*=\\s*true`, 'i');
+    return pattern.test(content);
+  });
+}
+
+/**
+ * Build --exclude flag for disabled Supabase services
+ * This optimizes resource usage by skipping services not used by the project
+ *
+ * @param configPath - Path to config.toml
+ * @returns CLI flag string (e.g., " --exclude edge-runtime,logflare") or empty string
+ * @example
+ * ```typescript
+ * const excludeFlags = buildExcludeFlags('/path/to/supabase/config.toml');
+ * const command = `supabase start${excludeFlags}`;
+ * // If edge-runtime and logflare are disabled:
+ * // command = "supabase start --exclude edge-runtime,logflare"
+ * ```
+ */
+export function buildExcludeFlags(configPath: string): string {
+  const enabled = getEnabledServices(configPath);
+  const allServices = ['gotrue', 'realtime', 'storage-api', 'edge-runtime', 'logflare', 'vector'];
+  const disabled = allServices.filter((s) => !enabled.includes(s));
+
+  if (disabled.length === 0) return '';
+
+  return ` --exclude ${disabled.join(',')}`;
+}

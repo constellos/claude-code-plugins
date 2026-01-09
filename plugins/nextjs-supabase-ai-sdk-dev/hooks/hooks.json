@@ -62,6 +62,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/stop-supabase-session.ts",
+            "description": "Cleans up Supabase containers for worktree sessions: stops containers, restores config.toml, updates session state"
+          }
+        ]
+      }
     ]
   }
 }
