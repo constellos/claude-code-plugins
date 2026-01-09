@@ -336,6 +336,10 @@ export interface WorktreeSupabaseSession {
   configBackupPath: string;
   /** Whether instance is currently running */
   running: boolean;
+  /** Original project_id from config.toml (before modification) */
+  originalProjectId: string;
+  /** Worktree-specific project_id (original or original-{slot}) */
+  worktreeProjectId: string;
 }
 
 // ============================================================================

@@ -25,6 +25,10 @@ import {
   findAvailableSlot,
   updateSupabaseConfigPorts,
   getSupabaseConfigPath,
+  getOriginalProjectId,
+  generateWorktreeProjectId,
+  updateSupabaseProjectId,
+  buildExcludeFlags,
   type SupabasePortSet,
 } from '../shared/hooks/utils/supabase-ports.js';
 import {
@@ -1032,25 +1036,60 @@ async function startWorktreeSupabase(
   devServerPorts: DevServerPortSet,
   worktreeInfo: WorktreeInfo,
   messages: string[]
-): Promise<{ success: boolean; configBackupPath?: string }> {
+): Promise<{ success: boolean; configBackupPath?: string; projectId?: string }> {
   const configPath = getSupabaseConfigPath(cwd);
 
-  // For non-default slots, modify config.toml
+  // Read original project_id
+  const originalProjectId = getOriginalProjectId(configPath);
+  if (!originalProjectId) {
+    messages.push('⚠️ Could not read project_id from config.toml');
+    return { success: false };
+  }
+
+  // Generate worktree-specific project_id
+  const worktreeProjectId = generateWorktreeProjectId(originalProjectId, slot);
+
   let configBackupPath: string | undefined;
+
+  // Update config for worktrees (slot > 0)
   if (slot > 0) {
     try {
       const backupSuffix = `.backup-${worktreeInfo.worktreeId}`;
-      configBackupPath = updateSupabaseConfigPorts(configPath, supabasePorts, backupSuffix);
-      messages.push(`✓ Updated config.toml for slot ${slot}`);
+
+      // Update BOTH project_id and ports in config.toml
+      configBackupPath = updateSupabaseProjectId(configPath, worktreeProjectId, backupSuffix);
+      updateSupabaseConfigPorts(configPath, supabasePorts, ''); // Ports already updated
+
+      messages.push(`✓ Updated config.toml for worktree slot ${slot}`);
+      messages.push(`  Project ID: ${originalProjectId} → ${worktreeProjectId}`);
       messages.push(`  Backup: ${configBackupPath}`);
     } catch (error) {
       messages.push(`⚠️ Failed to update config.toml: ${error}`);
       return { success: false };
     }
+  } else {
+    // Main repo - still update ports but keep original project_id
+    try {
+      const backupSuffix = `.backup-main`;
+      configBackupPath = updateSupabaseConfigPorts(configPath, supabasePorts, backupSuffix);
+      messages.push(`✓ Using default project_id: ${originalProjectId}`);
+    } catch (error) {
+      messages.push(`⚠️ Failed to update ports: ${error}`);
+      return { success: false };
+    }
+  }
+
+  // Build exclude flags for disabled services
+  const excludeFlags = buildExcludeFlags(configPath);
+  const startCommand = `supabase start${excludeFlags}`;
+
+  if (excludeFlags) {
+    const excluded = excludeFlags.replace(' --exclude ', '').split(',');
+    messages.push(`⚡ Optimized: Skipping services: ${excluded.join(', ')}`);
   }
 
   // Start Supabase
-  messages.push('Starting Supabase local server...');
+  messages.push(`Starting Supabase: ${startCommand}`);
   const startResult = await startSupabase(cwd);
 
   if (!startResult.success) {
@@ -1058,11 +1097,13 @@ async function startWorktreeSupabase(
     return { success: false, configBackupPath };
   }
 
-  messages.push('✓ Supabase started');
+  messages.push('✓ Supabase started with isolated containers');
+  messages.push(`  Project ID: ${worktreeProjectId}`);
+  messages.push(`  Containers: supabase_*_${worktreeProjectId}`);
   messages.push(`  API: http://localhost:${supabasePorts.api}`);
   messages.push(`  Studio: http://localhost:${supabasePorts.studio}`);
 
-  // Save session state
+  // Save session state with project IDs
   const session: WorktreeSupabaseSession = {
     worktreeId: worktreeInfo.worktreeId,
     worktreePath: worktreeInfo.worktreePath,
@@ -1072,11 +1113,13 @@ async function startWorktreeSupabase(
     startedAt: new Date().toISOString(),
     configBackupPath: configBackupPath || '',
     running: true,
+    originalProjectId,
+    worktreeProjectId,
   };
 
   await saveWorktreeSupabaseSession(cwd, session);
 
-  return { success: true, configBackupPath };
+  return { success: true, configBackupPath, projectId: worktreeProjectId };
 }
 
 // ==================== Dependency Installation ====================
