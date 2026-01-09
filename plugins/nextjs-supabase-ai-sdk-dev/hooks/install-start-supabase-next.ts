@@ -16,7 +16,7 @@ import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
 import { isPortAvailable, findAvailablePort, killProcessOnPort } from '../shared/hooks/utils/port.js';
 import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
-import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars } from '../shared/hooks/utils/env-sync.js';
+import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars, detectSupabaseUsage } from '../shared/hooks/utils/env-sync.js';
 import { detectWorktree, type WorktreeInfo } from '../shared/hooks/utils/worktree.js';
 import {
   PORT_INCREMENT,
@@ -315,17 +315,36 @@ async function distributeAllEnvVars(
   // Distribute to ALL workspaces
   for (const workspace of workspaces) {
     const workspacePath = join(cwd, workspace);
+    const usesSupabase = detectSupabaseUsage(workspacePath);
+
+    // Only include Supabase vars if workspace actually uses them
+    const varsToDistribute = usesSupabase
+      ? { supabaseVars: supabaseVars || {}, vercelVars }
+      : { supabaseVars: {}, vercelVars };
+
     const result = await distributeEnvVars(
       workspacePath,
-      { supabaseVars: supabaseVars || {}, vercelVars },
-      { createIfMissing: true, preserveExisting: true }
+      varsToDistribute,
+      {
+        createIfMissing: true,
+        preserveExisting: true,
+        alwaysOverwriteKeys: usesSupabase ? [
+          'NEXT_PUBLIC_SUPABASE_URL',
+          'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+          'SUPABASE_SECRET_KEY',
+          'VITE_SUPABASE_URL',
+          'VITE_SUPABASE_PUBLISHABLE_KEY',
+        ] : []
+      }
     );
 
-    if (result.nextjs) {
-      messages.push(`✓ Environment variables written to ${workspace}/.env.local`);
+    if (result.nextjs || result.vite) {
+      const varsWritten = usesSupabase ? 'Supabase + Vercel' : 'Vercel';
+      messages.push(`✓ Environment variables (${varsWritten}) written to ${workspace}/.env.local`);
     }
     if (result.cloudflare) {
-      messages.push(`✓ Environment variables written to ${workspace}/dev.vars`);
+      const varsWritten = usesSupabase ? 'Supabase + Vercel' : 'Vercel';
+      messages.push(`✓ Environment variables (${varsWritten}) written to ${workspace}/dev.vars`);
     }
   }
 
@@ -1368,7 +1387,17 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         const distResult = await distributeEnvVars(
           input.cwd,
           { supabaseVars: result.vars, vercelVars: {} },
-          { createIfMissing: true, preserveExisting: true }
+          {
+            createIfMissing: true,
+            preserveExisting: true,
+            alwaysOverwriteKeys: [
+              'NEXT_PUBLIC_SUPABASE_URL',
+              'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+              'SUPABASE_SECRET_KEY',
+              'VITE_SUPABASE_URL',
+              'VITE_SUPABASE_PUBLISHABLE_KEY',
+            ]
+          }
         );
 
         if (distResult.nextjs) {
