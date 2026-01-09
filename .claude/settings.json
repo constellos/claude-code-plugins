@@ -91,7 +91,7 @@
   "enabledPlugins": {
     "plugin-dev@claude-code-plugins": true,
     "feature-dev@claude-code-plugins": true,
-    "github-context@constellos-local": true,
+    "github-orchestration@constellos-local": true,
     "project-context@constellos-local": true,
     "nextjs-supabase-ai-sdk-dev@constellos-local": true,
     "nextjs-supabase-ai-sdk-dev@constellos": true
