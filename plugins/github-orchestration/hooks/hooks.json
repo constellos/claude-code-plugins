@@ -4,6 +4,8 @@
     "Installs GitHub CLI on remote, warns on local",
     "Branch context and issue sync at session start",
     "Creates GitHub issue on first user prompt",
+    "Tracks issues created during sessions for cross-session discovery",
+    "Surfaces related issues from previous sessions based on branch family",
     "Commit enhancement with issue context",
     "Auto-commit for subagent work",
     "Plan-to-issue synchronization with versioned update comments",
@@ -56,6 +58,11 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/track-issue-creation.ts",
+            "description": "Tracks issues created via gh issue create for cross-session discovery"
+          },
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/enhance-commit-context.ts",

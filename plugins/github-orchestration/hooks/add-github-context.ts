@@ -21,6 +21,7 @@
 import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import { findRelatedIssues, cleanupOldSessions } from '../shared/hooks/utils/session-issues.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'node:fs/promises';
@@ -358,6 +359,11 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
   const logger = createDebugLogger(input.cwd, 'add-branch-context', true);
 
   try {
+    // Clean up old sessions (30 days retention) - non-blocking
+    cleanupOldSessions(input.cwd, 30).catch(() => {
+      // Ignore errors - this is best-effort cleanup
+    });
+
     // Check if we're in a git repository
     const gitCheck = await execCommand('git rev-parse --is-inside-work-tree', input.cwd);
     if (!gitCheck.success) {
@@ -446,6 +452,54 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       sections.push('1. Rename branch with issue prefix: `git branch -m ' + currentBranch + ' <issue#>-' + currentBranch + '`');
       sections.push('2. Example: `git branch -m ' + currentBranch + ' 42-' + currentBranch + '`');
       sections.push('3. The hook will detect the issue number prefix and link automatically');
+    }
+
+    // Section 1.5: Related issues from previous sessions
+    const repoResult = await execCommand(
+      'gh repo view --json nameWithOwner -q .nameWithOwner',
+      input.cwd
+    );
+    const currentRepo = repoResult.success ? repoResult.stdout : '';
+
+    if (currentRepo) {
+      const relatedIssues = await findRelatedIssues(
+        currentBranch,
+        currentRepo,
+        input.session_id,
+        input.cwd
+      );
+
+      if (relatedIssues.length > 0) {
+        sections.push('');
+        sections.push('---');
+        sections.push('');
+        sections.push('## Related Issues from Previous Sessions');
+        sections.push('');
+
+        // Group by relevance
+        const highPriority = relatedIssues.filter((i) => i.relevance === 'high');
+        const mediumPriority = relatedIssues.filter((i) => i.relevance === 'medium');
+
+        if (highPriority.length > 0) {
+          sections.push('📌 **High Priority** (Same branch family)');
+          for (const issue of highPriority.slice(0, 3)) {
+            sections.push(`- [#${issue.number} - ${issue.title}](${issue.url})`);
+            sections.push(`  ${issue.reason} • ${issue.sessionAge}`);
+          }
+          sections.push('');
+        }
+
+        if (mediumPriority.length > 0) {
+          sections.push('📋 **Same Repository** (Recent work)');
+          for (const issue of mediumPriority.slice(0, 3)) {
+            sections.push(`- [#${issue.number} - ${issue.title}](${issue.url})`);
+            sections.push(`  Created ${issue.sessionAge}`);
+          }
+          sections.push('');
+        }
+
+        sections.push('💡 These issues were created in previous sessions working on related code.');
+      }
     }
 
     // Section 2: Outstanding issues (TITLES only)
