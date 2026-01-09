@@ -88,6 +88,17 @@ _cw_update_cache_symlink() {
   ln -sfn "$target_cache" "$symlink_path"
 }
 
+# Check if a worktree directory is currently in use by any process
+# Returns 0 (true) if in use, 1 (false) if not
+_cw_worktree_in_use() {
+  local wt_path="$1"
+  # Check if any process has files open in this directory
+  if command -v lsof &>/dev/null; then
+    lsof +D "$wt_path" &>/dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
 # Compute content hash of plugin source files
 _cw_plugin_content_hash() {
   local plugin_source_dir="$1"
@@ -473,6 +484,10 @@ _cw_main() {
               should_remove=true
             fi
             if [[ "$should_remove" == true ]]; then
+              # Safety: skip worktrees with active processes (e.g., running Claude sessions)
+              if _cw_worktree_in_use "$wt_path"; then
+                continue
+              fi
               if git worktree remove --force "$wt_path" 2>/dev/null; then
                 ((stale_count++)) || true
               fi
@@ -501,6 +516,10 @@ _cw_main() {
   fi
   _cw_item "✔" "branch: ${branch_name}"
   _cw_item "✔" "path: ${worktree_dir/#$HOME/~}"
+
+  # Lock worktree to prevent cleanup by other cw instances during active session
+  git worktree lock "$worktree_dir" --reason "Claude Code session active" 2>/dev/null || true
+  _cw_item "✔" "locked for session"
 
   cd "$worktree_dir"
 
@@ -636,6 +655,9 @@ _cw_main() {
   # Ready message
   echo ""
   echo "Ready!"
+
+  # Unlock worktree when Claude session fully ends (shell EXIT, not Stop/Compact events)
+  trap "git worktree unlock '$worktree_dir' 2>/dev/null || true" EXIT
 
   # Launch Claude Code
   claude "$@" || true  # Ignore exit code to prevent set -e from terminating shell
