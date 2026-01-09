@@ -20,6 +20,7 @@
 import type { PostToolUseInputTyped, PostToolUseHookOutput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
+import { postPlanUpdateComment } from '../shared/hooks/utils/github-comments.js';
 import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import fs from 'node:fs/promises';
@@ -35,6 +36,7 @@ interface PlanIssueState {
     branch: string;
     createdAt: string;
     lastUpdated: string;
+    version: number;
   };
 }
 
@@ -199,7 +201,7 @@ async function syncPlanToIssue(
   planPath: string,
   planContent: string,
   branch: string
-): Promise<{ issueNumber: number; issueUrl: string; action: 'created' | 'updated' }> {
+): Promise<{ issueNumber: number; issueUrl: string; action: 'created' | 'updated'; version: number }> {
   const planState = await loadPlanIssueState(cwd);
   const branchState = await loadBranchIssueState(cwd);
 
@@ -224,6 +226,10 @@ ${planContent}`;
     );
 
     if (result.success) {
+      // Get current version or start at 1
+      const existingPlanState = planState[sessionId];
+      const newVersion = existingPlanState?.version ? existingPlanState.version + 1 : 1;
+
       // Also save to plan-issues.json for consistency
       planState[sessionId] = {
         planPath,
@@ -232,6 +238,7 @@ ${planContent}`;
         branch,
         createdAt: branchIssue.createdAt,
         lastUpdated: new Date().toISOString(),
+        version: newVersion,
       };
       await savePlanIssueState(cwd, planState);
 
@@ -239,6 +246,7 @@ ${planContent}`;
         issueNumber: branchIssue.issueNumber,
         issueUrl: branchIssue.issueUrl,
         action: 'updated',
+        version: newVersion,
       };
     }
   }
@@ -254,14 +262,19 @@ ${planContent}`;
     );
 
     if (result.success) {
+      // Increment version
+      const newVersion = (existing.version || 0) + 1;
+
       // Update state
       existing.lastUpdated = new Date().toISOString();
+      existing.version = newVersion;
       await savePlanIssueState(cwd, planState);
 
       return {
         issueNumber: existing.issueNumber,
         issueUrl: existing.issueUrl,
         action: 'updated',
+        version: newVersion,
       };
     }
   }
@@ -285,7 +298,7 @@ ${planContent}`;
     throw new Error('Failed to extract issue number from gh output');
   }
 
-  // Save state
+  // Save state with version 1
   planState[sessionId] = {
     planPath,
     issueNumber,
@@ -293,10 +306,11 @@ ${planContent}`;
     branch,
     createdAt: new Date().toISOString(),
     lastUpdated: new Date().toISOString(),
+    version: 1,
   };
   await savePlanIssueState(cwd, planState);
 
-  return { issueNumber, issueUrl, action: 'created' };
+  return { issueNumber, issueUrl, action: 'created', version: 1 };
 }
 
 /**
@@ -379,10 +393,21 @@ async function handler(input: PostToolUseInputTyped): Promise<PostToolUseHookOut
       branch
     );
 
+    // Post update comment for audit trail
+    await postPlanUpdateComment(
+      result.issueNumber,
+      result.version,
+      result.action,
+      filePath,
+      branch,
+      input.cwd
+    );
+
     await logger.logOutput({
       action: result.action,
       issue_number: result.issueNumber,
       issue_url: result.issueUrl,
+      version: result.version,
       branch,
     });
 
@@ -392,7 +417,7 @@ async function handler(input: PostToolUseInputTyped): Promise<PostToolUseHookOut
     return {
       hookSpecificOutput: {
         hookEventName: 'PostToolUse',
-        additionalContext: `${emoji} ${verb} GitHub issue #${result.issueNumber} from plan: ${result.issueUrl}\n\nTo link this issue to your PR, add "Closes #${result.issueNumber}" to the PR description.`,
+        additionalContext: `${emoji} ${verb} GitHub issue #${result.issueNumber} (v${result.version}) from plan: ${result.issueUrl}\n\nTo link this issue to your PR, add "Closes #${result.issueNumber}" to the PR description.`,
       },
     };
   } catch (error) {

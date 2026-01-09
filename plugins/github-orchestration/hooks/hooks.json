@@ -6,8 +6,10 @@
     "Creates GitHub issue on first user prompt",
     "Commit enhancement with issue context",
     "Auto-commit for subagent work",
-    "Plan-to-issue synchronization",
+    "Plan-to-issue synchronization with versioned update comments",
+    "Issue-to-plan synchronization (gh issue edit detection)",
     "Task-to-subissue synchronization (excludes Plan/Explore)",
+    "Explore agent findings posted as issue comments",
     "Auto-waits for CI checks after PR creation (gh pr create)",
     "Auto-commit and PR status check on session end"
   ],
@@ -63,6 +65,11 @@
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/await-pr-status.ts",
             "description": "Waits for CI checks to complete after PR creation (gh pr create)"
+          },
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/sync-issue-to-plan.ts",
+            "description": "Syncs gh issue edit body changes back to local plan file"
           }
         ]
       },
@@ -80,6 +87,11 @@
     "SubagentStop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/post-explore-findings.ts",
+            "description": "Posts Explore agent findings as comments on linked GitHub issue"
+          },
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/commit-task-await-ci-status.ts",
