@@ -22,7 +22,7 @@
     {
       "name": "github-orchestration",
       "description": "GitHub workflow orchestration with branch context, commit enhancement, and CI management",
-      "version": "0.1.2",
+      "version": "0.2.0",
       "author": {
         "name": "constellos"
       },
