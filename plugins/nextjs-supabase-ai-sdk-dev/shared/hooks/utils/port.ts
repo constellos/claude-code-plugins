@@ -168,3 +168,39 @@ export async function killProcessesOnPorts(
   );
   return results;
 }
+
+/**
+ * Find next available port scanning at +10 increments
+ *
+ * Checks ports at 10-port intervals starting from basePort until an available
+ * port is found. This allows multiple dev servers to run on predictable ports
+ * (e.g., 3000, 3010, 3020...) without conflicts.
+ *
+ * @param basePort - Starting port (e.g., 3000)
+ * @param maxSlots - Maximum slots to check (default: 25)
+ * @returns Available port, or null if none found in range
+ *
+ * @example
+ * ```typescript
+ * import { findAvailablePortAt10Increments } from './port.js';
+ *
+ * // Find next available port starting from 3000, checking 3000, 3010, 3020...
+ * const port = await findAvailablePortAt10Increments(3000);
+ * if (port) {
+ *   console.log(`Starting server on port ${port}`);
+ * }
+ * ```
+ */
+export async function findAvailablePortAt10Increments(
+  basePort: number,
+  maxSlots: number = 25
+): Promise<number | null> {
+  for (let slot = 0; slot < maxSlots; slot++) {
+    const port = basePort + slot * 10;
+    const available = await isPortAvailable(port);
+    if (available) {
+      return port;
+    }
+  }
+  return null;
+}
