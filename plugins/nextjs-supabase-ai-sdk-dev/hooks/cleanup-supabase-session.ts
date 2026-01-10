@@ -23,6 +23,7 @@ import {
   restoreSupabaseConfig,
   getSupabaseConfigPath,
 } from '../shared/hooks/utils/supabase-ports.js';
+import { killProcessesOnPorts } from '../shared/hooks/utils/port.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { existsSync } from 'fs';
@@ -85,13 +86,32 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
     return {};
   }
 
-  // Stop Supabase containers using docker directly
+  // Stop and delete Supabase containers using docker directly
   // This is faster and more reliable than `supabase stop` during exit
   if (session.worktreeProjectId) {
+    // Stop containers
     await execCommand(
       `docker ps -q --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker stop`,
       { cwd: input.cwd, timeout: 30000 }
     );
+    // Delete stopped containers (docker rm)
+    await execCommand(
+      `docker ps -aq --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker rm`,
+      { cwd: input.cwd, timeout: 30000 }
+    );
+  }
+
+  // Kill dev server processes by port
+  if (session.devServerPorts) {
+    const ports = [
+      session.devServerPorts.nextjs,
+      session.devServerPorts.vite,
+      session.devServerPorts.cloudflare,
+    ].filter((p): p is number => typeof p === 'number' && p > 0);
+
+    if (ports.length > 0) {
+      await killProcessesOnPorts(ports);
+    }
   }
 
   // Restore config.toml from backup (for worktree sessions)

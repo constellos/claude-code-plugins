@@ -14,7 +14,7 @@ import type { SessionStartInput, SessionStartHookOutput } from '../shared/types/
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
 import { detectPackageManager } from '../shared/hooks/utils/package-manager.js';
-import { isPortAvailable, findAvailablePort, killProcessOnPort } from '../shared/hooks/utils/port.js';
+import { isPortAvailable, findAvailablePort, killProcessOnPort, findAvailablePortAt10Increments } from '../shared/hooks/utils/port.js';
 import { getWranglerDevPort } from '../shared/hooks/utils/toml.js';
 import { distributeEnvVars, mergeWorkspaceEnvVars, validateEnvVars, detectSupabaseUsage } from '../shared/hooks/utils/env-sync.js';
 import { detectWorktree, type WorktreeInfo } from '../shared/hooks/utils/worktree.js';
@@ -34,6 +34,7 @@ import {
 import {
   loadWorktreeSupabaseSession,
   saveWorktreeSupabaseSession,
+  updateWorktreeSupabaseSession,
   type WorktreeSupabaseSession,
   type DevServerPortSet,
 } from '../shared/hooks/utils/session-state.js';
@@ -889,39 +890,21 @@ function calculateDevServerPorts(slot: number): DevServerPortSet {
 }
 
 /**
- * Build environment variable overrides for dev servers with port offsets
- * Maps workspace types to their PORT environment variable names
+ * Find available dev server ports by scanning at +10 increments
+ * Checks actual port availability instead of using slot-based offsets
  */
-function buildDevServerEnvVars(
-  workspacePorts: WorkspacePortInfo[],
-  worktreeSlot: number
-): Record<string, string> {
-  if (worktreeSlot === 0) {
-    return {}; // No overrides for default slot (main branch)
-  }
+async function findAvailableDevServerPorts(): Promise<DevServerPortSet> {
+  const [nextjsPort, vitePort, cloudflarePort] = await Promise.all([
+    findAvailablePortAt10Increments(3000, 25),
+    findAvailablePortAt10Increments(5173, 25),
+    findAvailablePortAt10Increments(8787, 25),
+  ]);
 
-  const envVars: Record<string, string> = {};
-
-  for (const wp of workspacePorts) {
-    const offsetPort = (wp.configuredPort || wp.defaultPort || 0) + (worktreeSlot * PORT_INCREMENT);
-
-    // Next.js apps use PORT env var
-    if (wp.projectType === 'nextjs') {
-      envVars.PORT = String(offsetPort);
-    }
-
-    // Vite uses VITE_PORT
-    if (wp.projectType === 'vite') {
-      envVars.VITE_PORT = String(offsetPort);
-    }
-
-    // Cloudflare uses WRANGLER_DEV_PORT
-    if (wp.projectType === 'cloudflare') {
-      envVars.WRANGLER_DEV_PORT = String(offsetPort);
-    }
-  }
-
-  return envVars;
+  return {
+    nextjs: nextjsPort ?? 3000,
+    vite: vitePort ?? 5173,
+    cloudflare: cloudflarePort ?? 8787,
+  };
 }
 
 /**
@@ -1740,24 +1723,42 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
       messages.push(`Starting dev server: ${devCommand}`);
 
-      // Build env vars with port offsets BEFORE starting dev server
-      let devServerEnvVars: Record<string, string> = {};
+      // Find available ports by scanning at +10 increments
+      // This checks actual port availability instead of slot-based offsets
+      const availablePorts = await findAvailableDevServerPorts();
+      const devServerEnvVars: Record<string, string> = {};
+
       if (projectType === 'turborepo') {
         const workspaces = detectTurborepoWorkspaces(input.cwd);
         if (workspaces && workspaces.length > 0) {
-          const workspacePorts = detectWorkspacePorts(input.cwd, workspaces);
-          devServerEnvVars = buildDevServerEnvVars(workspacePorts, worktreeSlot);
+          // For Turborepo: set PORT env vars for each workspace type
+          for (const ws of workspaces) {
+            const wsPath = join(input.cwd, ws);
+            const wsType = detectProjectType(wsPath);
+            if (wsType === 'nextjs') {
+              devServerEnvVars.PORT = String(availablePorts.nextjs);
+            } else if (wsType === 'vite') {
+              devServerEnvVars.VITE_PORT = String(availablePorts.vite);
+            } else if (wsType === 'cloudflare') {
+              devServerEnvVars.WRANGLER_DEV_PORT = String(availablePorts.cloudflare);
+            }
+          }
         }
-      } else if (worktreeSlot > 0) {
-        // For single-project: apply port offset via PORT env var
-        const packageJsonPath = join(input.cwd, 'package.json');
-        const scriptPort = extractPortFromDevScript(packageJsonPath);
-        const basePort = scriptPort || getDefaultPort(projectType);
-        if (basePort) {
-          const offsetPort = basePort + (worktreeSlot * PORT_INCREMENT);
-          devServerEnvVars.PORT = String(offsetPort);
+      } else {
+        // For single-project: apply port based on project type
+        if (projectType === 'nextjs' && availablePorts.nextjs !== 3000) {
+          devServerEnvVars.PORT = String(availablePorts.nextjs);
+        } else if (projectType === 'vite' && availablePorts.vite !== 5173) {
+          devServerEnvVars.VITE_PORT = String(availablePorts.vite);
+        } else if (projectType === 'cloudflare' && availablePorts.cloudflare !== 8787) {
+          devServerEnvVars.WRANGLER_DEV_PORT = String(availablePorts.cloudflare);
         }
       }
+
+      // Update session state with actual allocated ports for cleanup
+      await updateWorktreeSupabaseSession(input.cwd, instanceConfig.worktreeInfo.worktreeId, {
+        devServerPorts: availablePorts,
+      });
 
       const result = startDevServerBackground(input.cwd, devCommand, logger, {
         envVars: devServerEnvVars
