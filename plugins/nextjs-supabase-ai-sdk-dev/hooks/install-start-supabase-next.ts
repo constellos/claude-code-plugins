@@ -1045,6 +1045,67 @@ async function determineSupabaseInstance(
 }
 
 /**
+ * Clean up orphaned Supabase sessions
+ * Finds sessions marked as running but whose worktree no longer exists,
+ * stops their containers, and marks them as stopped.
+ */
+async function cleanupOrphanedSessions(cwd: string, messages: string[]): Promise<void> {
+  const logsDir = join(cwd, '.claude', 'logs');
+  if (!existsSync(logsDir)) return;
+
+  let files: string[];
+  try {
+    files = readdirSync(logsDir).filter((f) => f.startsWith('supabase-session-'));
+  } catch {
+    return;
+  }
+
+  let orphansFound = 0;
+  for (const file of files) {
+    try {
+      const sessionPath = join(logsDir, file);
+      const content = readFileSync(sessionPath, 'utf-8');
+      const session = JSON.parse(content) as WorktreeSupabaseSession;
+
+      // Check if session is marked running but worktree no longer exists
+      if (session.running && session.worktreePath && !existsSync(session.worktreePath)) {
+        orphansFound++;
+        messages.push(`🧹 Cleaning orphaned session: ${session.worktreeProjectId || session.worktreeId}`);
+
+        // Try to stop containers with this project ID
+        if (session.worktreeProjectId) {
+          try {
+            // Use docker stop directly with container name pattern
+            await execAsync(
+              `docker ps -q --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker stop`,
+              { timeout: 30000 }
+            );
+            await execAsync(
+              `docker ps -aq --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker rm`,
+              { timeout: 30000 }
+            );
+          } catch {
+            // Containers may already be stopped or removed
+          }
+        }
+
+        // Mark session as stopped
+        session.running = false;
+        const { writeFileSync } = await import('fs');
+        writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+        messages.push(`  ✓ Marked session as stopped`);
+      }
+    } catch {
+      // Skip malformed session files
+    }
+  }
+
+  if (orphansFound > 0) {
+    messages.push(`✓ Cleaned up ${orphansFound} orphaned session(s)`);
+  }
+}
+
+/**
  * Start Supabase with custom ports (for worktree instances)
  * Modifies config.toml, starts Supabase, and saves session state
  */
@@ -1058,8 +1119,8 @@ async function startWorktreeSupabase(
 ): Promise<{ success: boolean; configBackupPath?: string; projectId?: string }> {
   const configPath = getSupabaseConfigPath(cwd);
 
-  // Read original project_id
-  const originalProjectId = getOriginalProjectId(configPath);
+  // Read original project_id (tries backup first to avoid cascading suffixes)
+  const originalProjectId = getOriginalProjectId(configPath, worktreeInfo.worktreeId);
   if (!originalProjectId) {
     messages.push('⚠️ Could not read project_id from config.toml');
     return { success: false };
@@ -1310,6 +1371,10 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     } else {
       messages.push('✓ Docker running');
     }
+
+    // ========== Step 3.5: Clean up orphaned sessions ==========
+    // Find sessions marked as running but whose worktree no longer exists
+    await cleanupOrphanedSessions(input.cwd, messages);
 
     // ========== Step 4: Check/Start Supabase (Worktree-Aware) ==========
     // Determine instance configuration based on worktree status and port usage
