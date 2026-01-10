@@ -360,24 +360,77 @@ export function hasSupabaseConfig(cwd: string): boolean {
 // ============================================================================
 
 /**
+ * Extract the base project ID by stripping any slot suffixes
+ * Handles cascading suffixes like: "myapp-1", "myapp-3-4-5" -> "myapp"
+ *
+ * @param projectId - The project ID to clean
+ * @returns The base project ID without slot suffixes
+ * @example
+ * ```typescript
+ * extractBaseProjectId('myapp')       // Returns: "myapp"
+ * extractBaseProjectId('myapp-1')     // Returns: "myapp"
+ * extractBaseProjectId('myapp-3-4-5') // Returns: "myapp"
+ * ```
+ */
+export function extractBaseProjectId(projectId: string): string {
+  // Strip trailing slot suffixes like -1, -2, -3-4-5, etc.
+  // Pattern: one or more occurrences of dash followed by digits at the end
+  return projectId.replace(/(-\d+)+$/, '');
+}
+
+/**
  * Read original project_id from config.toml
+ * Tries backup file first (has true original), then falls back to current config
+ * with suffix stripping to handle corrupted state from previous sessions.
  *
  * @param configPath - Path to config.toml
+ * @param worktreeId - Optional worktree ID to check backup file
  * @returns The project_id string, or null if not found
  * @example
  * ```typescript
- * const projectId = getOriginalProjectId('/path/to/supabase/config.toml');
- * // Returns: "myapp"
+ * const projectId = getOriginalProjectId('/path/to/supabase/config.toml', 'abc12345');
+ * // Returns: "myapp" (from backup or stripped from current config)
  * ```
  */
-export function getOriginalProjectId(configPath: string): string | null {
+export function getOriginalProjectId(configPath: string, worktreeId?: string): string | null {
+  // Try backup file first (has true original project ID)
+  if (worktreeId) {
+    const backupPath = `${configPath}.backup-${worktreeId}`;
+    if (existsSync(backupPath)) {
+      try {
+        const backupContent = readFileSync(backupPath, 'utf-8');
+        const match = backupContent.match(/project_id\s*=\s*"([^"]+)"/);
+        if (match) return match[1];
+      } catch {
+        // Fall through to current config
+      }
+    }
+  }
+
+  // Also try the main backup (for main repo sessions)
+  const mainBackupPath = `${configPath}.backup-main`;
+  if (existsSync(mainBackupPath)) {
+    try {
+      const backupContent = readFileSync(mainBackupPath, 'utf-8');
+      const match = backupContent.match(/project_id\s*=\s*"([^"]+)"/);
+      if (match) return match[1];
+    } catch {
+      // Fall through to current config
+    }
+  }
+
+  // Fall back to current config, but strip any slot suffix
   if (!existsSync(configPath)) {
     return null;
   }
 
   const content = readFileSync(configPath, 'utf-8');
   const match = content.match(/project_id\s*=\s*"([^"]+)"/);
-  return match ? match[1] : null;
+  if (match) {
+    // Strip any existing slot suffixes to get the true base project ID
+    return extractBaseProjectId(match[1]);
+  }
+  return null;
 }
 
 /**
