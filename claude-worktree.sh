@@ -244,8 +244,8 @@ _cw_self_update() {
   return 0
 }
 
-# Find a repo by name or owner/name
-_cw_find_repo() {
+# Search for repo in local filesystem only
+_cw_find_repo_local() {
   local query="$1"
 
   # If query contains /, treat as owner/repo
@@ -266,6 +266,196 @@ _cw_find_repo() {
         return 0
       fi
     done
+  fi
+
+  return 1
+}
+
+# Search for repo on GitHub using gh CLI
+_cw_find_repo_github() {
+  local query="$1"
+
+  # Check if gh CLI is authenticated
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    return 1
+  fi
+
+  local owner_filter=""
+  local repo_filter="$query"
+
+  # If query contains /, extract owner and repo separately
+  if [[ "$query" == */* ]]; then
+    owner_filter="${query%%/*}"
+    repo_filter="${query#*/}"
+  fi
+
+  # Get list of organizations user belongs to
+  local orgs
+  orgs=$(gh api user/orgs --jq '.[].login' 2>/dev/null) || orgs=""
+
+  # Collect all repos from user and all orgs
+  local all_repos=""
+
+  # Add user's personal repos
+  local user_repos
+  user_repos=$(gh repo list --limit 1000 --json nameWithOwner,name 2>/dev/null)
+  if [[ -n "$user_repos" && "$user_repos" != "[]" ]]; then
+    all_repos="$user_repos"
+  fi
+
+  # Add repos from each org
+  while IFS= read -r org; do
+    [[ -z "$org" ]] && continue
+    local org_repos
+    org_repos=$(gh repo list "$org" --limit 1000 --json nameWithOwner,name 2>/dev/null)
+    if [[ -n "$org_repos" && "$org_repos" != "[]" ]]; then
+      if [[ -z "$all_repos" || "$all_repos" == "[]" ]]; then
+        all_repos="$org_repos"
+      else
+        # Merge JSON arrays
+        all_repos=$(echo "$all_repos" "$org_repos" | jq -s 'add' 2>/dev/null)
+      fi
+    fi
+  done <<< "$orgs"
+
+  # Filter repos matching the query
+  local matching_repo=""
+  if [[ -n "$owner_filter" ]]; then
+    # Exact match for owner/repo format
+    matching_repo=$(echo "$all_repos" | jq -r ".[] | select(.nameWithOwner == \"${owner_filter}/${repo_filter}\") | .nameWithOwner" 2>/dev/null | head -1)
+  else
+    # Match repo name only (first match wins)
+    matching_repo=$(echo "$all_repos" | jq -r ".[] | select(.name == \"${repo_filter}\") | .nameWithOwner" 2>/dev/null | head -1)
+  fi
+
+  if [[ -n "$matching_repo" ]]; then
+    echo "$matching_repo"
+    return 0
+  fi
+
+  return 1
+}
+
+# Clone a repo from GitHub to appropriate local directory
+_cw_clone_repo() {
+  local repo_full_name="$1"  # Format: owner/repo
+  local owner="${repo_full_name%%/*}"
+  local repo="${repo_full_name#*/}"
+
+  # Determine target directory based on owner
+  local target_dir=""
+  if [[ "$owner" == "constellos" ]]; then
+    target_dir="${HOME}/constellos"
+  elif [[ "$owner" == "celestian-dev" ]]; then
+    target_dir="${HOME}/celestian-dev"
+  else
+    # For other owners, use ~/owner/ directory
+    target_dir="${HOME}/${owner}"
+  fi
+
+  local repo_path="${target_dir}/${repo}"
+
+  # Check if already exists
+  if [[ -d "$repo_path/.git" ]]; then
+    echo "$repo_path"
+    return 0
+  fi
+
+  # Create target directory if needed
+  mkdir -p "$target_dir"
+
+  # Clone the repo
+  echo "📦 Cloning ${repo_full_name} to ${target_dir/#$HOME/~}..."
+  if gh repo clone "$repo_full_name" "$repo_path" 2>/dev/null; then
+    echo "✔ Successfully cloned ${repo_full_name}"
+    echo "$repo_path"
+    return 0
+  else
+    echo "✘ Failed to clone ${repo_full_name}"
+    return 1
+  fi
+}
+
+# Find a repo by name or owner/name (local first, then GitHub)
+_cw_find_repo() {
+  local query="$1"
+
+  # 1. Try local search first (fast path)
+  local local_path
+  local_path=$(_cw_find_repo_local "$query")
+  if [[ -n "$local_path" ]]; then
+    echo "$local_path"
+    return 0
+  fi
+
+  # 2. Search GitHub API for repos
+  local gh_repo
+  gh_repo=$(_cw_find_repo_github "$query")
+  if [[ -n "$gh_repo" ]]; then
+    # 3. Auto-clone repo if found on GitHub
+    _cw_clone_repo "$gh_repo"
+    return $?
+  fi
+
+  return 1
+}
+
+# Get cached GitHub repos for tab completion (5 minute TTL)
+_cw_get_cached_github_repos() {
+  local cache_file="${HOME}/.cache/cw-github-repos.cache"
+  local cache_ttl=300  # 5 minutes in seconds
+
+  # Check if gh CLI is available and authenticated
+  if ! command -v gh &>/dev/null || ! gh auth status &>/dev/null 2>&1; then
+    return 1
+  fi
+
+  # Check if cache exists and is fresh
+  if [[ -f "$cache_file" ]]; then
+    local cache_age=$(($(date +%s) - $(stat -c %Y "$cache_file" 2>/dev/null || stat -f %m "$cache_file" 2>/dev/null)))
+    if [[ $cache_age -lt $cache_ttl ]]; then
+      cat "$cache_file"
+      return 0
+    fi
+  fi
+
+  # Cache is stale or missing, refresh it
+  mkdir -p "$(dirname "$cache_file")"
+
+  # Get list of organizations user belongs to
+  local orgs
+  orgs=$(gh api user/orgs --jq '.[].login' 2>/dev/null) || orgs=""
+
+  # Collect all repos from user and all orgs
+  local all_repos=""
+
+  # Add user's personal repos
+  local user_repos
+  user_repos=$(gh repo list --limit 1000 --json nameWithOwner 2>/dev/null)
+  if [[ -n "$user_repos" && "$user_repos" != "[]" ]]; then
+    all_repos="$user_repos"
+  fi
+
+  # Add repos from each org
+  while IFS= read -r org; do
+    [[ -z "$org" ]] && continue
+    local org_repos
+    org_repos=$(gh repo list "$org" --limit 1000 --json nameWithOwner 2>/dev/null)
+    if [[ -n "$org_repos" && "$org_repos" != "[]" ]]; then
+      if [[ -z "$all_repos" || "$all_repos" == "[]" ]]; then
+        all_repos="$org_repos"
+      else
+        # Merge JSON arrays
+        all_repos=$(echo "$all_repos" "$org_repos" | jq -s 'add' 2>/dev/null)
+      fi
+    fi
+  done <<< "$orgs"
+
+  # Write to cache
+  if [[ -n "$all_repos" ]]; then
+    echo "$all_repos" | jq -r '.[].nameWithOwner' > "$cache_file" 2>/dev/null
+    cat "$cache_file"
+    return 0
   fi
 
   return 1
@@ -316,6 +506,43 @@ _cw_completions() {
           fi
         done
       done
+    fi
+
+    # Add GitHub repos to completions
+    local gh_repos
+    if gh_repos=$(_cw_get_cached_github_repos 2>/dev/null); then
+      while IFS= read -r gh_repo; do
+        [[ -z "$gh_repo" ]] && continue
+
+        # If input has slash, filter by full name
+        if [[ "$cur" == */* ]]; then
+          if [[ "$gh_repo" == "$cur"* ]]; then
+            # Check if not already in local repos (avoid duplicates)
+            local is_duplicate=false
+            for existing in "${repos[@]}"; do
+              if [[ "$existing" == "$gh_repo" ]]; then
+                is_duplicate=true
+                break
+              fi
+            done
+            [[ "$is_duplicate" == false ]] && repos+=("$gh_repo")
+          fi
+        else
+          # No slash - extract repo name and add if matches
+          local gh_repo_name="${gh_repo#*/}"
+          if [[ "$gh_repo_name" == "$cur"* ]]; then
+            # Check for duplicate by repo name
+            local is_duplicate=false
+            for existing in "${repos[@]}"; do
+              if [[ "$existing" == "$gh_repo_name" || "$existing" == "$gh_repo" ]]; then
+                is_duplicate=true
+                break
+              fi
+            done
+            [[ "$is_duplicate" == false ]] && repos+=("$gh_repo_name")
+          fi
+        fi
+      done <<< "$gh_repos"
     fi
   fi
 
