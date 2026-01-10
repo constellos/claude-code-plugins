@@ -32,6 +32,7 @@ Comprehensive GitHub workflow orchestration with skills for issues, branches, PR
 | stacked-pr-subagent-stop | SubagentStop | No | Handles stacked PR: push, create PR, auto-merge |
 | commit-task-await-ci-status | SubagentStop | No | Auto-commits agent work |
 | commit-session-await-ci-status | Stop | Yes | Auto-commits, waits for CI |
+| close-issue-on-session-end | SessionEnd | No | Closes issue if session ends without PR |
 
 ## Skills
 
