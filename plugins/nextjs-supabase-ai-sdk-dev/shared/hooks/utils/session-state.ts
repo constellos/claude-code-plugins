@@ -340,6 +340,8 @@ export interface WorktreeSupabaseSession {
   originalProjectId: string;
   /** Worktree-specific project_id (original or original-{slot}) */
   worktreeProjectId: string;
+  /** Claude session ID that owns this instance (for orphan detection) */
+  sessionId?: string;
 }
 
 // ============================================================================

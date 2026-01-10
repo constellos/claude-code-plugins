@@ -23,6 +23,8 @@ Local dev environment setup for Vercel/Supabase and systematic UI development wi
 | install-start-supabase-next | SessionStart | No | Sets up Supabase local dev, installs dependencies (skips if fresh), starts dev servers (Next.js, Cloudflare, Elysia, Turborepo) with health checks |
 | cache-supabase-schema | SessionStart | No | Caches Supabase table/column metadata for context matching |
 | move-playwright-screenshots | PostToolUse[browser_eval] | No | Moves screenshots to .claude/screenshots/ to prevent permission prompts |
+| stop-supabase-session | Stop | Yes | Cleans up Supabase containers for worktree sessions |
+| cleanup-supabase-session | SessionEnd | No | Stops Supabase containers when session ends |
 
 ## Agents
 
