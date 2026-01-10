@@ -1046,10 +1046,15 @@ async function determineSupabaseInstance(
 
 /**
  * Clean up orphaned Supabase sessions
- * Finds sessions marked as running but whose worktree no longer exists,
- * stops their containers, and marks them as stopped.
+ * Finds sessions marked as running but whose worktree no longer exists
+ * OR sessions from different Claude sessions, stops their containers,
+ * and marks them as stopped.
  */
-async function cleanupOrphanedSessions(cwd: string, messages: string[]): Promise<void> {
+async function cleanupOrphanedSessions(
+  cwd: string,
+  messages: string[],
+  currentSessionId: string
+): Promise<void> {
   const logsDir = join(cwd, '.claude', 'logs');
   if (!existsSync(logsDir)) return;
 
@@ -1067,10 +1072,16 @@ async function cleanupOrphanedSessions(cwd: string, messages: string[]): Promise
       const content = readFileSync(sessionPath, 'utf-8');
       const session = JSON.parse(content) as WorktreeSupabaseSession;
 
-      // Check if session is marked running but worktree no longer exists
-      if (session.running && session.worktreePath && !existsSync(session.worktreePath)) {
+      // Check if session should be cleaned up:
+      // 1. Worktree path no longer exists (orphaned)
+      // 2. Session is from a different Claude session (stale)
+      const isOrphanedPath = session.worktreePath && !existsSync(session.worktreePath);
+      const isDifferentSession = session.sessionId && session.sessionId !== currentSessionId;
+
+      if (session.running && (isOrphanedPath || isDifferentSession)) {
         orphansFound++;
-        messages.push(`🧹 Cleaning orphaned session: ${session.worktreeProjectId || session.worktreeId}`);
+        const reason = isOrphanedPath ? 'orphaned' : 'previous session';
+        messages.push(`🧹 Cleaning ${reason}: ${session.worktreeProjectId || session.worktreeId}`);
 
         // Try to stop containers with this project ID
         if (session.worktreeProjectId) {
@@ -1115,7 +1126,8 @@ async function startWorktreeSupabase(
   supabasePorts: SupabasePortSet,
   devServerPorts: DevServerPortSet,
   worktreeInfo: WorktreeInfo,
-  messages: string[]
+  messages: string[],
+  sessionId: string
 ): Promise<{ success: boolean; configBackupPath?: string; projectId?: string }> {
   const configPath = getSupabaseConfigPath(cwd);
 
@@ -1195,6 +1207,7 @@ async function startWorktreeSupabase(
     running: true,
     originalProjectId,
     worktreeProjectId,
+    sessionId,
   };
 
   await saveWorktreeSupabaseSession(cwd, session);
@@ -1310,6 +1323,15 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       } else {
         messages.push('⚠️ Supabase CLI not installed');
         messages.push('  Install: npm install -g supabase');
+
+        // Log output before early return
+        await logger.logOutput({
+          success: false,
+          is_remote: isRemote,
+          message: messages.join('\n'),
+          reason: 'cli_not_installed',
+        });
+
         // Return early - can't proceed without CLI
         return {
           hookSpecificOutput: {
@@ -1328,6 +1350,15 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
       messages.push('');
       messages.push('ℹ️ Supabase not initialized in this project');
       messages.push('  Run: supabase init');
+
+      // Log output before early return
+      await logger.logOutput({
+        success: false,
+        is_remote: isRemote,
+        message: messages.join('\n'),
+        reason: 'not_initialized',
+      });
+
       // Return early - can't proceed without initialization
       return {
         hookSpecificOutput: {
@@ -1374,7 +1405,8 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
     // ========== Step 3.5: Clean up orphaned sessions ==========
     // Find sessions marked as running but whose worktree no longer exists
-    await cleanupOrphanedSessions(input.cwd, messages);
+    // or sessions from a different Claude session
+    await cleanupOrphanedSessions(input.cwd, messages, input.session_id);
 
     // ========== Step 4: Check/Start Supabase (Worktree-Aware) ==========
     // Determine instance configuration based on worktree status and port usage
@@ -1393,7 +1425,8 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
           instanceConfig.supabasePorts,
           instanceConfig.devServerPorts,
           instanceConfig.worktreeInfo,
-          messages
+          messages,
+          input.session_id
         );
         supabaseRunning = startResult.success;
       } else if (instanceConfig.existingSession) {
@@ -1737,6 +1770,14 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
     };
   } catch (error) {
     await logger.logError(error as Error);
+
+    // Log output for consistency with other exit paths
+    await logger.logOutput({
+      success: false,
+      is_remote: isRemote,
+      message: `Supabase setup error: ${error}`,
+      reason: 'exception',
+    });
 
     return {
       hookSpecificOutput: {
