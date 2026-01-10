@@ -23,9 +23,10 @@
 import type { PostToolUseInputTyped, PostToolUseHookOutput, TaskToolInput } from '../shared/types/types.js';
 import { createDebugLogger } from '../shared/hooks/utils/debug.js';
 import { runHook } from '../shared/hooks/utils/io.js';
-import { spawn } from 'child_process';
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { addNativeSubissue } from '../shared/hooks/utils/native-subissues.js';
+import { spawn } from 'node:child_process';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -46,6 +47,8 @@ interface TaskSubissueEntry {
   createdAt: string;
   /** Structured task ID if referenced in prompt */
   planTaskId?: string;
+  /** Whether native GitHub sub-issues API was used */
+  nativeSubissue?: boolean;
 }
 
 /**
@@ -356,6 +359,17 @@ ${prompt}`;
       subissueBody
     );
 
+    // Link as native sub-issue (GitHub's native parent-child relationship)
+    // This creates proper hierarchy in GitHub UI and Projects
+    // Falls back gracefully if native sub-issues aren't available
+    const nativeResult = await addNativeSubissue(input.cwd, parentIssueNumber, subissueNumber);
+    if (!nativeResult.success) {
+      await logger.logOutput({
+        native_subissue: 'fallback',
+        reason: nativeResult.error || 'Native sub-issues not available',
+      });
+    }
+
     // Save state
     taskState[taskId] = {
       prompt,
@@ -367,6 +381,7 @@ ${prompt}`;
       branch,
       createdAt: new Date().toISOString(),
       planTaskId,
+      nativeSubissue: nativeResult.success,
     };
     await saveTaskSubissueState(input.cwd, taskState);
 
@@ -376,6 +391,7 @@ ${prompt}`;
       subissue_url: subissueUrl,
       parent_issue: parentIssueNumber,
       branch,
+      native_subissue: nativeResult.success,
     });
 
     return {
