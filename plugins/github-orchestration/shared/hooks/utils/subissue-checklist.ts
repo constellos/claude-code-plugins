@@ -1,9 +1,34 @@
 /**
  * Subissue checklist management utility for GitHub workflow automation
  * Generates and updates checklists in parent issue bodies
+ *
+ * NOTE: As of 2025, GitHub has native sub-issues support via REST API.
+ * When native sub-issues are in use (see native-subissues.ts), the checklist
+ * approach is optional - GitHub's UI will show parent-child relationships.
+ *
+ * These functions remain useful for:
+ * - Backwards compatibility with repos without native sub-issues
+ * - Visual representation in issue body (some users prefer inline checklists)
+ * - Repos that haven't enabled native sub-issues feature
  */
 
 import { spawn } from 'node:child_process';
+import { listNativeSubissues } from './native-subissues.js';
+
+/**
+ * Check if a parent issue has native sub-issues linked
+ *
+ * When native sub-issues are in use, the markdown checklist is optional
+ * since GitHub's UI shows the parent-child hierarchy natively.
+ *
+ * @param cwd - Current working directory
+ * @param parentIssue - Parent issue number
+ * @returns Whether the parent has native sub-issues
+ */
+export async function hasNativeSubissues(cwd: string, parentIssue: number): Promise<boolean> {
+  const subissues = await listNativeSubissues(cwd, parentIssue);
+  return subissues.length > 0;
+}
 
 /**
  * Execute gh CLI with stdin input
