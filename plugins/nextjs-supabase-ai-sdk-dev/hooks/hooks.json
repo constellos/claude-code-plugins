@@ -24,7 +24,8 @@
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/install-start-supabase-next.ts",
-            "description": "Sets up Supabase local dev: installs CLI, starts Docker, starts Supabase, exports env vars, starts dev server"
+            "description": "Sets up Supabase local dev: installs CLI, starts Docker, starts Supabase, exports env vars, starts dev server",
+            "timeout": 600
           },
           {
             "type": "command",
@@ -69,7 +70,8 @@
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/stop-supabase-session.ts",
-            "description": "Cleans up Supabase containers for worktree sessions: stops containers, restores config.toml, updates session state"
+            "description": "Cleans up Supabase containers for worktree sessions: stops containers, restores config.toml, updates session state",
+            "timeout": 120
           }
         ]
       }
@@ -80,7 +82,8 @@
           {
             "type": "command",
             "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/cleanup-supabase-session.ts",
-            "description": "Stops Supabase containers and marks session as stopped when session ends"
+            "description": "Stops Supabase containers and marks session as stopped when session ends",
+            "timeout": 60
           }
         ]
       }
