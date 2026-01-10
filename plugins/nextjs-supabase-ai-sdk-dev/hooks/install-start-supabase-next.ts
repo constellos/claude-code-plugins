@@ -758,7 +758,7 @@ function startDevServerBackground(
 /**
  * Check if dev server is responding to HTTP requests
  */
-async function checkServerHealth(port: number, timeoutMs: number = 10000): Promise<boolean> {
+async function checkServerHealth(port: number, timeoutMs: number = 30000): Promise<boolean> {
   const startTime = Date.now();
   const pollInterval = 1000;
 
@@ -1049,6 +1049,7 @@ async function determineSupabaseInstance(
  * Finds sessions marked as running but whose worktree no longer exists
  * OR sessions from different Claude sessions, stops their containers,
  * and marks them as stopped.
+ * Also detects running containers without matching session files.
  */
 async function cleanupOrphanedSessions(
   cwd: string,
@@ -1056,63 +1057,140 @@ async function cleanupOrphanedSessions(
   currentSessionId: string
 ): Promise<void> {
   const logsDir = join(cwd, '.claude', 'logs');
-  if (!existsSync(logsDir)) return;
-
-  let files: string[];
-  try {
-    files = readdirSync(logsDir).filter((f) => f.startsWith('supabase-session-'));
-  } catch {
-    return;
-  }
-
   let orphansFound = 0;
-  for (const file of files) {
+
+  // Build a set of valid running project IDs from session files
+  const validRunningProjectIds = new Set<string>();
+  const sessionProjectIds = new Map<string, string>(); // projectId -> sessionPath
+
+  if (existsSync(logsDir)) {
+    let files: string[];
     try {
-      const sessionPath = join(logsDir, file);
-      const content = readFileSync(sessionPath, 'utf-8');
-      const session = JSON.parse(content) as WorktreeSupabaseSession;
+      files = readdirSync(logsDir).filter((f) => f.startsWith('supabase-session-'));
+    } catch {
+      files = [];
+    }
 
-      // Check if session should be cleaned up:
-      // 1. Worktree path no longer exists (orphaned)
-      // 2. Session is from a different Claude session (stale)
-      const isOrphanedPath = session.worktreePath && !existsSync(session.worktreePath);
-      const isDifferentSession = session.sessionId && session.sessionId !== currentSessionId;
+    for (const file of files) {
+      try {
+        const sessionPath = join(logsDir, file);
+        const content = readFileSync(sessionPath, 'utf-8');
+        const session = JSON.parse(content) as WorktreeSupabaseSession;
 
-      if (session.running && (isOrphanedPath || isDifferentSession)) {
-        orphansFound++;
-        const reason = isOrphanedPath ? 'orphaned' : 'previous session';
-        messages.push(`🧹 Cleaning ${reason}: ${session.worktreeProjectId || session.worktreeId}`);
-
-        // Try to stop containers with this project ID
         if (session.worktreeProjectId) {
-          try {
-            // Use docker stop directly with container name pattern
-            await execAsync(
-              `docker ps -q --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker stop`,
-              { timeout: 30000 }
-            );
-            await execAsync(
-              `docker ps -aq --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker rm`,
-              { timeout: 30000 }
-            );
-          } catch {
-            // Containers may already be stopped or removed
-          }
+          sessionProjectIds.set(session.worktreeProjectId, sessionPath);
         }
 
-        // Mark session as stopped
-        session.running = false;
-        const { writeFileSync } = await import('fs');
-        writeFileSync(sessionPath, JSON.stringify(session, null, 2));
-        messages.push(`  ✓ Marked session as stopped`);
+        // Check if session should be cleaned up:
+        // 1. Worktree path no longer exists (orphaned)
+        // 2. Session is from a different Claude session (stale)
+        const isOrphanedPath = session.worktreePath && !existsSync(session.worktreePath);
+        const isDifferentSession = session.sessionId && session.sessionId !== currentSessionId;
+
+        if (session.running && (isOrphanedPath || isDifferentSession)) {
+          orphansFound++;
+          const reason = isOrphanedPath ? 'orphaned path' : 'previous session';
+          messages.push(`🧹 Cleaning ${reason}: ${session.worktreeProjectId || session.worktreeId}`);
+
+          // Try to stop containers with this project ID
+          if (session.worktreeProjectId) {
+            try {
+              await execAsync(
+                `docker ps -q --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker stop`,
+                { timeout: 30000 }
+              );
+              await execAsync(
+                `docker ps -aq --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker rm`,
+                { timeout: 30000 }
+              );
+            } catch {
+              // Containers may already be stopped or removed
+            }
+          }
+
+          // Mark session as stopped
+          session.running = false;
+          const { writeFileSync } = await import('fs');
+          writeFileSync(sessionPath, JSON.stringify(session, null, 2));
+          messages.push(`  ✓ Marked session as stopped`);
+        } else if (session.running && session.sessionId === currentSessionId) {
+          // This is a valid running session for the current Claude session
+          if (session.worktreeProjectId) {
+            validRunningProjectIds.add(session.worktreeProjectId);
+          }
+        }
+      } catch {
+        // Skip malformed session files
       }
-    } catch {
-      // Skip malformed session files
     }
   }
 
+  // Phase 2: Detect running containers without matching session files
+  // This catches containers orphaned due to session file corruption/deletion
+  try {
+    const result = await execAsync('docker ps --format "{{.Names}}" --filter "name=supabase_"', {
+      timeout: 10000,
+    });
+
+    if (result.stdout) {
+      // Extract unique project IDs from container names
+      // Container naming: supabase_{service}_{projectId}
+      const containerNames = result.stdout.split('\n').filter(Boolean);
+      const runningProjectIds = new Set<string>();
+
+      for (const name of containerNames) {
+        // Extract project ID from container name (last segment after underscore)
+        const parts = name.split('_');
+        if (parts.length >= 3) {
+          const projectId = parts.slice(2).join('_');
+          runningProjectIds.add(projectId);
+        }
+      }
+
+      // Find containers without matching valid session files
+      for (const projectId of runningProjectIds) {
+        // Skip if it's a valid running session
+        if (validRunningProjectIds.has(projectId)) {
+          continue;
+        }
+
+        // Skip if there's a session file marked as running (already handled above)
+        const sessionPath = sessionProjectIds.get(projectId);
+        if (sessionPath) {
+          try {
+            const content = readFileSync(sessionPath, 'utf-8');
+            const session = JSON.parse(content) as WorktreeSupabaseSession;
+            if (session.running) {
+              continue; // Already handled in phase 1
+            }
+          } catch {
+            // Session file is corrupted, treat as orphan
+          }
+        }
+
+        // This is an orphaned container without a valid session
+        orphansFound++;
+        messages.push(`🧹 Cleaning orphaned container: ${projectId}`);
+
+        try {
+          await execAsync(`docker ps -q --filter "name=supabase_.*_${projectId}" | xargs -r docker stop`, {
+            timeout: 30000,
+          });
+          await execAsync(`docker ps -aq --filter "name=supabase_.*_${projectId}" | xargs -r docker rm`, {
+            timeout: 30000,
+          });
+          messages.push(`  ✓ Stopped orphaned containers`);
+        } catch {
+          messages.push(`  ⚠️ Failed to stop some containers`);
+        }
+      }
+    }
+  } catch {
+    // Docker not available or failed - skip container scanning
+  }
+
   if (orphansFound > 0) {
-    messages.push(`✓ Cleaned up ${orphansFound} orphaned session(s)`);
+    messages.push(`✓ Cleaned up ${orphansFound} orphaned session(s)/container(s)`);
   }
 }
 
@@ -1739,7 +1817,7 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
             if (isHealthy) {
               messages.push(`✓ Server is responding at http://localhost:${port}`);
             } else {
-              messages.push(`⚠️ Server did not respond within 10 seconds`);
+              messages.push(`⚠️ Server did not respond within 30 seconds`);
               messages.push(`  Check logs: ${result.logs.stderr}`);
               messages.push(`  Try manually: ${devCommand}`);
             }

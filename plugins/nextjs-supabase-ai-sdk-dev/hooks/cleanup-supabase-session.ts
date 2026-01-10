@@ -2,10 +2,11 @@
  * Supabase Session Cleanup Hook (SessionEnd)
  * SessionEnd hook that:
  * 1. Stops Supabase containers for the current session
- * 2. Marks session state as stopped
+ * 2. Restores config.toml from backup (for worktree sessions)
+ * 3. Marks session state as stopped
  *
- * Unlike the Stop hook, SessionEnd cannot block session termination.
- * This runs when the user exits the session (Ctrl+C, /clear, logout, etc.)
+ * This is the primary cleanup hook that runs when the user exits the session
+ * (Ctrl+C, /clear, logout, etc.)
  *
  * @module cleanup-supabase-session
  */
@@ -18,8 +19,13 @@ import {
   loadWorktreeSupabaseSession,
   updateWorktreeSupabaseSession,
 } from '../shared/hooks/utils/session-state.js';
+import {
+  restoreSupabaseConfig,
+  getSupabaseConfigPath,
+} from '../shared/hooks/utils/supabase-ports.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { existsSync } from 'fs';
 
 const execAsync = promisify(exec);
 
@@ -86,6 +92,12 @@ async function handler(input: SessionEndInput): Promise<SessionEndHookOutput> {
       `docker ps -q --filter "name=supabase_.*_${session.worktreeProjectId}" | xargs -r docker stop`,
       { cwd: input.cwd, timeout: 30000 }
     );
+  }
+
+  // Restore config.toml from backup (for worktree sessions)
+  if (session.configBackupPath && existsSync(session.configBackupPath)) {
+    const configPath = getSupabaseConfigPath(input.cwd);
+    restoreSupabaseConfig(configPath, `.backup-${worktreeInfo.worktreeId}`);
   }
 
   // Mark session as stopped
