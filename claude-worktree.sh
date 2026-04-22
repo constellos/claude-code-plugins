@@ -88,14 +88,21 @@ _cw_update_cache_symlink() {
   ln -sfn "$target_cache" "$symlink_path"
 }
 
-# Check if a worktree directory is currently in use by any process
-# Returns 0 (true) if in use, 1 (false) if not
+# Check if a worktree directory is currently in use by any process.
+# Returns 0 (true) if in use, 1 (false) if not.
+#
+# Uses /proc/*/cwd (O(processes)) rather than `lsof +D` (O(files in tree)).
+# lsof +D recursively stats every file under the path, which on WSL with
+# node_modules-laden worktrees can take 10+ seconds per call.
 _cw_worktree_in_use() {
   local wt_path="$1"
-  # Check if any process has files open in this directory
-  if command -v lsof &>/dev/null; then
-    lsof +D "$wt_path" &>/dev/null 2>&1 && return 0
-  fi
+  local p target
+  for p in /proc/[0-9]*/cwd; do
+    target=$(readlink "$p" 2>/dev/null) || continue
+    if [[ "$target" == "$wt_path" || "$target" == "$wt_path"/* ]]; then
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -693,50 +700,68 @@ _cw_main() {
     fi
   fi
 
-  # Clean up stale worktrees
+  # Clean up stale worktrees.
+  #
+  # A worktree under $worktree_base with a claude-* branch is "stale" when the
+  # branch no longer exists on the remote AND no live process has its cwd
+  # inside the worktree. Stale worktrees are always from crashed or abandoned
+  # sessions, so we ignore the `locked` marker: the EXIT-trap unlock is
+  # best-effort, and worktrees left locked forever are exactly what we need to
+  # reap.
+  #
+  # We parse the full porcelain block before deciding (the `locked` field
+  # appears AFTER `branch`), collect the removal set, then delete via `rm -rf`
+  # + `git worktree prune`. `git worktree remove --force` refuses locked
+  # worktrees with a single --force, and even when it works it's much slower
+  # than rm on WSL.
   local stale_count=0
   if [[ -d "$worktree_base" ]]; then
     local remote_branches=""
     remote_branches=$(git ls-remote --heads "$remote" 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||')
 
-    local wt_path=""
-    local is_locked=false
+    local -a stale_paths=()
+    local wt_path="" wt_branch=""
+
+    _cw_consider_block() {
+      if [[ -z "$wt_path" || -z "$wt_branch" ]]; then
+        return
+      fi
+      if [[ "$wt_path" != "$worktree_base"/* || "$wt_branch" != claude-* ]]; then
+        return
+      fi
+      if [[ -z "$remote_branches" ]] || echo "$remote_branches" | grep -qx "$wt_branch"; then
+        return
+      fi
+      if _cw_worktree_in_use "$wt_path"; then
+        return
+      fi
+      stale_paths+=("$wt_path")
+    }
+
     while IFS= read -r line; do
       if [[ "$line" == "worktree "* ]]; then
         wt_path="${line#worktree }"
-        is_locked=false
-      elif [[ "$line" == "locked"* ]]; then
-        is_locked=true
+        wt_branch=""
       elif [[ "$line" == "branch "* ]]; then
-        local branch="${line#branch refs/heads/}"
-        if [[ "$wt_path" == "$worktree_base"/* && "$branch" == claude-* ]]; then
-          if [[ "$is_locked" != true ]]; then
-            # Check if branch exists on remote (source of truth)
-            # Do NOT check local refs - worktree branches are isolated and won't appear in base repo
-            # Only delete worktrees for branches that have been deleted from remote
-            local should_remove=false
-            if [[ -n "$remote_branches" ]] && ! echo "$remote_branches" | grep -qx "$branch"; then
-              should_remove=true
-            fi
-            if [[ "$should_remove" == true ]]; then
-              # Safety: skip worktrees with active processes (e.g., running Claude sessions)
-              if _cw_worktree_in_use "$wt_path"; then
-                continue
-              fi
-              if git worktree remove --force "$wt_path" 2>/dev/null; then
-                ((stale_count++)) || true
-              fi
-            fi
-          fi
-        fi
-        wt_path=""
-        is_locked=false
+        wt_branch="${line#branch refs/heads/}"
       elif [[ -z "$line" ]]; then
+        _cw_consider_block
         wt_path=""
-        is_locked=false
+        wt_branch=""
       fi
     done < <(git worktree list --porcelain)
-    git worktree prune 2>/dev/null
+    _cw_consider_block
+
+    unset -f _cw_consider_block
+
+    if (( ${#stale_paths[@]} > 0 )); then
+      _cw_item "…" "removing ${#stale_paths[@]} stale worktree(s)"
+      local path
+      for path in "${stale_paths[@]}"; do
+        rm -rf "$path" 2>/dev/null && ((stale_count++)) || true
+      done
+      git worktree prune 2>/dev/null
+    fi
   fi
 
   if [[ $stale_count -gt 0 ]]; then
