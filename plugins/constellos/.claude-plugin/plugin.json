@@ -1,0 +1,12 @@
+{
+  "name": "constellos",
+  "version": "0.1.0",
+  "description": "Constellos harness for Claude Code sessions: records turns to a Constellos thread and injects objective context into every prompt",
+  "author": {
+    "name": "constellos"
+  },
+  "repository": "https://github.com/constellos/claude-code-plugins",
+  "license": "MIT",
+  "keywords": ["constellos", "harness", "thread", "objectives", "evaluation"],
+  "hooks": "./hooks/hooks.json"
+}

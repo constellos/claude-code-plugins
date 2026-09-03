@@ -1,0 +1,65 @@
+{
+  "_comment": "Constellos plugin - Claude Code session harness (spec: constellos/constellos docs/specs/2026-09-03-agent-harness-and-eval-unification.md, D5/section 7)",
+  "_notes": [
+    "SessionStart mints or resumes a Constellos thread and persists CONSTELLOS_THREAD/CONSTELLOS_SPACE",
+    "UserPromptSubmit records the user turn and injects the addressed objective's residual and beliefs",
+    "Stop records the assistant reply as an assistant turn (skipped while the server lacks role support)",
+    "PostToolUse reminds about doc/spec updates when watched source paths are edited",
+    "All network hooks are best-effort: no CLI, no token, or no network never blocks the session",
+    "Transport is the constellos CLI against the bare origin (never .../mcp - token dir is keyed by the bare URL)",
+    "Timeouts are >= 10s because the CLI performs a tools/list round trip before every tools/call"
+  ],
+  "description": "Constellos session harness hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/session-start.ts",
+            "timeout": 30,
+            "description": "Mints or resumes the session's Constellos thread and persists it for later hooks"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/user-prompt-submit.ts",
+            "timeout": 30,
+            "description": "Records the prompt as a user turn and injects objective residual/beliefs as context"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/stop.ts",
+            "timeout": 30,
+            "description": "Records the assistant reply as an assistant turn on the session's thread"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx tsx ${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use.ts",
+            "timeout": 10,
+            "description": "Reminds about doc/spec updates when watched source paths change without one"
+          }
+        ]
+      }
+    ]
+  }
+}
