@@ -1,11 +1,15 @@
 /**
  * Per-session state for the Constellos harness
  *
- * The thread slug minted at SessionStart must reach every later hook. Two
- * channels carry it: `$CLAUDE_ENV_FILE` (environment persisted by Claude Code
- * for later hooks in the same session) and a per-session cache file under
- * `~/.constellos/harness/sessions/` (survives resume, where the env file
- * starts fresh). Read order everywhere: env var first, cache file second.
+ * The thread slug minted at SessionStart must reach every later hook, and the
+ * per-session cache file under `~/.constellos/harness/sessions/` is what
+ * carries it: hook processes do NOT inherit what a SessionStart hook wrote to
+ * `$CLAUDE_ENV_FILE` (measured against Claude Code 2.1.258 — that file is
+ * sourced into the session's Bash-tool shell, and `CLAUDE_ENV_FILE` is only
+ * even set for SessionStart/Setup/CwdChanged/FileChanged hooks). The env write
+ * is kept anyway, because it puts `$CONSTELLOS_THREAD` in front of the shell
+ * the session actually runs commands in. Read order everywhere: env var first
+ * (a caller may export it), cache file second.
  *
  * All I/O here is best-effort: a failed read returns empty state and a failed
  * write is swallowed - harness bookkeeping must never break a session.
@@ -21,6 +25,8 @@ import * as path from 'path';
 export interface SessionState {
   /** Thread slug this session records to */
   thread?: string;
+  /** Entity path of the thread's first turn, e.g. `messages/<slug>/1` */
+  threadPath?: string;
   /** Space slug the thread lives in */
   space?: string;
   /** false once the server rejected a `role` argument (pre-PR-B server) */
@@ -73,10 +79,24 @@ export function writeSessionState(sessionId: string, patch: SessionState): void 
 }
 
 /**
- * Persist environment variables for later hooks via `$CLAUDE_ENV_FILE`
+ * POSIX single-quote a value for the sourced env file
  *
- * Claude Code sources this file for subsequent hooks in the same session.
- * Values containing newlines are skipped (the file is line-oriented).
+ * @param value - Raw value
+ * @returns The value wrapped in single quotes, with embedded quotes escaped
+ */
+function shellQuote(value: string): string {
+  return "'" + value.split("'").join("'\\''") + "'";
+}
+
+/**
+ * Persist environment variables into the session's `$CLAUDE_ENV_FILE`
+ *
+ * Claude Code sources this file into the session's Bash-tool shell — NOT into
+ * later hook processes, which is why {@link readSessionState} is the channel
+ * the hooks actually rely on. Values are written as `export K=V` so they reach
+ * the shell's children too; values containing newlines are skipped (the file
+ * is line-oriented) and the variable is only set for SessionStart-class hooks,
+ * so a later hook calling this is a no-op.
  *
  * @param vars - Variable name/value pairs to append
  */
@@ -86,7 +106,7 @@ export function persistEnv(vars: Record<string, string>): void {
   try {
     const lines = Object.entries(vars)
       .filter(([, v]) => !v.includes('\n'))
-      .map(([k, v]) => `${k}=${v}`)
+      .map(([k, v]) => `export ${k}=${shellQuote(v)}`)
       .join('\n');
     if (lines) fs.appendFileSync(envFile, lines + '\n', 'utf8');
   } catch {
