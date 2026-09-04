@@ -127,7 +127,9 @@ const EXPORT_PATTERNS = {
   // export function name() or export async function name()
   function: /^export\s+(?:async\s+)?function\s+(\w+)/,
   // export const Name = () => or export const name =
-  arrowFunction: /^export\s+const\s+(\w+)\s*=\s*(?:\([^)]*\)|[^=])*=>/,
+  // The two branches are disjoint on their first character (parens only enter
+  // via the first) so the quantifier cannot backtrack exponentially (js/redos).
+  arrowFunction: /^export\s+const\s+(\w+)\s*=\s*(?:\([^)]*\)|[^=()])*=>/,
   // export const name = value (not arrow function)
   constant: /^export\s+const\s+(\w+)\s*=/,
   // export class Name
