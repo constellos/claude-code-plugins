@@ -10,6 +10,16 @@
   },
   "plugins": [
     {
+      "name": "constellos",
+      "description": "Constellos harness for Claude Code sessions: records turns to a Constellos thread and injects objective context into every prompt",
+      "version": "0.1.0",
+      "author": {
+        "name": "constellos"
+      },
+      "source": "./plugins/constellos",
+      "strict": false
+    },
+    {
       "name": "essential-logging",
       "description": "Core task execution logging and transcript utilities for all Claude Code sessions",
       "version": "0.1.0",
