@@ -47,3 +47,39 @@ export function extractObjectiveContext(payload: unknown, objectivePath: string)
   if (match) lines.push(`matchExpression: ${match}`);
   return lines.length > 1 ? lines : [];
 }
+
+/**
+ * Pick the objective that addresses a thread turn, out of a `get` payload
+ *
+ * The server surfaces incoming edges as `metadata.relations.incoming` — an
+ * array of `{relation, path}` where `relation` is the INVERSE label, so an
+ * objective's `addresses` edge arrives here as `addressedBy`. The label is
+ * treated as a preference rather than a requirement (it is server-version
+ * vocabulary); the load-bearing test is the endpoint's `objectives/` path
+ * prefix, so a relabelled inverse still resolves.
+ *
+ * @param payload - The `get` tool's payload for a thread message entity
+ * @returns The addressing objective's path, or null when none is surfaced
+ */
+export function pickAddressingObjective(payload: unknown): string | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const obj = payload as Record<string, unknown>;
+  const metadata = (typeof obj.metadata === 'object' && obj.metadata !== null
+    ? obj.metadata
+    : {}) as Record<string, unknown>;
+
+  const candidates: string[] = [];
+  let preferred: string | null = null;
+  for (const source of [metadata.relations, obj.relations]) {
+    if (typeof source !== 'object' || source === null) continue;
+    const incoming = (source as { incoming?: unknown }).incoming;
+    if (!Array.isArray(incoming)) continue;
+    for (const edge of incoming as Array<{ relation?: unknown; path?: unknown }>) {
+      const path = typeof edge?.path === 'string' ? edge.path : null;
+      if (!path || !path.startsWith('objectives/')) continue;
+      candidates.push(path);
+      if (preferred === null && edge?.relation === 'addressedBy') preferred = path;
+    }
+  }
+  return preferred ?? candidates[0] ?? null;
+}

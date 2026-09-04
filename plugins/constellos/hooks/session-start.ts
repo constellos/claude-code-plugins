@@ -40,7 +40,9 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
 
     // resume -> the slug cached for this session; startup (or a resume whose
     // cache is gone) -> mint a fresh thread with a first turn naming the session.
-    let thread = process.env.CONSTELLOS_THREAD || readSessionState(input.session_id).thread || null;
+    const cached = readSessionState(input.session_id);
+    let thread = process.env.CONSTELLOS_THREAD || cached.thread || null;
+    let threadPath = cached.threadPath;
     let minted = false;
     if (!thread) {
       const sent = sendThreadMessage(
@@ -55,10 +57,15 @@ async function handler(input: SessionStartInput): Promise<SessionStartHookOutput
         return inactive(`could not mint a thread (${sent.error.split('\n')[0]})`);
       }
       thread = sent.thread;
+      threadPath = sent.path ?? threadPath;
       minted = true;
     }
 
-    writeSessionState(input.session_id, { thread, space: config.space ?? undefined });
+    writeSessionState(input.session_id, {
+      thread,
+      threadPath,
+      space: config.space ?? undefined,
+    });
     const env: Record<string, string> = { CONSTELLOS_THREAD: thread };
     if (config.space) env.CONSTELLOS_SPACE = config.space;
     persistEnv(env);
